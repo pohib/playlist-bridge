@@ -83,7 +83,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 Не помещай пользовательские VK/Spotify/SoundCloud access token или refresh token в .env.
 
-Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go), а SoundCloud — в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. Для VK ID выбери платформу Web и зарегистрируй Redirect URL. Не используй локальный HTTP callback: VK требует публичный HTTPS-адрес. Точные callback URL появятся после запуска временного Cloudflare Tunnel по инструкции ниже. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
+Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go), а SoundCloud — в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. Для VK создай приложение и возьми его ID и секрет приложения для `VK_ID_CLIENT_ID` и `VK_ANON_CLIENT_SECRET`. VK OAuth callback не нужен. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
@@ -147,20 +147,16 @@ Django и приложение пишут логи в stdout и в `reports/appl
 3. ждёт успешного ответа /healthz/;
 4. запускает Cloudflare Quick Tunnel;
 5. получает временный HTTPS URL;
-6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и оба OAuth callback URI;
+6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и callback URI Spotify/SoundCloud;
 7. пересоздаёт web и worker с новыми настройками.
 
 После завершения скрипт покажет URL и точные callback URI. Не закрывай процесс cloudflared: туннель должен оставаться запущенным, пока используешь приложение. Чтобы остановить его, выполни команду с PID, который напечатал скрипт:
 
     Stop-Process -Id <PID>
 
-### 4. Зарегистрируй OAuth callback URI
+### 4. Зарегистрируй OAuth callback URI Spotify и SoundCloud
 
 Скопируй callback URL из вывода скрипта без изменений.
-
-В кабинете VK ID добавь в доверенные Redirect URL:
-
-    https://<текущий-домен>.trycloudflare.com/vk/callback/
 
 В Spotify Developer Dashboard добавь Redirect URI:
 
@@ -170,7 +166,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
     https://<текущий-домен>.trycloudflare.com/soundcloud/callback/
 
-Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш. После изменения Redirect URI перезапусти OAuth-подключение в браузере. VK callback больше не используется для импорта публичного аудио.
+Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш.
 
 ### 5. Проверь приложение
 
