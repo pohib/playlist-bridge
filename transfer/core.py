@@ -358,9 +358,12 @@ class SpotifyClient:
             raise TransferError("Можно добавлять композиции только в плейлист владельца подключённого аккаунта.")
         return playlist
 
-    def add_items(self, token, playlist_id, uris):
+    def add_items(self, token, playlist_id, uris, position=None):
         for offset in range(0, len(uris), 100):
-            self.api("playlist_items", token, playlist_id=playlist_id, body={"uris": uris[offset:offset + 100]})
+            body = {"uris": uris[offset:offset + 100]}
+            if position is not None:
+                body["position"] = position + offset
+            self.api("playlist_items", token, playlist_id=playlist_id, body=body)
 
 
     def my_playlists(self, token):
@@ -612,6 +615,23 @@ class SoundCloudClient:
         if not payload.get("id"):
             raise TransferError("SoundCloud не вернул ID созданного плейлиста.")
         return payload
+
+    def update_playlist_tracks(self, token, playlist_id, track_ids):
+        if not re.fullmatch(r"[0-9]+", str(playlist_id)):
+            raise TransferError("Некорректный идентификатор плейлиста SoundCloud.")
+        if not track_ids or len(track_ids) > 100:
+            raise TransferError("Список композиций SoundCloud пуст или превышает лимит.")
+        normalized = []
+        for track_id in track_ids:
+            if not re.fullmatch(r"[0-9]+", str(track_id)):
+                raise TransferError("Некорректный идентификатор композиции SoundCloud.")
+            normalized.append({"id": int(track_id)})
+        return self._request(
+            "PUT",
+            f"/playlists/{playlist_id}",
+            token,
+            json_body={"playlist": {"tracks": normalized}},
+        )
 
     def upload_track(self, token, uploaded_file, title, artist, description=""):
         try:
