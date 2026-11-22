@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .credentials import get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
@@ -117,8 +117,6 @@ def update_profile(request):
 @require_POST
 def import_vk_playlist(request):
     from django.conf import settings
-    from django.db import transaction
-
     from .core import VKClient, TransferError
     from .credentials import get_access_token
     from .views import vk_client
