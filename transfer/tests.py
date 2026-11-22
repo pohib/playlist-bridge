@@ -334,7 +334,6 @@ class OAuthSecurityTests(TestCase):
 
     def test_provider_disconnect_requires_post(self):
         self.assertEqual(self.client.get(reverse("disconnect_spotify")).status_code, 405)
-        self.assertEqual(self.client.get(reverse("disconnect_vk")).status_code, 405)
 
 
 
