@@ -111,7 +111,13 @@
         <div><span class="step">03 / COLLECTION</span><h2>Моя музыкальная библиотека</h2></div>
         <span class="status-pill is-off">{{ library_playlist_count }} коллекций</span>
       </div>
-      <p class="section-description">Создавай коллекции, указывай исходный сервис и добавляй композиции. Сейчас данные можно заносить вручную; автоматический импорт через API подключим вместе с соответствующими коннекторами.</p>
+      <p class="section-description">Импортируй плейлисты VK напрямую через подключённый аккаунт или собирай коллекции вручную. Композиции сохраняются с исходным порядком и идентификаторами VK.</p>
+      <form method="post" action="{% url 'library_import_vk' %}" class="create-playlist-form import-vk-form">
+        {% csrf_token %}
+        <label for="vk-import-url">Импортировать плейлист из ВКонтакте</label>
+        <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" maxlength="2048" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected or not encryption_key_configured %}disabled{% endif %}>↓ Импортировать VK</button></div>
+        {% if not vk_connected %}<p class="field-hint">Сначала подключи ВКонтакте в разделе «Сервисы».</p>{% endif %}
+      </form>
       <form method="post" action="{% url 'library_create_playlist' %}" class="create-playlist-form">
         {% csrf_token %}
         <div class="field-grid">
@@ -135,13 +141,13 @@
                 <form method="post" action="{% url 'library_delete_playlist' playlist.id %}" onsubmit="return confirm('Удалить плейлист и все его записи из библиотеки?');">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Удалить плейлист">×</button></form>
               </div>
               {% if playlist.description %}<p class="playlist-description">{{ playlist.description }}</p>{% endif %}
-              {% if playlist.external_url %}<a class="source-link" href="{{ playlist.external_url }}" target="_blank" rel="noopener noreferrer">Открыть оригинал ↗</a>{% endif %}
+              {% if playlist.external_url %}<a class="source-link" href="{% url 'library_open_playlist_source' playlist.id %}" target="_blank" rel="noopener noreferrer">Открыть оригинал ↗</a>{% endif %}
               <div class="track-list">
                 {% for track in playlist.tracks.all %}
                   <div class="track-row">
                     <div class="track-index">{{ forloop.counter|stringformat:"02d" }}</div>
                     <div class="track-copy"><strong>{{ track.title }}</strong><span>{{ track.artist }}{% if track.album %} · {{ track.album }}{% endif %}</span></div>
-                    {% if track.external_url %}<a class="track-open" href="{{ track.external_url }}" target="_blank" rel="noopener noreferrer" aria-label="Открыть композицию">↗</a>{% endif %}
+                    {% if track.external_url %}<a class="track-open" href="{% url 'library_open_track_source' track.id %}" target="_blank" rel="noopener noreferrer" aria-label="Открыть композицию">↗</a>{% endif %}
                     <form method="post" action="{% url 'library_delete_track' track.id %}">{% csrf_token %}<button class="remove-track" type="submit" aria-label="Удалить композицию">×</button></form>
                   </div>
                 {% empty %}
