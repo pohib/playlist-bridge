@@ -37,6 +37,24 @@ try {
         throw "cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e"
     }
 
+    # Stop only stale Quick Tunnels that target this project's local Django port.
+    # Do not terminate named tunnels or cloudflared processes for other local services.
+    Write-Host "[0/4] Cleaning up stale Quick Tunnel processes..."
+    $staleTunnels = @(
+        Get-CimInstance Win32_Process -Filter "Name = 'cloudflared.exe'" |
+        Where-Object {
+            $_.CommandLine -match '(?i)cloudflared(?:\.exe)?\s+tunnel' -and
+            $_.CommandLine -match '(?i)--url\s+http://127\.0\.0\.1:8000(?:\s|$)'
+        }
+    )
+    foreach ($stale in $staleTunnels) {
+        Write-Host "Stopping stale cloudflared PID $($stale.ProcessId)..."
+        Stop-Process -Id $stale.ProcessId -Force -ErrorAction Stop
+    }
+    if ($staleTunnels.Count -gt 0) {
+        Start-Sleep -Seconds 2
+    }
+
     Write-Host "[1/4] Building and starting containers..."
     docker compose up -d --build
     if ($LASTEXITCODE -ne 0) {
@@ -103,7 +121,7 @@ try {
         Start-Sleep -Seconds 1
         $logLine = $null
         while ($tunnelOutput.TryDequeue([ref]$logLine)) {
-            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\\.trycloudflare\\.com")
+            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\.trycloudflare\.com")
             if ($match.Success) {
                 $publicUrl = $match.Value
                 break
@@ -150,7 +168,7 @@ try {
 
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "[4/4] Restarting web and worker with HTTPS..."
+    Write-Host "[4/5] Restarting web and worker with HTTPS..."
     docker compose up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) {
         throw "Could not restart web and worker."
@@ -173,6 +191,41 @@ try {
     if (-not $healthy) {
         docker compose logs --tail=80 web
         throw "Django health check failed after enabling HTTPS."
+    }
+
+    Write-Host "[5/5] Verifying the public HTTPS endpoint..."
+    $publicHealthy = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        try {
+            $publicResponse = Invoke-WebRequest -Uri "$origin/healthz/" -UseBasicParsing -TimeoutSec 10
+            if ($publicResponse.StatusCode -eq 200 -and $publicResponse.Content -match '"status"\s*:\s*"ok"') {
+                $publicHealthy = $true
+                break
+            }
+            Write-Host "Public health endpoint returned HTTP $($publicResponse.StatusCode). Retrying..."
+        }
+        catch {
+            Write-Host "Waiting for public tunnel endpoint: $($_.Exception.Message)"
+            Start-Sleep -Seconds 2
+        }
+    }
+
+    if (-not $publicHealthy) {
+        docker compose logs --tail=100 web
+        throw "The tunnel started, but the public HTTPS health check did not return HTTP 200. Check DJANGO_ALLOWED_HOSTS and the web logs."
+    }
+
+    # Verify the homepage too, so a DisallowedHost/HTTP 400 is caught before
+    # presenting the URL as ready for OAuth setup.
+    try {
+        $homeResponse = Invoke-WebRequest -Uri "$origin/" -UseBasicParsing -TimeoutSec 10
+        if ($homeResponse.StatusCode -ne 200) {
+            throw "Homepage returned HTTP $($homeResponse.StatusCode)."
+        }
+    }
+    catch {
+        docker compose logs --tail=100 web
+        throw "The public health endpoint works, but the homepage is not ready: $($_.Exception.Message)"
     }
 
     Write-Host ""
