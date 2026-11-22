@@ -103,6 +103,8 @@ def get_access_token(fingerprint, provider, client):
                 renewed = client.refresh_token(refresh_token)
             elif provider == "vk":
                 renewed = client.refresh_token(refresh_token, payload.get("device_id", ""))
+            elif provider == "soundcloud":
+                renewed = client.refresh_token(refresh_token)
             else:
                 raise TransferError("Неизвестный OAuth-провайдер.")
         except ReauthorizationRequired:
