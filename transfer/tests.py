@@ -505,7 +505,7 @@ class VKLibraryImportTests(TestCase):
             {"source_url": "https://vk.ru/music/playlist/10_5_key"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryPlaylist, LibraryTrack
+        from .models import LibraryPlaylist
         playlist = LibraryPlaylist.objects.get(title="VK imported playlist")
         tracks = list(playlist.tracks.all())
         self.assertEqual([track.title for track in tracks], ["Track A", "Track B"])
@@ -524,8 +524,8 @@ class VKLibraryImportTests(TestCase):
         get_token.assert_not_called()
 
     def test_source_redirect_rejects_unsafe_stored_url(self):
-        from .models import LibraryPlaylist, LibraryProfile
         from .credentials import get_session_fingerprint
+        from .models import LibraryPlaylist, LibraryProfile
         profile, _ = LibraryProfile.objects.get_or_create(
             session_fingerprint=get_session_fingerprint(self.client),
         )
