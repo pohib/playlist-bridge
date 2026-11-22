@@ -5,7 +5,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, urlsplit
 
 import requests
 
@@ -238,13 +238,41 @@ class SpotifyClient:
     def refresh_token(self, refresh_token):
         return self.token_request({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
+    @staticmethod
+    def _validated_api_url(path):
+        """Build a Spotify API URL while enforcing a fixed HTTPS origin and route set."""
+        if not isinstance(path, str):
+            raise TransferError("Некорректный адрес Spotify API.")
+        url = f"{SpotifyClient.API}{path}"
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "api.spotify.com"
+            or parsed.port not in (None, 443)
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise TransferError("Недопустимый адрес Spotify API.")
+        allowed_route = (
+            re.fullmatch(r"/v1/(?:search|me|me/playlists)", parsed.path)
+            or re.fullmatch(r"/v1/playlists/[A-Za-z0-9]{10,64}(?:/items)?", parsed.path)
+        )
+        if not allowed_route:
+            raise TransferError("Недопустимый маршрут Spotify API.")
+        return url
+
     def api(self, method, path, token, *, params=None, body=None):
+        if method.upper() not in {"GET", "POST", "PUT", "DELETE"}:
+            raise TransferError("Недопустимый HTTP-метод Spotify API.")
+        api_url = self._validated_api_url(path)
         safe_method = method.upper() == "GET"
         for attempt in range(3 if safe_method else 1):
             try:
                 response = self.http.request(
                     method,
-                    f"{self.API}{path}",
+                    api_url,
                     params=params,
                     json=body,
                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
