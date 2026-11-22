@@ -1,6 +1,6 @@
-# VK → Spotify
+# Playlist Bridge
 
-Django-приложение для переноса VK-плейлистов в Spotify с OAuth-подключением аккаунтов и фоновой обработкой.
+Django-приложение для сбора плейлистов и треков из VK, Spotify и SoundCloud в единую библиотеку и переноса коллекций между поддерживаемыми сервисами.
 
 ## Пользовательская авторизация
 
@@ -18,6 +18,7 @@ Django-приложение для переноса VK-плейлистов в S
 - DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEY, пароль PostgreSQL;
 - Spotify Developer App: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, Redirect URI;
 - VK ID Developer App: VK_ID_CLIENT_ID, Redirect URI и, если требуется типом приложения, серверный VK_ID_SERVICE_TOKEN;
+- SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
 - версия VK API и адрес Redis.
 
 Не помещай пользовательские VK/Spotify access token или refresh token в .env.
@@ -58,6 +59,7 @@ Django-приложение для переноса VK-плейлистов в S
 Заполни OAuth-переменные:
 - SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
 - VK_ID_CLIENT_ID — ID приложения из кабинета VK ID;
+- SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App;
 - VK_ID_SERVICE_TOKEN — оставь пустым, если тип приложения и сценарий VK ID его не требуют.
 
 Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
@@ -103,6 +105,10 @@ Django-приложение для переноса VK-плейлистов в S
 В Spotify Developer Dashboard добавь Redirect URI:
 
     https://<текущий-домен>.trycloudflare.com/spotify/callback/
+
+В кабинете SoundCloud также зарегистрируй:
+
+    https://<текущий-домен>.trycloudflare.com/soundcloud/callback/
 
 Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш. После изменения Redirect URI перезапусти OAuth-подключение в браузере.
 
