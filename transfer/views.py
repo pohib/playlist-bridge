@@ -100,7 +100,7 @@ def spotify_login(request):
         return redirect(spotify_client().authorization_url(state))
     except TransferError as exc:
         request.session["oauth_error"] = str(exc)
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @never_cache
@@ -110,11 +110,11 @@ def spotify_callback(request):
     received = request.GET.get("state", "")
     if request.GET.get("error") or not expected or not secrets.compare_digest(expected, received):
         request.session["oauth_error"] = "Авторизация Spotify отменена или OAuth state недействителен."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     code = request.GET.get("code", "")
     if not code:
         request.session["oauth_error"] = "Spotify не вернул код авторизации."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     try:
         client = spotify_client()
         token = client.exchange_code(code)
@@ -126,7 +126,7 @@ def spotify_callback(request):
     except TransferError as exc:
         logger.warning("Spotify OAuth callback failed: %s", exc)
         request.session["oauth_error"] = "Не удалось завершить авторизацию Spotify."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @never_cache
@@ -140,7 +140,7 @@ def vk_login(request):
         return redirect(vk_client().authorization_url(state, verifier))
     except TransferError as exc:
         request.session["oauth_error"] = str(exc)
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @never_cache
@@ -151,12 +151,12 @@ def vk_callback(request):
     received = request.GET.get("state", "")
     if request.GET.get("error") or not expected or not verifier or not secrets.compare_digest(expected, received):
         request.session["oauth_error"] = "Авторизация VK отменена или OAuth state недействителен."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     code = request.GET.get("code", "")
     device_id = request.GET.get("device_id", "")
     if not code or not device_id:
         request.session["oauth_error"] = "VK ID не вернул code или device_id."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     try:
         token = vk_client().exchange_code(code, device_id, expected, verifier)
         if token.get("state") != expected:
@@ -169,7 +169,7 @@ def vk_callback(request):
     except TransferError as exc:
         logger.warning("VK OAuth callback failed: %s", exc)
         request.session["oauth_error"] = "Не удалось завершить авторизацию VK ID."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 
@@ -184,7 +184,7 @@ def soundcloud_login(request):
         return redirect(soundcloud_client().authorization_url(state, verifier))
     except TransferError as exc:
         request.session["oauth_error"] = str(exc)
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @never_cache
@@ -195,11 +195,11 @@ def soundcloud_callback(request):
     received = request.GET.get("state", "")
     if request.GET.get("error") or not expected or not verifier or not secrets.compare_digest(expected, received):
         request.session["oauth_error"] = "Авторизация SoundCloud отменена или OAuth state недействителен."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     code = request.GET.get("code", "")
     if not code:
         request.session["oauth_error"] = "SoundCloud не вернул код авторизации."
-        return redirect("home")
+        return redirect("connections" if request.user.is_authenticated else "home")
     try:
         client = soundcloud_client()
         token = client.exchange_code(code, verifier)
@@ -211,7 +211,7 @@ def soundcloud_callback(request):
     except TransferError as exc:
         logger.warning("SoundCloud OAuth callback failed: %s", exc)
         request.session["oauth_error"] = "Не удалось завершить авторизацию SoundCloud."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @require_POST
@@ -225,21 +225,21 @@ def disconnect_soundcloud(request):
         logger.info("SoundCloud disconnect revocation could not be confirmed")
     delete_credential(fingerprint, "soundcloud")
     request.session["oauth_success"] = "SoundCloud отключён."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @require_POST
 def disconnect_spotify(request):
     delete_credential(get_session_fingerprint(request), "spotify")
     request.session["oauth_success"] = "Spotify отключён."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @require_POST
 def disconnect_vk(request):
     delete_credential(get_session_fingerprint(request), "vk")
     request.session["oauth_success"] = "VK отключён."
-    return redirect("home")
+    return redirect("connections" if request.user.is_authenticated else "home")
 
 
 @require_POST
