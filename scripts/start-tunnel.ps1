@@ -3,6 +3,82 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 $tunnel = $null
+$tunnelLogPath = $null
+
+function Read-SharedLog {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return "" }
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $reader = [System.IO.StreamReader]::new($stream)
+        return $reader.ReadToEnd()
+    }
+    catch { return "" }
+    finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+        elseif ($null -ne $stream) { $stream.Dispose() }
+    }
+}
+
+function Stop-ProjectQuickTunnels {
+    Write-Host "Searching for existing Quick Tunnels targeting this project..."
+    $targets = @(
+        Get-CimInstance Win32_Process -Filter "Name = 'cloudflared.exe'" |
+        Where-Object {
+            $_.CommandLine -match '(?i)\btunnel\b' -and
+            $_.CommandLine -match '(?i)--url\s+["'']?https?://(127\.0\.0\.1|localhost):8000(?:/)?(?:["'']|\s|$)'
+        }
+    )
+    foreach ($process in $targets) {
+        Write-Host "Stopping project tunnel PID $($process.ProcessId)..."
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+    }
+    if ($targets.Count -gt 0) { Start-Sleep -Seconds 2 }
+
+    $remaining = @(
+        Get-CimInstance Win32_Process -Filter "Name = 'cloudflared.exe'" |
+        Where-Object {
+            $_.CommandLine -match '(?i)\btunnel\b' -and
+            $_.CommandLine -match '(?i)--url\s+["'']?https?://(127\.0\.0\.1|localhost):8000(?:/)?(?:["'']|\s|$)'
+        }
+    )
+    if ($remaining.Count -gt 0) {
+        $ids = ($remaining | ForEach-Object { $_.ProcessId }) -join ", "
+        throw "Could not stop all existing project Quick Tunnels. Remaining PID(s): $ids"
+    }
+    Write-Host "Existing project Quick Tunnels stopped." -ForegroundColor Green
+}
+
+function Test-HttpEndpoint {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [int]$ExpectedStatus = 200,
+        [string]$ExpectedBodyPattern = ""
+    )
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) { throw "curl.exe was not found." }
+
+    $bodyPath = Join-Path $env:TEMP ("vktospotify-http-" + [guid]::NewGuid().ToString("N") + ".tmp")
+    try {
+        $curlArgs = @("--silent", "--show-error", "--max-time", "10", "--output", $bodyPath, "--write-out", "%{http_code}", "--stderr", "NUL", $Url)
+        $statusOutput = & $curl.Source @curlArgs
+        $curlExitCode = $LASTEXITCODE
+        $statusText = ($statusOutput -join "").Trim()
+        if ($curlExitCode -ne 0 -or $statusText -ne [string]$ExpectedStatus) { return $false }
+
+        if ($ExpectedBodyPattern) {
+            if (-not (Test-Path -LiteralPath $bodyPath)) { return $false }
+            $body = [System.IO.File]::ReadAllText($bodyPath)
+            if ($body -notmatch $ExpectedBodyPattern) { return $false }
+        }
+        return $true
+    }
+    finally {
+        Remove-Item -LiteralPath $bodyPath -Force -ErrorAction SilentlyContinue
+    }
+}
 
 try {
     if (-not (Test-Path ".env")) {
@@ -11,9 +87,7 @@ try {
 
     $envPath = Join-Path $repoRoot ".env"
     $envLines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in [System.IO.File]::ReadAllLines($envPath)) {
-        $envLines.Add($line)
-    }
+    foreach ($line in [System.IO.File]::ReadAllLines($envPath)) { $envLines.Add($line) }
 
     foreach ($required in @("DJANGO_SECRET_KEY", "POSTGRES_PASSWORD", "TOKEN_ENCRYPTION_KEY")) {
         $found = $false
@@ -27,9 +101,7 @@ try {
                 break
             }
         }
-        if (-not $found) {
-            throw "Missing .env parameter $required."
-        }
+        if (-not $found) { throw "Missing .env parameter $required." }
     }
 
     $cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue
@@ -37,119 +109,52 @@ try {
         throw "cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e"
     }
 
-    # Stop only stale Quick Tunnels that target this project's local Django port.
-    # Do not terminate named tunnels or cloudflared processes for other local services.
-    Write-Host "[0/4] Cleaning up stale Quick Tunnel processes..."
-    $staleTunnels = @(
-        Get-CimInstance Win32_Process -Filter "Name = 'cloudflared.exe'" |
-        Where-Object {
-            $_.CommandLine -match '(?i)cloudflared(?:\.exe)?\s+tunnel' -and
-            $_.CommandLine -match '(?i)--url\s+http://127\.0\.0\.1:8000(?:\s|$)'
-        }
-    )
-    foreach ($stale in $staleTunnels) {
-        Write-Host "Stopping stale cloudflared PID $($stale.ProcessId)..."
-        Stop-Process -Id $stale.ProcessId -Force -ErrorAction Stop
-    }
-    if ($staleTunnels.Count -gt 0) {
-        Start-Sleep -Seconds 2
-    }
+    Write-Host "[0/5] Cleaning up existing project Quick Tunnels..."
+    Stop-ProjectQuickTunnels
 
-    Write-Host "[1/4] Building and starting containers..."
+    Write-Host "[1/5] Building and starting containers..."
     docker compose up -d --build
-    if ($LASTEXITCODE -ne 0) {
-        throw "docker compose up failed."
-    }
+    if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
 
-    
-    Write-Host "[2/4] Checking Django..."
-
+    Write-Host "[2/5] Checking local Django health..."
     $healthy = $false
-    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-
-    if (-not $curl) {
-        throw "curl.exe was not found."
-    }
-
-    $healthUrl = "http://127.0.0.1:8000/healthz/"
-
     for ($i = 0; $i -lt 60; $i++) {
-        $healthBody = @(
-            & $curl.Source `
-                --silent `
-                --fail `
-                --max-time 3 `
-                --stderr NUL `
-                --header "X-Forwarded-Proto: https" `
-                $healthUrl
-        )
-
-        $curlExitCode = $LASTEXITCODE
-
-        if (
-            $curlExitCode -eq 0 -and
-            (($healthBody -join "`n") -match '"status"\s*:\s*"ok"')
-        ) {
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
             $healthy = $true
             break
         }
-
         Start-Sleep -Seconds 2
     }
-
     if (-not $healthy) {
-        Write-Host "Django health check failed." -ForegroundColor Red
         docker compose ps
-        docker compose logs --tail=80 web
-
-        throw "Django did not return a valid HTTP 200 health response."
+        docker compose logs --tail=100 web
+        throw "Django did not return a valid local HTTP 200 health response."
     }
+    Write-Host "Local Django health check passed." -ForegroundColor Green
 
-    Write-Host "Django is healthy." -ForegroundColor Green
-
-
-    Write-Host "[3/4] Starting Cloudflare Quick Tunnel..."
-    # Use cloudflared's own logfile instead of asynchronous .NET output events.
-    # This avoids PowerShell 5.1 runspace/event-handler issues on Windows.
+    Write-Host "[3/5] Starting one Cloudflare Quick Tunnel..."
     $tunnelLogPath = Join-Path $env:TEMP ("vktospotify-cloudflared-" + [guid]::NewGuid().ToString("N") + ".log")
     $tunnelArguments = 'tunnel --no-autoupdate --loglevel info --logfile "{0}" --url http://127.0.0.1:8000' -f $tunnelLogPath
     $tunnel = Start-Process -FilePath $cloudflared.Source -ArgumentList $tunnelArguments -PassThru -WindowStyle Hidden
 
     $publicUrl = $null
-    for ($i = 0; $i -lt 60; $i++) {
+    for ($i = 0; $i -lt 90; $i++) {
         Start-Sleep -Seconds 1
-
-        if (Test-Path -LiteralPath $tunnelLogPath) {
-            try {
-                $logText = [System.IO.File]::ReadAllText($tunnelLogPath)
-                $match = [regex]::Match($logText, "https://[a-z0-9-]+\.trycloudflare\.com")
-                if ($match.Success) {
-                    $publicUrl = $match.Value
-                    break
-                }
-            }
-            catch {
-                # The log may be momentarily unavailable while cloudflared writes it.
-            }
-        }
+        $logText = Read-SharedLog -Path $tunnelLogPath
+        $match = [regex]::Match($logText, 'https://[a-z0-9-]+\.trycloudflare\.com')
+        if ($match.Success) { $publicUrl = $match.Value }
 
         $tunnel.Refresh()
         if ($tunnel.HasExited) {
-            $details = ""
-            if (Test-Path -LiteralPath $tunnelLogPath) {
-                $details = [System.IO.File]::ReadAllText($tunnelLogPath)
-            }
-            throw ("cloudflared exited before a public URL was received. Log file: " + $tunnelLogPath + [Environment]::NewLine + $details)
+            throw ("cloudflared exited before the tunnel became ready. Exit code: " + $tunnel.ExitCode + ". Log: " + $tunnelLogPath + [Environment]::NewLine + $logText)
         }
+        if ($publicUrl) { break }
     }
-
     if (-not $publicUrl) {
-        $details = ""
-        if (Test-Path -LiteralPath $tunnelLogPath) {
-            $details = [System.IO.File]::ReadAllText($tunnelLogPath)
-        }
-        throw ("Could not obtain the Cloudflare HTTPS URL within 60 seconds. Log file: " + $tunnelLogPath + [Environment]::NewLine + $details)
+        $logText = Read-SharedLog -Path $tunnelLogPath
+        throw ("No Cloudflare HTTPS URL was received within 90 seconds. Log: " + $tunnelLogPath + [Environment]::NewLine + $logText)
     }
+    Write-Host "Quick Tunnel URL received: $publicUrl" -ForegroundColor Green
 
     $hostName = ([uri]$publicUrl).Host
     $origin = $publicUrl.TrimEnd("/")
@@ -173,101 +178,82 @@ try {
                 break
             }
         }
-        if (-not $replaced) {
-            $envLines.Add($newLine)
-        }
+        if (-not $replaced) { $envLines.Add($newLine) }
     }
-
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "[4/5] Restarting web and worker with HTTPS..."
+    Write-Host "[4/5] Recreating web and worker with HTTPS settings..."
     docker compose up -d --force-recreate web worker
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not restart web and worker."
-    }
+    if ($LASTEXITCODE -ne 0) { throw "Could not restart web and worker." }
 
     $healthy = $false
-    for ($i = 0; $i -lt 45; $i++) {
-        try {
-            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/healthz/" -Headers @{ "X-Forwarded-Proto" = "https" } -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) {
-                $healthy = $true
-                break
-            }
+    for ($i = 0; $i -lt 60; $i++) {
+        $tunnel.Refresh()
+        if ($tunnel.HasExited) {
+            throw ("cloudflared stopped while the application was restarting. Exit code: " + $tunnel.ExitCode + ". Log: " + $tunnelLogPath + [Environment]::NewLine + (Read-SharedLog -Path $tunnelLogPath))
         }
-        catch {
-            Start-Sleep -Seconds 2
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
+            $healthy = $true
+            break
         }
+        Start-Sleep -Seconds 2
     }
-
     if (-not $healthy) {
-        docker compose logs --tail=80 web
-        throw "Django health check failed after enabling HTTPS."
+        docker compose logs --tail=100 web
+        throw "Local Django health check failed after applying HTTPS settings."
     }
 
     Write-Host "[5/5] Verifying the public HTTPS endpoint..."
     $publicHealthy = $false
-    for ($i = 0; $i -lt 30; $i++) {
-        try {
-            $publicResponse = Invoke-WebRequest -Uri "$origin/healthz/" -UseBasicParsing -TimeoutSec 10
-            if ($publicResponse.StatusCode -eq 200 -and $publicResponse.Content -match '"status"\s*:\s*"ok"') {
-                $publicHealthy = $true
-                break
-            }
-            Write-Host "Public health endpoint returned HTTP $($publicResponse.StatusCode). Retrying..."
+    for ($i = 0; $i -lt 45; $i++) {
+        $tunnel.Refresh()
+        if ($tunnel.HasExited) {
+            throw ("cloudflared exited during the public health check. Exit code: " + $tunnel.ExitCode + ". Log: " + $tunnelLogPath + [Environment]::NewLine + (Read-SharedLog -Path $tunnelLogPath))
         }
-        catch {
-            Write-Host "Waiting for public tunnel endpoint: $($_.Exception.Message)"
-            Start-Sleep -Seconds 2
+        if (Test-HttpEndpoint -Url "$origin/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
+            $publicHealthy = $true
+            break
         }
+        Start-Sleep -Seconds 2
     }
-
     if (-not $publicHealthy) {
         docker compose logs --tail=100 web
-        throw "The tunnel started, but the public HTTPS health check did not return HTTP 200. Check DJANGO_ALLOWED_HOSTS and the web logs."
+        throw ("The public HTTPS health check did not return HTTP 200. URL: $origin. Check Cloudflare connectivity and Django logs.")
     }
 
-    # Verify the homepage too, so a DisallowedHost/HTTP 400 is caught before
-    # presenting the URL as ready for OAuth setup.
-    try {
-        $homeResponse = Invoke-WebRequest -Uri "$origin/" -UseBasicParsing -TimeoutSec 10
-        if ($homeResponse.StatusCode -ne 200) {
-            throw "Homepage returned HTTP $($homeResponse.StatusCode)."
-        }
-    }
-    catch {
+    if (-not (Test-HttpEndpoint -Url "$origin/" -ExpectedStatus 200)) {
         docker compose logs --tail=100 web
-        throw "The public health endpoint works, but the homepage is not ready: $($_.Exception.Message)"
+        throw "The public health endpoint works, but the homepage did not return HTTP 200."
     }
 
     Write-Host ""
-    Write-Host "HTTPS URL: $origin" -ForegroundColor Green
+    Write-Host "Application is available: $origin" -ForegroundColor Green
     Write-Host "VK ID callback: $origin/vk/callback/"
     Write-Host "Spotify callback: $origin/spotify/callback/"
     Write-Host "Tunnel PID: $($tunnel.Id)"
-    Write-Host "Update callback URLs in the VK ID and Spotify dashboards."
-    Write-Host "Keep cloudflared running while using the application."
-    Write-Host "To stop the tunnel: Stop-Process -Id $($tunnel.Id)"
-    Write-Host "The Quick Tunnel URL may change when restarted."
+    Write-Host "Keep this tunnel process running while using the application."
+    Write-Host "Stop this project's tunnel with: Stop-Process -Id $($tunnel.Id) -Force"
+    Write-Host "Quick Tunnel URL may change after restart."
 }
 catch {
+    $originalError = $_
     if ($null -ne $tunnel) {
         try {
             $tunnel.Refresh()
-            if (-not $tunnel.HasExited) {
-                Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
-            }
+            if (-not $tunnel.HasExited) { Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue }
         }
-        catch {
-            # Preserve the original script error.
+        catch { }
+    }
+
+    if ($tunnelLogPath) {
+        $diagnosticLog = Read-SharedLog -Path $tunnelLogPath
+        if ($diagnosticLog) {
+            Write-Host ""
+            Write-Host "cloudflared log ($tunnelLogPath):" -ForegroundColor Yellow
+            $diagnosticLog -split '\r?\n' | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
         }
     }
-    if ($tunnelLogPath -and (Test-Path -LiteralPath $tunnelLogPath)) {
-        Write-Host ""
-        Write-Host "cloudflared log ($tunnelLogPath):" -ForegroundColor Yellow
-        Get-Content -LiteralPath $tunnelLogPath -Tail 40 -ErrorAction SilentlyContinue
-    }
-    throw
+    throw $originalError
 }
 finally {
     Pop-Location
