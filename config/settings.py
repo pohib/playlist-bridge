@@ -43,7 +43,7 @@ DATABASES = {"default": {
 }}
 if os.getenv("DATABASE_URL"):
     import dj_database_url
-    DATABASES["default"] = dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=60, ssl_require=not DEBUG)
+    DATABASES["default"] = dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=60, ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "false").lower() == "true")
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
