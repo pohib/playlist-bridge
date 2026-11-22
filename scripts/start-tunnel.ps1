@@ -63,80 +63,67 @@ try {
 
     Write-Host "[2/4] Checking Django..."
     $healthy = $false
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) {
+        throw "curl.exe was not found. It is required for reliable health checks on Windows PowerShell 5.1."
+    }
+
     for ($i = 0; $i -lt 60; $i++) {
-        try {
-            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/healthz/" -Headers @{ "X-Forwarded-Proto" = "https" } -UseBasicParsing -TimeoutSec 2
-            if ($response.StatusCode -eq 200) {
-                $healthy = $true
-                break
-            }
+        $healthBody = & $curl.Source --silent --show-error --fail --max-time 2 --header "X-Forwarded-Proto: https" "http://127.0.0.1:8000/healthz/" 2>$null
+        if ($LASTEXITCODE -eq 0 -and ($healthBody -join [Environment]::NewLine) -match '"status"\s*:\s*"ok"') {
+            $healthy = $true
+            break
         }
-        catch {
-            Start-Sleep -Seconds 2
-        }
+        Start-Sleep -Seconds 2
     }
 
     if (-not $healthy) {
         docker compose ps
         docker compose logs --tail=80 web
-        throw "Django did not become available at the local health endpoint."
+        throw "Django did not return a valid HTTP 200 health response at the local endpoint."
     }
 
     Write-Host "[3/4] Starting Cloudflare Quick Tunnel..."
-    # Read process output asynchronously. Start-Process redirection keeps log
-    # handles open on Windows and can prevent the script from reading those files.
-    $script:tunnelOutput = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
-    $tunnel = [System.Diagnostics.Process]::new()
-    $tunnel.StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
-    $tunnel.StartInfo.FileName = $cloudflared.Source
-    $tunnel.StartInfo.Arguments = "tunnel --no-autoupdate --url http://127.0.0.1:8000"
-    $tunnel.StartInfo.UseShellExecute = $false
-    $tunnel.StartInfo.CreateNoWindow = $true
-    $tunnel.StartInfo.RedirectStandardOutput = $true
-    $tunnel.StartInfo.RedirectStandardError = $true
-
-    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $eventArgs)
-        if ($null -ne $eventArgs.Data) {
-            $script:tunnelOutput.Enqueue($eventArgs.Data)
-        }
-    }
-    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
-        param($sender, $eventArgs)
-        if ($null -ne $eventArgs.Data) {
-            $script:tunnelOutput.Enqueue($eventArgs.Data)
-        }
-    }
-    $tunnel.add_OutputDataReceived($outputHandler)
-    $tunnel.add_ErrorDataReceived($errorHandler)
-
-    if (-not $tunnel.Start()) {
-        throw "Could not start cloudflared."
-    }
-    $tunnel.BeginOutputReadLine()
-    $tunnel.BeginErrorReadLine()
+    # Use cloudflared's own logfile instead of asynchronous .NET output events.
+    # This avoids PowerShell 5.1 runspace/event-handler issues on Windows.
+    $tunnelLogPath = Join-Path $env:TEMP ("vktospotify-cloudflared-" + [guid]::NewGuid().ToString("N") + ".log")
+    $tunnelArguments = 'tunnel --no-autoupdate --loglevel info --logfile "{0}" --url http://127.0.0.1:8000' -f $tunnelLogPath
+    $tunnel = Start-Process -FilePath $cloudflared.Source -ArgumentList $tunnelArguments -PassThru -WindowStyle Hidden
 
     $publicUrl = $null
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Seconds 1
-        $logLine = $null
-        while ($tunnelOutput.TryDequeue([ref]$logLine)) {
-            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\.trycloudflare\.com")
-            if ($match.Success) {
-                $publicUrl = $match.Value
-                break
+
+        if (Test-Path -LiteralPath $tunnelLogPath) {
+            try {
+                $logText = [System.IO.File]::ReadAllText($tunnelLogPath)
+                $match = [regex]::Match($logText, "https://[a-z0-9-]+\.trycloudflare\.com")
+                if ($match.Success) {
+                    $publicUrl = $match.Value
+                    break
+                }
+            }
+            catch {
+                # The log may be momentarily unavailable while cloudflared writes it.
             }
         }
-        if ($publicUrl) {
-            break
-        }
+
+        $tunnel.Refresh()
         if ($tunnel.HasExited) {
-            throw "cloudflared exited before a public URL was received. Review cloudflared output above."
+            $details = ""
+            if (Test-Path -LiteralPath $tunnelLogPath) {
+                $details = [System.IO.File]::ReadAllText($tunnelLogPath)
+            }
+            throw ("cloudflared exited before a public URL was received. Log file: " + $tunnelLogPath + [Environment]::NewLine + $details)
         }
     }
 
     if (-not $publicUrl) {
-        throw "Could not obtain the Cloudflare HTTPS URL within 60 seconds. Check that cloudflared can reach Cloudflare."
+        $details = ""
+        if (Test-Path -LiteralPath $tunnelLogPath) {
+            $details = [System.IO.File]::ReadAllText($tunnelLogPath)
+        }
+        throw ("Could not obtain the Cloudflare HTTPS URL within 60 seconds. Log file: " + $tunnelLogPath + [Environment]::NewLine + $details)
     }
 
     $hostName = ([uri]$publicUrl).Host
@@ -239,9 +226,21 @@ try {
     Write-Host "The Quick Tunnel URL may change when restarted."
 }
 catch {
-    if ($null -ne $tunnel -and -not $tunnel.HasExited) {
-        $tunnel.Kill()
-        $tunnel.WaitForExit(5000) | Out-Null
+    if ($null -ne $tunnel) {
+        try {
+            $tunnel.Refresh()
+            if (-not $tunnel.HasExited) {
+                Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+        catch {
+            # Preserve the original script error.
+        }
+    }
+    if ($tunnelLogPath -and (Test-Path -LiteralPath $tunnelLogPath)) {
+        Write-Host ""
+        Write-Host "cloudflared log ($tunnelLogPath):" -ForegroundColor Yellow
+        Get-Content -LiteralPath $tunnelLogPath -Tail 40 -ErrorAction SilentlyContinue
     }
     throw
 }
