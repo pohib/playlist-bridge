@@ -23,6 +23,14 @@ from .models import TransferJob
 logger = logging.getLogger(__name__)
 
 
+def encryption_key_is_valid():
+    try:
+        Fernet(settings.TOKEN_ENCRYPTION_KEY.encode())
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
 def csv_safe_cell(value):
     """Prevent spreadsheet formula execution in exported untrusted metadata."""
     if isinstance(value, str) and value.lstrip()[:1] in {"=", "+", "-", "@"}:
@@ -36,7 +44,7 @@ def spotify_client():
 
 @require_GET
 def home(request):
-    return render(request, "transfer/home.html", {"connected": bool(request.session.get("spotify_token")), "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "vk_configured": bool(settings.VK_API_TOKEN), "result": request.session.pop("transfer_result", None)})
+    return render(request, "transfer/home.html", {"connected": bool(request.session.get("spotify_token")), "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "vk_configured": bool(settings.VK_API_TOKEN), "encryption_key_configured": encryption_key_is_valid(), "result": request.session.pop("transfer_result", None)})
 
 @require_GET
 def healthz(request):
@@ -170,6 +178,7 @@ def api_status(request):
         "spotify_connected": bool(request.session.get("spotify_token")),
         "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
         "vk_configured": bool(settings.VK_API_TOKEN),
+        "encryption_key_configured": encryption_key_is_valid(),
     })
 
 
@@ -277,7 +286,7 @@ def api_openapi(request):
                 "responses": {"202": {"description": "Задача поставлена в очередь"}, "400": {"description": "Ошибка запроса"}},
             }},
             "/transfers/{job_id}/": {"get": {"summary": "Получить прогресс задачи", "parameters": [{"name": "job_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}], "responses": {"200": {"description": "Состояние задачи"}}}},
-            "/transfers/{job_id}/report/": {"get": {"summary": "Получить отчёт", "responses": {"200": {"description": "Отчёт в JSON"}}}},
+            "/transfers/{job_id}/report/": {"get": {"summary": "Получить отчёт", "parameters": [{"name": "job_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}], "responses": {"200": {"description": "Отчёт в JSON"}}}},
         },
     }
     return JsonResponse(schema)
