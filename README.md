@@ -6,7 +6,7 @@ Django-приложение для сбора плейлистов и треко
 
 Пользователь подключает доступные сервисы кнопками на главной странице:
 - Spotify — OAuth Authorization Code.
-- VK — VK ID OAuth 2.1 Authorization Code с PKCE, state и device_id для доступа к аудио API. Публичность страницы плейлиста не гарантирует анонимный доступ к методам VK Audio API.
+- VK — публичные плейлисты и отдельные треки импортируются по ссылке через анонимный API-токен; вход в VK и пользовательский VK OAuth не требуются. Для получения анонимного токена сервер использует секрет приложения VK, который хранится только в `.env`.
 - SoundCloud — OAuth 2.1 Authorization Code с PKCE S256 и одноразовыми refresh tokens.
 
 Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.
@@ -77,7 +77,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 В .env хранятся только конфигурация приложения, секреты разработчика и инфраструктуры:
 - DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEY, пароль PostgreSQL;
 - Spotify Developer App: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, Redirect URI;
-- VK ID Developer App: VK_ID_CLIENT_ID, Redirect URI и, если требуется типом приложения, серверный VK_ID_SERVICE_TOKEN;
+- VK Developer App: VK_ID_CLIENT_ID и VK_ANON_CLIENT_SECRET для получения анонимного токена. Секрет хранится только на сервере;
 - SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
 - версия VK API и адрес Redis.
 
@@ -118,9 +118,9 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 Заполни OAuth-переменные:
 - SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
-- VK_ID_CLIENT_ID — ID приложения из кабинета VK ID;
+- VK_ID_CLIENT_ID — ID приложения VK, используемый для анонимного API;
 - SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App;
-- VK_ID_SERVICE_TOKEN — оставь пустым, если тип приложения и сценарий VK ID его не требуют.
+- VK_ANON_CLIENT_SECRET — секрет приложения VK для `get_anonym_token`. Не используй секрет, опубликованный в переписке; при необходимости выпусти новый в кабинете VK и внеси его только в локальный `.env`.
 
 Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
 
@@ -170,7 +170,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
     https://<текущий-домен>.trycloudflare.com/soundcloud/callback/
 
-Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш. После изменения Redirect URI перезапусти OAuth-подключение в браузере.
+Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш. После изменения Redirect URI перезапусти OAuth-подключение в браузере. VK callback больше не используется для импорта публичного аудио.
 
 ### 5. Проверь приложение
 
@@ -186,7 +186,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
     docker compose logs -f web worker
 
-Сначала подключи Spotify и VK, затем проверь перенос на небольшом плейлисте. Для добавления в существующий Spotify playlist используй ссылку на плейлист, принадлежащий подключённому аккаунту.
+Подключи Spotify. VK подключать не нужно: вставь ссылку на публичный плейлист VK и проверь импорт небольшой коллекции. Для добавления в существующий Spotify playlist используй ссылку на плейлист, принадлежащий подключённому аккаунту.
 
 ### 6. Повторный запуск
 
