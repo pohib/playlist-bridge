@@ -8,6 +8,7 @@ class OAuthCredential(models.Model):
     class Provider(models.TextChoices):
         VK = "vk", "VK"
         SPOTIFY = "spotify", "Spotify"
+        SOUNDCLOUD = "soundcloud", "SoundCloud"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session_fingerprint = models.CharField(max_length=64, db_index=True)
@@ -76,6 +77,7 @@ class LibraryPlaylist(models.Model):
     class Provider(models.TextChoices):
         VK = "vk", "ВКонтакте"
         SPOTIFY = "spotify", "Spotify"
+        SOUNDCLOUD = "soundcloud", "SoundCloud"
         YOUTUBE_MUSIC = "youtube_music", "YouTube Music"
         APPLE_MUSIC = "apple_music", "Apple Music"
         MANUAL = "manual", "Локальная коллекция"
