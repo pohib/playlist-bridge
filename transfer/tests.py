@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.sessions.backends.db import SessionStore
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
@@ -187,6 +188,23 @@ class HttpSurfaceTests(TestCase):
         self.assertIn("Content-Security-Policy", response.headers)
         self.assertIn("Permissions-Policy", response.headers)
         self.assertEqual(response.headers["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate, private")
+
+    def test_home_shows_auth_actions_to_guest(self):
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "Создать свою библиотеку")
+        self.assertContains(response, "У меня уже есть аккаунт")
+
+    def test_home_shows_application_actions_to_authenticated_user(self):
+        user = get_user_model().objects.create_user(
+            username="landing-user",
+            password=TEST_PASSWORD,
+        )
+        self.client.force_login(user)
+        response = self.client.get(reverse("home"))
+        self.assertContains(response, "Открыть мою библиотеку")
+        self.assertContains(response, "Мой профиль")
+        self.assertNotContains(response, "Создать свою библиотеку")
+        self.assertNotContains(response, "У меня уже есть аккаунт")
 
     def test_health(self):
         self.assertEqual(self.client.get(reverse("healthz")).json(), {"status": "ok"})
