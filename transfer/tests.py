@@ -440,7 +440,11 @@ class ApiSessionSecurityTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
+    @override_settings(
+        TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
+        VK_ID_CLIENT_ID="vk-app",
+        VK_ANON_CLIENT_SECRET="app-secret",
+    )
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
         session = SessionStore()
