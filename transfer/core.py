@@ -239,35 +239,32 @@ class SpotifyClient:
         return self.token_request({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
     @staticmethod
-    def _validated_api_url(path):
-        """Build a Spotify API URL while enforcing a fixed HTTPS origin and route set."""
-        if not isinstance(path, str):
-            raise TransferError("Некорректный адрес Spotify API.")
-        url = f"{SpotifyClient.API}{path}"
-        parsed = urlsplit(url)
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname != "api.spotify.com"
-            or parsed.port not in (None, 443)
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise TransferError("Недопустимый адрес Spotify API.")
-        allowed_route = (
-            re.fullmatch(r"/v1/(?:search|me|me/playlists)", parsed.path)
-            or re.fullmatch(r"/v1/playlists/[A-Za-z0-9]{10,64}(?:/items)?", parsed.path)
-        )
-        if not allowed_route:
-            raise TransferError("Недопустимый маршрут Spotify API.")
-        return url
+    def _api_destination(operation, playlist_id=None):
+        """Resolve a closed Spotify operation set to a fixed API origin."""
+        fixed_destinations = {
+            "search": ("GET", f"{SpotifyClient.API}/search"),
+            "current_user": ("GET", f"{SpotifyClient.API}/me"),
+            "create_playlist": ("POST", f"{SpotifyClient.API}/me/playlists"),
+        }
+        if operation in fixed_destinations:
+            if playlist_id is not None:
+                raise TransferError("ID плейлиста не ожидается для этой операции.")
+            return fixed_destinations[operation]
 
-    def api(self, method, path, token, *, params=None, body=None):
-        if method.upper() not in {"GET", "POST", "PUT", "DELETE"}:
-            raise TransferError("Недопустимый HTTP-метод Spotify API.")
-        api_url = self._validated_api_url(path)
-        safe_method = method.upper() == "GET"
+        if operation in {"playlist_details", "playlist_items"}:
+            if not isinstance(playlist_id, str) or not re.fullmatch(r"[A-Za-z0-9]{22}", playlist_id):
+                raise TransferError("ID плейлиста Spotify имеет неверный формат.")
+            suffix = "/items" if operation == "playlist_items" else ""
+            method = "POST" if operation == "playlist_items" else "GET"
+            # The host and route prefix are constants; the only variable segment
+            # is restricted to Spotify's 22-character base62 playlist identifier.
+            return method, f"{SpotifyClient.API}/playlists/{playlist_id}{suffix}"
+
+        raise TransferError("Недопустимая операция Spotify API.")
+
+    def api(self, operation, token, *, playlist_id=None, params=None, body=None):
+        method, api_url = self._api_destination(operation, playlist_id)
+        safe_method = method == "GET"
         for attempt in range(3 if safe_method else 1):
             try:
                 response = self.http.request(
@@ -277,7 +274,10 @@ class SpotifyClient:
                     json=body,
                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
                     timeout=(5, 30),
+                    allow_redirects=False,
                 )
+                if 300 <= response.status_code < 400:
+                    raise TransferError("Spotify API вернул неожиданный HTTP redirect.")
                 if response.status_code == 429:
                     try:
                         error = response.json().get("error", {})
@@ -309,16 +309,16 @@ class SpotifyClient:
         raise TransferError("Spotify временно ограничил частоту запросов. Повтори перенос позже.")
 
     def search(self, token, artist, title):
-        data = self.api("GET", "/search", token, params={
+        data = self.api("search", token, params={
             "q": f'track:"{title[:100]}" artist:"{artist[:100]}"', "type": "track", "limit": 10,
         })
         return data.get("tracks", {}).get("items", [])
 
     def current_user(self, token):
-        return self.api("GET", "/me", token)
+        return self.api("current_user", token)
 
     def create_playlist(self, token, name):
-        result = self.api("POST", "/me/playlists", token, body={
+        result = self.api("create_playlist", token, body={
             "name": name[:100], "description": "Imported from VK", "public": False,
         })
         if not result.get("id"):
@@ -326,14 +326,14 @@ class SpotifyClient:
         return result["id"]
 
     def verify_playlist_access(self, token, playlist_id, user_id):
-        playlist = self.api("GET", f"/playlists/{playlist_id}", token)
+        playlist = self.api("playlist_details", token, playlist_id=playlist_id)
         if (playlist.get("owner") or {}).get("id") != user_id:
             raise TransferError("Можно добавлять композиции только в плейлист владельца подключённого аккаунта.")
         return playlist
 
     def add_items(self, token, playlist_id, uris):
         for offset in range(0, len(uris), 100):
-            self.api("POST", f"/playlists/{playlist_id}/items", token, body={"uris": uris[offset:offset + 100]})
+            self.api("playlist_items", token, playlist_id=playlist_id, body={"uris": uris[offset:offset + 100]})
 
 
 def execute_transfer(
@@ -351,7 +351,7 @@ def execute_transfer(
             if parsed.hostname not in {"open.spotify.com", "www.open.spotify.com"} or len(parts) < 2 or parts[-2] != "playlist":
                 raise TransferError("Укажи корректную ссылку на плейлист Spotify.")
             target_playlist = parts[-1]
-        if not re.fullmatch(r"[A-Za-z0-9]{10,64}", target_playlist):
+        if not re.fullmatch(r"[A-Za-z0-9]{22}", target_playlist):
             raise TransferError("ID плейлиста Spotify имеет неверный формат.")
         spotify.verify_playlist_access(spotify_token, target_playlist, user.get("id"))
 
