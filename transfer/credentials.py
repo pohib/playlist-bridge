@@ -6,7 +6,7 @@ import time
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 
-from .core import TransferError
+from .core import ReauthorizationRequired, TransferError
 from .models import OAuthCredential
 
 
@@ -47,6 +47,8 @@ def decrypt_payload(value):
 def store_credential(fingerprint, provider, payload, external_user_id=""):
     stored = dict(payload)
     stored.setdefault("obtained_at", time.time())
+    if provider == "spotify":
+        stored.setdefault("authorized_at", time.time())
     credential, _ = OAuthCredential.objects.update_or_create(
         session_fingerprint=fingerprint,
         provider=provider,
@@ -73,20 +75,41 @@ def load_payload(fingerprint, provider):
 
 def get_access_token(fingerprint, provider, client):
     credential, payload = load_payload(fingerprint, provider)
+    now = time.time()
+
+    if provider == "spotify":
+        try:
+            authorized_at = float(payload.get("authorized_at", credential.created_at.timestamp()))
+        except (TypeError, ValueError):
+            authorized_at = credential.created_at.timestamp()
+        # Spotify refresh tokens expire six months after the original authorization.
+        # Access-token refreshes do not extend this lifetime.
+        if now >= authorized_at + 180 * 24 * 60 * 60:
+            delete_credential(fingerprint, provider)
+            raise ReauthorizationRequired(
+                "Разрешение Spotify старше шести месяцев. Подключи Spotify повторно."
+            )
+
     expires_at = float(payload.get("obtained_at", 0)) + int(payload.get("expires_in", 3600))
-    if time.time() >= expires_at - 90:
+    if now >= expires_at - 90:
         refresh_token = payload.get("refresh_token")
         if not refresh_token:
             delete_credential(fingerprint, provider)
-            raise TransferError(f"Сессия {provider.capitalize()} истекла. Подключи аккаунт повторно.")
-        if provider == "spotify":
-            renewed = client.refresh_token(refresh_token)
-        elif provider == "vk":
-            renewed = client.refresh_token(refresh_token, payload.get("device_id", ""))
-        else:
-            raise TransferError("Неизвестный OAuth-провайдер.")
+            raise ReauthorizationRequired(
+                f"Сессия {provider.capitalize()} истекла. Подключи аккаунт повторно."
+            )
+        try:
+            if provider == "spotify":
+                renewed = client.refresh_token(refresh_token)
+            elif provider == "vk":
+                renewed = client.refresh_token(refresh_token, payload.get("device_id", ""))
+            else:
+                raise TransferError("Неизвестный OAuth-провайдер.")
+        except ReauthorizationRequired:
+            delete_credential(fingerprint, provider)
+            raise
         renewed["refresh_token"] = renewed.get("refresh_token", refresh_token)
-        renewed["obtained_at"] = time.time()
+        renewed["obtained_at"] = now
         if provider == "vk":
             renewed["device_id"] = payload.get("device_id", "")
         payload.update(renewed)
