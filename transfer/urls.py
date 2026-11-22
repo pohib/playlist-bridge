@@ -20,6 +20,7 @@ urlpatterns = [
     path("library/import/vk/", library_views.import_vk_playlist, name="library_import_vk"),
     path("library/import/soundcloud/playlist/", library_views.import_soundcloud_playlist, name="library_import_soundcloud_playlist"),
     path("library/import/soundcloud/track/", library_views.import_soundcloud_track, name="library_import_soundcloud_track"),
+    path("library/upload/soundcloud/", library_views.upload_track_to_soundcloud, name="library_upload_soundcloud_track"),
     path("library/import/soundcloud/library/", library_views.import_soundcloud_library, name="library_import_soundcloud_library"),
     path("library/playlists/<uuid:playlist_id>/transfer/", library_views.transfer_library_playlist, name="library_transfer_playlist"),
     path("library/playlists/<uuid:playlist_id>/source/", library_views.open_playlist_source, name="library_open_playlist_source"),
