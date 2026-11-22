@@ -73,7 +73,7 @@ class VKIDClient:
             'state': state,
             'code_challenge': challenge,
             'code_challenge_method': 's256',
-            'scope': 'vkid.personal_info',
+            'scope': 'audio',
         })}"
 
     def _token_request(self, params, body):
