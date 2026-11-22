@@ -82,14 +82,17 @@ class VKIDClient:
         })}"
 
     def _token_request(self, params, body):
+        form_data = {**params, **body}
         if self.service_token:
-            params["service_token"] = self.service_token
+            form_data["service_token"] = self.service_token
         try:
             response = self.http.post(
                 self.OAUTH_EXCHANGE_ENDPOINT,
-                params=params,
-                data=body,
-                headers={"Accept": "application/json"},
+                data=form_data,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
                 timeout=(5, 20),
             )
             response.raise_for_status()
