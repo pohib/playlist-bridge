@@ -19,6 +19,7 @@ from .core import (
     TransferError,
     VKClient,
     VKIDClient,
+    VKTrack,
     normalize_track_text,
     parse_vk_playlist_url,
 )
@@ -489,8 +490,8 @@ class VKLibraryImportTests(TestCase):
     @patch("transfer.core.VKClient.fetch_playlist", return_value=(
         "VK imported playlist",
         [
-            __import__("transfer.core", fromlist=["VKTrack"]).VKTrack(10, 101, "Artist A", "Track A", 185),
-            __import__("transfer.core", fromlist=["VKTrack"]).VKTrack(10, 102, "Artist B", "Track B", 210),
+            VKTrack(10, 101, "Artist A", "Track A", 185),
+            VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
     @patch("transfer.views.vk_client")
