@@ -40,6 +40,18 @@ def parse_vk_playlist_url(value):
     return int(owner), int(playlist), key or ""
 
 
+def parse_vk_track_url(value):
+    if not isinstance(value, str) or len(value) > 2048:
+        raise ValueError("Ссылка на трек VK некорректна.")
+    parsed = urlparse(value.strip())
+    if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"vk.ru", "vk.com", "www.vk.com", "m.vk.com"}:
+        raise ValueError("Укажи ссылку на аудиозапись VK.")
+    match = re.fullmatch(r"/audio(-?\d+)_(\d+)/?", parsed.path)
+    if not match:
+        raise ValueError("Формат ссылки на аудиозапись VK не распознан.")
+    return int(match.group(1)), int(match.group(2))
+
+
 def normalize_track_text(value):
     value = (value or "").casefold().replace("ё", "е")
     value = re.sub(r"\([^)]*(?:remaster|ремастер|version|версия|feat\.?)[^)]*\)", " ", value)
@@ -191,6 +203,20 @@ class VKClient:
         if not ordered:
             raise TransferError("VK не вернул метаданные композиций.")
         return metadata.get("title") or metadata.get("name") or "VK playlist", ordered
+
+    def fetch_track(self, url):
+        owner_id, track_id = parse_vk_track_url(url)
+        payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"}).get("response", [])
+        if isinstance(payload, dict):
+            payload = payload.get("items", payload.get("audios", []))
+        if not payload:
+            raise TransferError("VK не вернул аудиозапись. Возможно, она недоступна.")
+        item = payload[0]
+        try:
+            return VKTrack(int(item["owner_id"]), int(item["id"]), str(item.get("artist") or "").strip(), str(item.get("title") or "").strip(), int(item.get("duration") or 0))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise TransferError("VK вернул некорректные данные аудиозаписи.") from exc
+
 
 
 class SpotifyClient:
