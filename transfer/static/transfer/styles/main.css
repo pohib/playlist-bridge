@@ -265,3 +265,13 @@ footer span:first-child { color: #a9b4c4; font-weight: 850; letter-spacing: .02e
 @media (max-width: 600px) {
   .import-vk-form .compact-button { width: 100%; }
 }
+
+.soundcloud-icon { background: linear-gradient(135deg, #ff6a00, #ff2d55); color: #fff; font-weight: 800; }
+.import-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.import-provider-grid .create-playlist-form { margin: 0; min-width: 0; }
+.import-provider-grid .form-inline { align-items: center; }
+.import-provider-grid .compact-button { flex: 0 0 auto; margin-top: 0; }
+@media (max-width: 760px) {
+  .import-provider-grid { grid-template-columns: 1fr; }
+  .import-provider-grid .compact-button { width: 100%; }
+}
