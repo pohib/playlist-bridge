@@ -29,6 +29,7 @@ def _attach_anonymous_workspace(request, previous_fingerprint):
         if anonymous_profile:
             if account_profile:
                 anonymous_profile.playlists.update(profile=account_profile)
+                anonymous_profile.transfers.update(profile=account_profile)
                 anonymous_profile.delete()
             else:
                 anonymous_profile.user = request.user
