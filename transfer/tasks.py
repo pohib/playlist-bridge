@@ -18,12 +18,15 @@ def run_transfer(self, job_id):
     except TransferJob.DoesNotExist:
         logger.warning("Transfer job %s does not exist", job_id)
         return
-    if job.status != TransferJob.Status.QUEUED:
-        return
 
-    job.status = TransferJob.Status.RUNNING
-    job.started_at = timezone.now()
-    job.save(update_fields=["status", "started_at"])
+    # Claim atomically: duplicate Celery deliveries must never run the same job twice.
+    claimed = TransferJob.objects.filter(
+        pk=job_id,
+        status=TransferJob.Status.QUEUED,
+    ).update(status=TransferJob.Status.RUNNING, started_at=timezone.now())
+    if claimed != 1:
+        return
+    job.refresh_from_db()
     try:
         spotify = SpotifyClient(
             settings.SPOTIFY_CLIENT_ID,
