@@ -822,6 +822,7 @@ class UnifiedLibraryTransferTests(TestCase):
 class AccountWorkspaceTests(TestCase):
     def test_account_library_is_persistent_across_browser_sessions(self):
         from django.contrib.auth import get_user_model
+
         from .models import LibraryPlaylist, LibraryProfile
 
         user = get_user_model().objects.create_user(
@@ -844,7 +845,7 @@ class AccountWorkspaceTests(TestCase):
 
 
     def test_registration_attaches_existing_guest_library_to_account(self):
-        from .models import LibraryPlaylist, LibraryProfile
+        from .models import LibraryProfile
 
         self.client.post(
             reverse("library_create_playlist"),
@@ -898,6 +899,7 @@ class AccountWorkspaceTests(TestCase):
 
     def test_all_authenticated_pages_and_transfer_review_render(self):
         from django.contrib.auth import get_user_model
+
         from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
 
         user = get_user_model().objects.create_user(
