@@ -6,7 +6,7 @@ import base64
 import hashlib
 
 from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
-from .credentials import decrypt_payload, encrypt_payload, store_credential
+from .credentials import decrypt_payload, store_credential
 from .models import OAuthCredential
 from .views import csv_safe_cell
 
@@ -71,7 +71,7 @@ class VersionedApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     @override_settings(
-        VK_API_TOKEN="test-vk-token",
+        VK_ID_CLIENT_ID="test-vk-app",
         SPOTIFY_CLIENT_ID="test-client",
         SPOTIFY_CLIENT_SECRET="test-secret",
         TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
