@@ -1,3 +1,5 @@
+from django.db.models import Count
+
 from .credentials import get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, OAuthCredential
 
@@ -11,14 +13,14 @@ def library_workspace(request):
     )
     playlists = (
         LibraryPlaylist.objects.filter(profile=profile)
+        .annotate(track_count=Count("tracks"))
         .prefetch_related("tracks")
-        .all()
     )
     return {
         "library_profile": profile,
         "library_playlists": playlists,
         "library_playlist_count": playlists.count(),
-        "library_track_count": sum(playlist.tracks.count() for playlist in playlists),
+        "library_track_count": sum(playlist.track_count for playlist in playlists),
         "library_vk_connected": "vk" in credentials,
         "library_spotify_connected": "spotify" in credentials,
         "library_soundcloud_connected": "soundcloud" in credentials,
