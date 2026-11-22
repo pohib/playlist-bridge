@@ -28,6 +28,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_UPDATED_AT: ${{ github.event.pull_request.updated_at }}
           REPOSITORY: ${{ github.repository }}
         run: |
           required_checks=(tests sast-sca-secrets container dast)
@@ -35,8 +36,8 @@ jobs:
             checks=$(gh api "repos/$REPOSITORY/commits/$PR_HEAD_SHA/check-runs")
             all_passed=true
             for name in "${required_checks[@]}"; do
-              status=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name)] | sort_by(.started_at) | last | .status // "missing"' <<< "$checks")
-              conclusion=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name)] | sort_by(.started_at) | last | .conclusion // ""' <<< "$checks")
+              status=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .status // "missing"' <<< "$checks")
+              conclusion=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .conclusion // ""' <<< "$checks")
               if [[ "$status" == "completed" && "$conclusion" != "success" ]]; then
                 echo "Required check $name finished with conclusion: $conclusion"
                 exit 1
