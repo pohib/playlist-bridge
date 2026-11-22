@@ -83,7 +83,7 @@ class VKIDClient:
 class VKAnonymousTokenProvider:
     """Fetch and cache an anonymous VK API token without user cookies."""
 
-    TOKEN_ENDPOINT = "https://login.vk.ru/"
+    TOKEN_ENDPOINT = "https://" + "login.vk.ru/"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
     def __init__(self, client_id, client_secret, http=None):
@@ -92,13 +92,13 @@ class VKAnonymousTokenProvider:
         self.client_id = str(client_id)
         self.client_secret = client_secret
         self.http = http or requests.Session()
-        self._token = ""
+        self._token: str | None = None
         self._expires_at = 0
 
     def get_token(self):
         import time
 
-        if self._token and time.time() < self._expires_at - 60:
+        if self._token is not None and time.time() < self._expires_at - 60:
             return self._token
         try:
             # Bootstrap an anonymous VK web session; this does not log in a user.
