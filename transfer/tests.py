@@ -14,6 +14,9 @@ from django.urls import reverse
 from django.utils.crypto import get_random_string
 from requests import HTTPError
 
+TEST_PASSWORD = get_random_string(32)
+
+
 from .core import (
     ReauthorizationRequired,
     SoundCloudClient,
@@ -827,7 +830,7 @@ class AccountWorkspaceTests(TestCase):
 
         user = get_user_model().objects.create_user(
             username="persistent_listener",
-            password="TEST_PASSWORD",
+            password=TEST_PASSWORD,
         )
         first_browser = self.client_class()
         first_browser.force_login(user)
@@ -859,8 +862,8 @@ class AccountWorkspaceTests(TestCase):
             {
                 "username": "listener_one",
                 "email": "listener@example.test",
-                "password1": "TEST_PASSWORD",
-                "password2": "TEST_PASSWORD",
+                "password1": TEST_PASSWORD,
+                "password2": TEST_PASSWORD,
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -878,12 +881,12 @@ class AccountWorkspaceTests(TestCase):
         first = user_model.objects.create_user(
             username="listener_a",
             email="a@example.test",
-            password="TEST_PASSWORD",
+            password=TEST_PASSWORD,
         )
         second = user_model.objects.create_user(
             username="listener_b",
             email="b@example.test",
-            password="TEST_PASSWORD",
+            password=TEST_PASSWORD,
         )
         self.client.force_login(first)
         self.client.post(
@@ -905,7 +908,7 @@ class AccountWorkspaceTests(TestCase):
 
         user = get_user_model().objects.create_user(
             username="page_tester",
-            password="TEST_PASSWORD",
+            password=TEST_PASSWORD,
         )
         self.client.force_login(user)
         for route_name in ("dashboard", "library", "connections", "transfers", "profile"):
@@ -942,10 +945,10 @@ class AccountWorkspaceTests(TestCase):
 
         get_user_model().objects.create_user(
             username="listener_redirect",
-            password="TEST_PASSWORD",
+            password=TEST_PASSWORD,
         )
         response = self.client.post(
             reverse("login") + "?next=https://evil.example/",
-            {"username": "listener_redirect", "password": "TEST_PASSWORD", "next": "https://evil.example/"},
+            {"username": "listener_redirect", "password": TEST_PASSWORD, "next": "https://evil.example/"},
         )
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
