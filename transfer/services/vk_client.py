@@ -106,10 +106,13 @@ class VKAnonymousTokenProvider:
                 "https://vk.ru/",
                 headers={"Accept": "text/html"},
                 timeout=(5, 15),
-                allow_redirects=True,
+                allow_redirects=False,
                 stream=True,
             )
             bootstrap.raise_for_status()
+            if not 200 <= bootstrap.status_code < 300:
+                bootstrap.close()
+                raise TransferError("VK не открыл публичную страницу для анонимной сессии.")
             bootstrap.close()
             response = self.http.post(
                 self.TOKEN_ENDPOINT,
