@@ -8,10 +8,10 @@ from .track_matcher import score_candidate
 from .vk_client import VKClient
 
 def execute_transfer(
-    *, vk_token, vk_version, vk_client_id, spotify, spotify_token,
+    *, vk_version, vk_client_id, vk_client_secret, spotify, spotify_token,
     source_url, target_playlist=None, progress_callback=None, token_provider=None,
 ):
-    playlist_name, tracks = VKClient(vk_token, vk_version, vk_client_id).fetch_playlist(source_url)
+    playlist_name, tracks = VKClient(vk_client_id, vk_client_secret, vk_version).fetch_playlist(source_url)
     if token_provider:
         spotify_token = token_provider()
     user = spotify.current_user(spotify_token)
