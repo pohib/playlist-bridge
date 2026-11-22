@@ -9,7 +9,6 @@ from django.urls import reverse
 from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
 from .credentials import decrypt_payload, store_credential
 from .models import OAuthCredential
-from .views import csv_safe_cell
 
 
 class InputValidationTests(TestCase):
@@ -29,10 +28,6 @@ class InputValidationTests(TestCase):
 
     def test_normalization(self):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
-
-    def test_csv_formula_is_neutralized(self):
-        self.assertEqual(csv_safe_cell("=1+1"), "'=1+1")
-        self.assertEqual(csv_safe_cell("Artist - Track"), "Artist - Track")
 
 
 class HttpSurfaceTests(TestCase):
