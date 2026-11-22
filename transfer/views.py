@@ -18,6 +18,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .core import SoundCloudClient, SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
 from .credentials import (
     delete_credential,
+    get_access_token,
     get_session_fingerprint,
     store_credential,
 )
