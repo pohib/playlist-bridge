@@ -124,6 +124,7 @@ jobs:
         with:
           target: http://127.0.0.1:8000
           fail_action: true
+          cmd_options: "-I"
           allow_issue_writing: false
       - if: always()
         run: docker compose down -v
