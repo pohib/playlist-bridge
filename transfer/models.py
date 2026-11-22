@@ -117,3 +117,55 @@ class LibraryTrack(models.Model):
 
     def __str__(self):
         return f"{self.artist} — {self.title}"
+
+
+
+class LibraryTransfer(models.Model):
+    class Status(models.TextChoices):
+        REVIEW = "review", "Требует проверки"
+        COMPLETED = "completed", "Завершён"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    profile = models.ForeignKey(LibraryProfile, on_delete=models.CASCADE, related_name="transfers")
+    source_playlist = models.ForeignKey(LibraryPlaylist, on_delete=models.CASCADE, related_name="transfers")
+    target_provider = models.CharField(max_length=24, choices=LibraryPlaylist.Provider.choices)
+    target_playlist_id = models.CharField(max_length=128)
+    target_url = models.URLField(max_length=2048, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.REVIEW)
+    total = models.PositiveIntegerField(default=0)
+    matched = models.PositiveIntegerField(default=0)
+    skipped = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.source_playlist.title} → {self.target_provider}"
+
+
+class LibraryTransferItem(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Требует сопоставления"
+        MATCHED = "matched", "Добавлен"
+        SKIPPED = "skipped", "Пропущен"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transfer = models.ForeignKey(LibraryTransfer, on_delete=models.CASCADE, related_name="items")
+    source_track = models.ForeignKey(LibraryTrack, on_delete=models.CASCADE, related_name="transfer_items")
+    position = models.PositiveIntegerField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    candidates = models.JSONField(default=list, blank=True)
+    target_external_id = models.CharField(max_length=200, blank=True)
+    target_url = models.URLField(max_length=2048, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("position",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("transfer", "source_track"),
+                name="unique_source_track_per_library_transfer",
+            ),
+        ]
