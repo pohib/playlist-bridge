@@ -54,6 +54,10 @@ def _safe_candidate_url(value, provider):
     from urllib.parse import urlparse
 
     parsed = urlparse((value or "").strip())
+    try:
+        port = parsed.port
+    except ValueError:
+        return ""
     allowed_hosts = {
         "spotify": {"open.spotify.com", "www.open.spotify.com"},
         "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
@@ -61,7 +65,7 @@ def _safe_candidate_url(value, provider):
     if (
         parsed.scheme != "https"
         or parsed.hostname not in allowed_hosts.get(provider, set())
-        or parsed.port not in (None, 443)
+        or port not in (None, 443)
         or parsed.username
         or parsed.password
     ):
