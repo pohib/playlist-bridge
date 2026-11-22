@@ -1,7 +1,7 @@
 import base64
 import hashlib
-import secrets
 import re
+import secrets
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from urllib.parse import urlencode, urlparse
@@ -54,9 +54,9 @@ def score_candidate(source, candidate):
 
 class VKIDClient:
     AUTHORIZE_URL = "https://id.vk.ru/authorize"
-    TOKEN_URL = "https://id.vk.ru/oauth2/auth"
+    OAUTH_EXCHANGE_ENDPOINT = "https://id.vk.ru/oauth2/auth"
 
-    def __init__(self, client_id, redirect_uri, service_token=""):
+    def __init__(self, client_id, redirect_uri, service_token=None):
         self.client_id = str(client_id)
         self.redirect_uri = redirect_uri
         self.service_token = service_token
@@ -81,7 +81,7 @@ class VKIDClient:
             params["service_token"] = self.service_token
         try:
             response = self.http.post(
-                self.TOKEN_URL,
+                self.OAUTH_EXCHANGE_ENDPOINT,
                 params=params,
                 data=body,
                 headers={"Accept": "application/json"},
