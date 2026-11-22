@@ -7,14 +7,18 @@ import logging
 import secrets
 import time
 
+from cryptography.fernet import Fernet
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import SpotifyClient, TransferError, execute_transfer
+from .core import SpotifyClient, TransferError, execute_transfer, parse_vk_playlist_url
+from .models import TransferJob
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +131,6 @@ def download_report(request):
     return response
 
 
-from cryptography.fernet import Fernet
-from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator
-
-from .models import TransferJob
-
 
 def session_fingerprint(request):
     if not request.session.session_key:
@@ -193,7 +191,6 @@ def api_create_transfer(request):
         return api_error("Поле target_playlist должно быть строкой длиной до 2048 символов.")
     try:
         URLValidator(schemes=["http", "https"])(source_url)
-        from .core import parse_vk_playlist_url
         parse_vk_playlist_url(source_url)
     except (ValidationError, ValueError):
         return api_error("Укажи корректную ссылку на плейлист VK.")
@@ -208,7 +205,7 @@ def api_create_transfer(request):
         return api_error("Сначала подключи Spotify.", 401)
     try:
         Fernet(settings.TOKEN_ENCRYPTION_KEY.encode())
-        access_token = get_access_token(request)
+        get_access_token(request)
         token_bundle = json.dumps(request.session.get("spotify_token", {}), separators=(",", ":"))
         encrypted = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).encrypt(token_bundle.encode()).decode()
     except (ValueError, TransferError) as exc:
