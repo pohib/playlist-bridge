@@ -277,12 +277,12 @@ class SpotifyRefreshLifecycleTests(TestCase):
         ).exists())
 
     def test_spotify_invalid_grant_requires_reauthorization(self):
-        client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
+        client = SpotifyClient("client-id", Fernet.generate_key().decode(), "https://example.test/callback/")
         response = Mock()
         response.raise_for_status.side_effect = HTTPError("invalid_grant")
         response.json.return_value = {"error": "invalid_grant"}
         client.http.post = Mock(return_value=response)
 
         with self.assertRaises(ReauthorizationRequired):
-            client.refresh_token("expired-refresh-token")
+            client.refresh_token(Fernet.generate_key().decode())
 
