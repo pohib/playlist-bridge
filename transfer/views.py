@@ -21,7 +21,7 @@ from .credentials import (
     get_session_fingerprint,
     store_credential,
 )
-from .models import OAuthCredential, TransferJob
+from .models import LibraryProfile, OAuthCredential, TransferJob
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ def rotate_session_binding(request):
     new_fingerprint = get_session_fingerprint(request)
     OAuthCredential.objects.filter(session_fingerprint=old_fingerprint).update(session_fingerprint=new_fingerprint)
     TransferJob.objects.filter(session_fingerprint=old_fingerprint).update(session_fingerprint=new_fingerprint)
+    LibraryProfile.objects.filter(session_fingerprint=old_fingerprint).update(session_fingerprint=new_fingerprint)
 
 
 def connected_providers(request):
