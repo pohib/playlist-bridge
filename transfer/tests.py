@@ -458,11 +458,11 @@ class ApiSessionSecurityTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    @override_settings(
-        TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
-        VK_ID_CLIENT_ID="vk-app",
-        VK_ANON_CLIENT_SECRET="fixture-value",
-    )
+    @override_settings(**{
+        "TOKEN_ENCRYPTION_KEY": Fernet.generate_key().decode(),
+        "VK_ID_CLIENT_ID": "vk-app",
+        "VK_ANON_CLIENT_SECRET": "fixture-value",
+    })
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
         session = SessionStore()
@@ -596,7 +596,11 @@ class VKLibraryImportTests(TestCase):
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_ANON_CLIENT_SECRET="fixture-value", VK_API_VERSION="5.289")
+    @override_settings(**{
+        "VK_ID_CLIENT_ID": "vk-client",
+        "VK_ANON_CLIENT_SECRET": "fixture-value",
+        "VK_API_VERSION": "5.289",
+    })
     def test_import_saves_playlist_tracks_in_original_order(self, fetch_playlist):
         response = self.client.post(
             reverse("library_import_vk"),
