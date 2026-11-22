@@ -98,3 +98,17 @@ def delete_playlist(request, playlist_id):
     playlist.delete()
     messages.success(request, "Плейлист и его локальные записи удалены.")
     return redirect("home")
+
+
+
+@require_POST
+def update_profile(request):
+    profile = _profile(request)
+    display_name = (request.POST.get("display_name") or "").strip()
+    if not display_name or len(display_name) > 60:
+        messages.error(request, "Имя профиля должно содержать от 1 до 60 символов.")
+    else:
+        profile.display_name = display_name
+        profile.save(update_fields=["display_name", "updated_at"])
+        messages.success(request, "Профиль обновлён.")
+    return redirect("home")
