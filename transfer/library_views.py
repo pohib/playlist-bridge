@@ -487,7 +487,7 @@ def transfer_library_playlist(request, playlist_id):
                             "title": str(candidate.get("title") or "")[:180],
                             "artist": str(candidate.get("metadata_artist") or (candidate.get("user") or {}).get("username") or "")[:180],
                             "duration_ms": int(candidate.get("duration") or 0),
-                            "url": str(candidate.get("permalink_url") or ""),
+                            "url": _safe_candidate_url(candidate.get("permalink_url"), "soundcloud"),
                         }
                         for score, candidate in ranked[:5] if score >= 0.45 and re.fullmatch(r"[0-9]+", str(candidate.get("id") or ""))
                     ]))
