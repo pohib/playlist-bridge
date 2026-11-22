@@ -151,6 +151,7 @@ class VKAnonymousTokenTests(TestCase):
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"type": "error", "data": {}}
+        provider.http.get = Mock(return_value=Mock(status_code=200, raise_for_status=Mock(), close=Mock()))
         provider.http.post = Mock(return_value=response)
         with self.assertRaises(TransferError):
             provider.get_token()
