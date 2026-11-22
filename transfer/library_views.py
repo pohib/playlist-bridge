@@ -598,7 +598,7 @@ def search_transfer_item(request, transfer_id, item_id):
     try:
         if review.target_provider == "spotify":
             client, token = _spotify_access(request)
-            results = client.search(token, "", query)
+            results = client.search_tracks(token, query)
             candidates = [{
                 "id": str(result.get("id") or ""),
                 "uri": str(result.get("uri") or ""),
