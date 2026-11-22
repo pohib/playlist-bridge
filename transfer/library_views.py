@@ -8,7 +8,16 @@ from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import (\n    SoundCloudClient,\n    SpotifyClient,\n    TransferError,\n    VKClient,\n    VKIDClient,\n    parse_vk_playlist_url,\n    parse_vk_track_url,\n    score_candidate,\n)
+from .core import (
+    SoundCloudClient,
+    SpotifyClient,
+    TransferError,
+    VKClient,
+    VKIDClient,
+    parse_vk_playlist_url,
+    parse_vk_track_url,
+    score_candidate,
+)
 from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
