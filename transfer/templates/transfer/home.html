@@ -42,6 +42,7 @@
       <div class="inline-help"><strong>Spotify OAuth ещё не настроен.</strong> Создай приложение в Spotify Developer Dashboard, добавь Redirect URI <code>{{ request.scheme }}://{{ request.get_host }}{% url 'spotify_callback' %}</code>, затем заполни <code>SPOTIFY_CLIENT_ID</code> и <code>SPOTIFY_CLIENT_SECRET</code> в файле <code>.env</code>. После этого перезапусти контейнеры.</div>
       {% endif %}
       {% if not vk_configured %}<div class="inline-help warning"><strong>VK API token отсутствует.</strong> Укажи <code>VK_API_TOKEN</code> в .env.</div>{% endif %}
+      {% if not encryption_key_configured %}<div class="inline-help warning"><strong>Не настроено шифрование токенов.</strong> Сгенерируй ключ командой <code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code> и добавь его как <code>TOKEN_ENCRYPTION_KEY</code> в .env.</div>{% endif %}
     </section>
     <section class="panel transfer-panel">
       <div class="panel-heading">
@@ -55,7 +56,7 @@
         <label for="target_playlist">Целевой плейлист Spotify <span class="optional">необязательно</span></label>
         <input id="target_playlist" name="target_playlist" maxlength="2048" placeholder="Вставь ссылку или ID — либо оставь пустым">
         <p class="field-hint">Если поле пустое, будет создан новый приватный плейлист. Для существующего проверяется владелец.</p>
-        <button class="primary-button" type="submit" {% if not connected or not vk_configured %}disabled{% endif %}><span>Начать перенос</span><span class="button-arrow">→</span></button>
+        <button class="primary-button" type="submit" {% if not connected or not vk_configured or not encryption_key_configured %}disabled{% endif %}><span>Начать перенос</span><span class="button-arrow">→</span></button>
       </form>
       <div id="transfer-status" class="transfer-status" hidden aria-live="polite">
         <div class="progress-top"><strong id="job-title">Перенос запущен</strong><span id="progress-value">0%</span></div>
