@@ -168,7 +168,7 @@ try {
 
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "[4/4] Restarting web and worker with HTTPS..."
+    Write-Host "[4/5] Restarting web and worker with HTTPS..."
     docker compose up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) {
         throw "Could not restart web and worker."
@@ -193,7 +193,7 @@ try {
         throw "Django health check failed after enabling HTTPS."
     }
 
-    Write-Host "[4/4] Verifying the public HTTPS endpoint..."
+    Write-Host "[5/5] Verifying the public HTTPS endpoint..."
     $publicHealthy = $false
     for ($i = 0; $i -lt 30; $i++) {
         try {
