@@ -65,38 +65,60 @@ try {
     }
 
     Write-Host "[3/4] Starting Cloudflare Quick Tunnel..."
-    $stdout = Join-Path $env:TEMP "vk-to-spotify-cloudflared-out.log"
-    $stderr = Join-Path $env:TEMP "vk-to-spotify-cloudflared-err.log"
-    Remove-Item $stdout -Force -ErrorAction SilentlyContinue
-    Remove-Item $stderr -Force -ErrorAction SilentlyContinue
+    # Read process output asynchronously. Start-Process redirection keeps log
+    # handles open on Windows and can prevent the script from reading those files.
+    $script:tunnelOutput = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
+    $tunnel = [System.Diagnostics.Process]::new()
+    $tunnel.StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $tunnel.StartInfo.FileName = $cloudflared.Source
+    $tunnel.StartInfo.Arguments = "tunnel --no-autoupdate --url http://127.0.0.1:8000"
+    $tunnel.StartInfo.UseShellExecute = $false
+    $tunnel.StartInfo.CreateNoWindow = $true
+    $tunnel.StartInfo.RedirectStandardOutput = $true
+    $tunnel.StartInfo.RedirectStandardError = $true
 
-    $tunnel = Start-Process -FilePath $cloudflared.Source -ArgumentList @(
-        "tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:8000"
-    ) -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    $outputHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $eventArgs)
+        if ($null -ne $eventArgs.Data) {
+            $script:tunnelOutput.Enqueue($eventArgs.Data)
+        }
+    }
+    $errorHandler = [System.Diagnostics.DataReceivedEventHandler]{
+        param($sender, $eventArgs)
+        if ($null -ne $eventArgs.Data) {
+            $script:tunnelOutput.Enqueue($eventArgs.Data)
+        }
+    }
+    $tunnel.add_OutputDataReceived($outputHandler)
+    $tunnel.add_ErrorDataReceived($errorHandler)
+
+    if (-not $tunnel.Start()) {
+        throw "Could not start cloudflared."
+    }
+    $tunnel.BeginOutputReadLine()
+    $tunnel.BeginErrorReadLine()
 
     $publicUrl = $null
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Seconds 1
-        $logs = ""
-        if (Test-Path $stdout) {
-            $logs += [System.IO.File]::ReadAllText($stdout)
+        $logLine = $null
+        while ($tunnelOutput.TryDequeue([ref]$logLine)) {
+            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\\.trycloudflare\\.com")
+            if ($match.Success) {
+                $publicUrl = $match.Value
+                break
+            }
         }
-        if (Test-Path $stderr) {
-            $logs += [System.IO.File]::ReadAllText($stderr)
-        }
-
-        $match = [regex]::Match($logs, "https://[a-z0-9-]+\.trycloudflare\.com")
-        if ($match.Success) {
-            $publicUrl = $match.Value
+        if ($publicUrl) {
             break
         }
         if ($tunnel.HasExited) {
-            throw "cloudflared exited. Check log $stderr."
+            throw "cloudflared exited before a public URL was received. Review cloudflared output above."
         }
     }
 
     if (-not $publicUrl) {
-        throw "Could not obtain the Cloudflare HTTPS URL. Check log $stderr."
+        throw "Could not obtain the Cloudflare HTTPS URL within 60 seconds. Check that cloudflared can reach Cloudflare."
     }
 
     $hostName = ([uri]$publicUrl).Host
@@ -165,7 +187,8 @@ try {
 }
 catch {
     if ($null -ne $tunnel -and -not $tunnel.HasExited) {
-        Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
+        $tunnel.Kill()
+        $tunnel.WaitForExit(5000) | Out-Null
     }
     throw
 }
