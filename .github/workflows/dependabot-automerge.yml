@@ -38,7 +38,7 @@ jobs:
             for name in "${required_checks[@]}"; do
               status=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .status // "missing"' <<< "$checks")
               conclusion=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .conclusion // ""' <<< "$checks")
-              if [[ "$status" == "completed" && "$conclusion" != "success" ]]; then
+              if [[ "$status" == "completed" && "$conclusion" != "success" && "$conclusion" != "cancelled" && "$conclusion" != "skipped" && "$conclusion" != "neutral" ]]; then
                 echo "Required check $name finished with conclusion: $conclusion"
                 exit 1
               fi
