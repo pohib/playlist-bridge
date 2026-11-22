@@ -14,6 +14,13 @@ from .core import SpotifyClient, TransferError, execute_transfer
 
 logger = logging.getLogger(__name__)
 
+
+def csv_safe_cell(value):
+    """Prevent spreadsheet formula execution in exported untrusted metadata."""
+    if isinstance(value, str) and value.lstrip(" \\t\\r\\n")[:1] in {"=", "+", "-", "@"}:
+        return "'" + value
+    return value
+
 def spotify_client():
     if not settings.SPOTIFY_CLIENT_ID or not settings.SPOTIFY_CLIENT_SECRET:
         raise TransferError("Spotify OAuth credentials не настроены.")
@@ -107,7 +114,8 @@ def download_report(request):
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=list(rows[0]))
     writer.writeheader()
-    writer.writerows(rows)
+    for row in rows:
+        writer.writerow({key: csv_safe_cell(value) for key, value in row.items()})
     response = HttpResponse("\ufeff" + output.getvalue(), content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="transfer-report.csv"'
     response["X-Content-Type-Options"] = "nosniff"
