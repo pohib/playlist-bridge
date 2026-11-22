@@ -186,7 +186,10 @@ class SpotifyClient:
             self.api("POST", f"/playlists/{playlist_id}/items", token, body={"uris": uris[offset:offset + 100]})
 
 
-def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_token, source_url, target_playlist=None):
+def execute_transfer(
+    *, vk_token, vk_version, vk_client_id, spotify, spotify_token,
+    source_url, target_playlist=None, progress_callback=None,
+):
     playlist_name, tracks = VKClient(vk_token, vk_version, vk_client_id).fetch_playlist(source_url)
     user = spotify.current_user(spotify_token)
     if target_playlist:
@@ -199,12 +202,14 @@ def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_tok
         if not re.fullmatch(r"[A-Za-z0-9]{10,64}", target_playlist):
             raise TransferError("ID плейлиста Spotify имеет неверный формат.")
         spotify.verify_playlist_access(spotify_token, target_playlist, user.get("id"))
-    else:
-        target_playlist = spotify.create_playlist(spotify_token, playlist_name)
+
     uris, report = [], []
+    total = len(tracks)
     for index, track in enumerate(tracks, 1):
-        ranked = sorted(((score_candidate(track, item), item) for item in spotify.search(spotify_token, track.artist, track.title)),
-                        key=lambda pair: pair[0], reverse=True)
+        ranked = sorted(
+            ((score_candidate(track, item), item) for item in spotify.search(spotify_token, track.artist, track.title)),
+            key=lambda pair: pair[0], reverse=True,
+        )
         if not ranked or ranked[0][0] < .82:
             status, selected, score = "not_found", None, ranked[0][0] if ranked else 0.0
         elif len(ranked) > 1 and ranked[0][0] - ranked[1][0] < .045:
@@ -214,9 +219,26 @@ def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_tok
             status = "matched" if selected.get("uri") else "not_found"
         if status == "matched":
             uris.append(selected["uri"])
-        report.append({"index": index, "artist": track.artist, "title": track.title, "status": status,
-                       "spotify_name": selected.get("name", "") if selected else "", "score": round(score, 3)})
+        report.append({
+            "index": index, "artist": track.artist, "title": track.title, "status": status,
+            "spotify_name": selected.get("name", "") if selected else "", "score": round(score, 3),
+        })
+        if progress_callback:
+            progress_callback({
+                "progress": min(99, int(index * 100 / total)),
+                "total": total,
+                "matched": len(uris),
+                "not_found": sum(row["status"] == "not_found" for row in report),
+                "ambiguous": sum(row["status"] == "ambiguous" for row in report),
+            })
+
+    if not uris:
+        raise TransferError("Не удалось подобрать ни одной композиции. Плейлист Spotify не создавался.")
+    if not target_playlist:
+        target_playlist = spotify.create_playlist(spotify_token, playlist_name)
     spotify.add_items(spotify_token, target_playlist, uris)
-    return {"playlist_name": playlist_name, "target_playlist_id": target_playlist, "total": len(tracks),
-            "matched": len(uris), "not_found": sum(x["status"] == "not_found" for x in report),
-            "ambiguous": sum(x["status"] == "ambiguous" for x in report), "report": report}
+    return {
+        "playlist_name": playlist_name, "target_playlist_id": target_playlist, "total": total,
+        "matched": len(uris), "not_found": sum(x["status"] == "not_found" for x in report),
+        "ambiguous": sum(x["status"] == "ambiguous" for x in report), "report": report,
+    }
