@@ -5,8 +5,8 @@ services:
     environment:
       DATABASE_URL: postgres://vktospotify:${POSTGRES_PASSWORD}@db:5432/vktospotify
       DATABASE_SSL_REQUIRE: "false"
-      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,web
-      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:8000
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost,web}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://127.0.0.1:8000}
       DJANGO_DEBUG: "false"
     ports:
       - "127.0.0.1:8000:8000"
