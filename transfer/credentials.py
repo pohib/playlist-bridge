@@ -13,11 +13,15 @@ from .models import OAuthCredential
 def get_session_fingerprint(request):
     for legacy_key in ("spotify_token", "vk_token", "vk_access_token", "spotify_access_token", "spotify_refresh_token"):
         request.session.pop(legacy_key, None)
-    if not request.session.session_key:
-        request.session.save()
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        subject = f"user:{request.user.pk}"
+    else:
+        if not request.session.session_key:
+            request.session.save()
+        subject = f"session:{request.session.session_key}"
     return hmac.new(
         settings.SECRET_KEY.encode(),
-        request.session.session_key.encode(),
+        subject.encode(),
         hashlib.sha256,
     ).hexdigest()
 
