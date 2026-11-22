@@ -335,6 +335,7 @@ def transfer_library_playlist(request, playlist_id):
 
     fingerprint = get_session_fingerprint(request)
     matched_ids = []
+    matched_tracks = []
     not_found = 0
     try:
         if target == "spotify":
@@ -358,6 +359,7 @@ def transfer_library_playlist(request, playlist_id):
                 )
                 if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("uri"):
                     matched_ids.append(ranked[0][1]["uri"])
+                    matched_tracks.append((track, ranked[0][1].get("id", ""), (ranked[0][1].get("external_urls") or {}).get("spotify", "")))
                 else:
                     not_found += 1
             if not matched_ids:
@@ -392,6 +394,7 @@ def transfer_library_playlist(request, playlist_id):
                 ranked.sort(key=lambda pair: pair[0], reverse=True)
                 if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("id"):
                     matched_ids.append(str(ranked[0][1]["id"]))
+                    matched_tracks.append((track, str(ranked[0][1]["id"]), str(ranked[0][1].get("permalink_url") or "")))
                 else:
                     not_found += 1
             if not matched_ids:
@@ -417,11 +420,11 @@ def transfer_library_playlist(request, playlist_id):
             artist=track.artist,
             album=track.album,
             duration_ms=track.duration_ms,
-            external_id="",
-            external_url="",
+            external_id=external_id,
+            external_url=external_url,
             position=index,
         )
-        for index, track in enumerate(tracks)
+        for index, (track, external_id, external_url) in enumerate(matched_tracks)
     ])
     messages.success(
         request,
