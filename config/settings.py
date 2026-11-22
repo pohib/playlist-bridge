@@ -110,3 +110,51 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 WHITENOISE_ALLOW_ALL_ORIGINS = False
+
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "dashboard"
+LOGOUT_REDIRECT_URL = "home"
+
+REPORTS_DIR = BASE_DIR / "reports"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "structured": {
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured",
+        },
+        "reports_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(REPORTS_DIR / "application.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "encoding": "utf-8",
+            "formatter": "structured",
+        },
+    },
+    "root": {
+        "handlers": ["console", "reports_file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django.security": {
+            "handlers": ["console", "reports_file"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "transfer": {
+            "handlers": ["console", "reports_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
