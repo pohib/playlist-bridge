@@ -11,6 +11,8 @@ from .models import OAuthCredential
 
 
 def get_session_fingerprint(request):
+    for legacy_key in ("spotify_token", "vk_token", "vk_access_token", "spotify_access_token", "spotify_refresh_token"):
+        request.session.pop(legacy_key, None)
     if not request.session.session_key:
         request.session.save()
     return hmac.new(
