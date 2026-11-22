@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def csv_safe_cell(value):
     """Prevent spreadsheet formula execution in exported untrusted metadata."""
-    if isinstance(value, str) and value.lstrip(" \\t\\r\\n")[:1] in {"=", "+", "-", "@"}:
+    if isinstance(value, str) and value.lstrip()[:1] in {"=", "+", "-", "@"}:
         return "'" + value
     return value
 
@@ -37,6 +37,7 @@ def healthz(request):
 @require_GET
 def spotify_login(request):
     try:
+        request.session.cycle_key()
         state = secrets.token_urlsafe(32)
         request.session["spotify_oauth_state"] = state
         return redirect(spotify_client().authorization_url(state))
