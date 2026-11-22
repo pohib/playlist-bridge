@@ -1,9 +1,18 @@
 from django.urls import path
 
-from . import library_views, views
+from . import auth_views, library_views, site_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("accounts/register/", auth_views.register, name="register"),
+    path("accounts/login/", auth_views.sign_in, name="login"),
+    path("accounts/logout/", auth_views.sign_out, name="logout"),
+    path("app/", site_views.dashboard, name="dashboard"),
+    path("library/", site_views.library, name="library"),
+    path("library/<uuid:playlist_id>/", site_views.playlist_detail, name="playlist_detail"),
+    path("connections/", site_views.connections, name="connections"),
+    path("transfers/", site_views.transfers, name="transfers"),
+    path("profile/", site_views.profile, name="profile"),
     path("healthz/", views.healthz, name="healthz"),
     path("spotify/login/", views.spotify_login, name="spotify_login"),
     path("spotify/callback/", views.spotify_callback, name="spotify_callback"),
