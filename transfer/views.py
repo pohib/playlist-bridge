@@ -17,7 +17,6 @@ from django.views.decorators.http import require_GET, require_POST
 from .core import SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
 from .credentials import (
     delete_credential,
-    get_access_token,
     get_session_fingerprint,
     store_credential,
 )
@@ -73,6 +72,8 @@ def home(request):
         "vk_configured": bool(settings.VK_ID_CLIENT_ID),
         "encryption_key_configured": encryption_key_is_valid(),
         "result": request.session.pop("transfer_result", None),
+        "oauth_success": request.session.pop("oauth_success", None),
+        "oauth_error": request.session.pop("oauth_error", None),
     })
 
 
