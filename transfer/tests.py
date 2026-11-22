@@ -727,7 +727,7 @@ class UnifiedLibraryTransferTests(TestCase):
         review.refresh_from_db()
         self.assertEqual(item.status, LibraryTransferItem.Status.MATCHED)
         self.assertEqual(review.status, LibraryTransfer.Status.COMPLETED)
-        client.update_playlist_tracks.assert_called_once_with("sc-token", "555", ["988"])
+        client.create_playlist.assert_called_once_with("sc-token", "Unmatched", ["988"])
         self.assertEqual(review.target_playlist.tracks.get().external_id, "988")
 
     @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
@@ -809,6 +809,29 @@ class UnifiedLibraryTransferTests(TestCase):
 
 
 class AccountWorkspaceTests(TestCase):
+    def test_account_library_is_persistent_across_browser_sessions(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryPlaylist, LibraryProfile
+
+        user = get_user_model().objects.create_user(
+            username="persistent_listener",
+            password="Safe-Test-Password-2026!",
+        )
+        first_browser = self.client_class()
+        first_browser.force_login(user)
+        first_browser.post(
+            reverse("library_create_playlist"),
+            {"title": "Across devices", "provider": "manual"},
+        )
+        playlist = LibraryPlaylist.objects.get(title="Across devices")
+
+        second_browser = self.client_class()
+        second_browser.force_login(user)
+        response = second_browser.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(LibraryProfile.objects.filter(user=user).count(), 1)
+
+
     def test_registration_attaches_existing_guest_library_to_account(self):
         from .models import LibraryPlaylist, LibraryProfile
 
