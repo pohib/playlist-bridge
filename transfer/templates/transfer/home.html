@@ -86,6 +86,15 @@
             <a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true"{% endif %}>Подключить ↗</a>
           {% endif %}
         </div>
+        <div class="service-card">
+          <div class="service-icon soundcloud-icon">SC</div>
+          <div class="service-copy"><strong>SoundCloud</strong><span>{% if soundcloud_connected %}Аккаунт подключён · токен зашифрован{% elif soundcloud_configured %}Готов к авторизации{% else %}Ожидает настройки приложения{% endif %}</span></div>
+          {% if soundcloud_connected %}
+            <form method="post" action="{% url "disconnect_soundcloud" %}">{% csrf_token %}<button class="text-button" type="submit">Отключить</button></form>
+          {% else %}
+            <a class="connect-link {% if not soundcloud_configured %}disabled{% endif %}" href="{% if soundcloud_configured %}{% url "soundcloud_login" %}{% else %}#{% endif %}" {% if not soundcloud_configured %}aria-disabled="true"{% endif %}>Подключить ↗</a>
+          {% endif %}
+        </div>
         <div class="service-card service-coming">
           <div class="service-icon youtube-icon">▶</div>
           <div class="service-copy"><strong>YouTube Music</strong><span>Провайдер запланирован · подключение появится позже</span></div><span class="coming-label">SOON</span>
