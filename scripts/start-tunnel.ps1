@@ -55,14 +55,19 @@ function Test-HttpEndpoint {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
         [int]$ExpectedStatus = 200,
-        [string]$ExpectedBodyPattern = ""
+        [string]$ExpectedBodyPattern = "",
+        [switch]$ForwardedProtoHttps
     )
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) { throw "curl.exe was not found." }
 
     $bodyPath = Join-Path $env:TEMP ("vktospotify-http-" + [guid]::NewGuid().ToString("N") + ".tmp")
     try {
-        $curlArgs = @("--silent", "--show-error", "--max-time", "10", "--output", $bodyPath, "--write-out", "%{http_code}", "--stderr", "NUL", $Url)
+        $curlArgs = @("--silent", "--show-error", "--max-time", "10", "--output", $bodyPath, "--write-out", "%{http_code}", "--stderr", "NUL")
+        if ($ForwardedProtoHttps) {
+            $curlArgs += @("--header", "X-Forwarded-Proto: https")
+        }
+        $curlArgs += $Url
         $statusOutput = & $curl.Source @curlArgs
         $curlExitCode = $LASTEXITCODE
         $statusText = ($statusOutput -join "").Trim()
@@ -119,7 +124,7 @@ try {
     Write-Host "[2/5] Checking local Django health..."
     $healthy = $false
     for ($i = 0; $i -lt 60; $i++) {
-        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"' -ForwardedProtoHttps) {
             $healthy = $true
             break
         }
@@ -192,7 +197,7 @@ try {
         if ($tunnel.HasExited) {
             throw ("cloudflared stopped while the application was restarting. Exit code: " + $tunnel.ExitCode + ". Log: " + $tunnelLogPath + [Environment]::NewLine + (Read-SharedLog -Path $tunnelLogPath))
         }
-        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"' -ForwardedProtoHttps) {
             $healthy = $true
             break
         }
