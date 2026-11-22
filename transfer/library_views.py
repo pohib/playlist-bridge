@@ -19,7 +19,7 @@ from .core import (
     score_candidate,
 )
 from .credentials import get_access_token, get_session_fingerprint
-from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
 
 
 def _profile(request):
@@ -352,6 +352,7 @@ def import_soundcloud_library(request):
 @require_POST
 def transfer_library_playlist(request, playlist_id):
     from types import SimpleNamespace
+    from django.utils import timezone
 
     playlist = get_object_or_404(
         LibraryPlaylist.objects.prefetch_related("tracks"),
@@ -361,19 +362,18 @@ def transfer_library_playlist(request, playlist_id):
     target = request.POST.get("target_provider", "").strip()
     if target not in {"spotify", "soundcloud"}:
         messages.error(request, "Выбери поддерживаемый целевой сервис.")
-        return redirect("library")
+        return redirect("playlist_detail", playlist_id=playlist.pk)
     tracks = list(playlist.tracks.all())
     if not tracks:
         messages.error(request, "В плейлисте нет композиций для переноса.")
-        return redirect("library")
+        return redirect("playlist_detail", playlist_id=playlist.pk)
     if len(tracks) > 100:
         messages.error(request, "Пока можно переносить не более 100 композиций за один запуск.")
-        return redirect("library")
+        return redirect("playlist_detail", playlist_id=playlist.pk)
 
     fingerprint = get_session_fingerprint(request)
-    matched_ids = []
-    matched_tracks = []
-    not_found = 0
+    matched = {}
+    unmatched = []
     try:
         if target == "spotify":
             client = SpotifyClient(
@@ -394,14 +394,40 @@ def transfer_library_playlist(request, playlist_id):
                     reverse=True,
                 )
                 if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("uri"):
-                    matched_ids.append(ranked[0][1]["uri"])
-                    matched_tracks.append((track, ranked[0][1].get("id", ""), (ranked[0][1].get("external_urls") or {}).get("spotify", "")))
+                    item = ranked[0][1]
+                    matched[track.pk] = {
+                        "id": str(item.get("id") or ""),
+                        "url": str((item.get("external_urls") or {}).get("spotify", "")),
+                    }
                 else:
-                    not_found += 1
-            if not matched_ids:
-                raise TransferError("Не удалось подобрать композиции в Spotify.")
+                    unmatched.append((track, [
+                        {
+                            "id": str(item.get("id") or ""),
+                            "uri": str(item.get("uri") or ""),
+                            "title": str(item.get("name") or "")[:180],
+                            "artist": ", ".join(str(artist.get("name") or "") for artist in item.get("artists", []))[:180],
+                            "duration_ms": int(item.get("duration_ms") or 0),
+                            "url": str((item.get("external_urls") or {}).get("spotify", "")),
+                        }
+                        for score, item in ranked[:5] if score >= 0.45 and item.get("id") and item.get("uri")
+                    ]))
             target_id = client.create_playlist(token, playlist.title)
-            client.add_items(token, target_id, matched_ids)
+            uris = []
+            for track in tracks:
+                entry = matched.get(track.pk)
+                if entry:
+                    # The first version creates the target playlist in source order.
+                    item = next((candidate for score, candidate in sorted(
+                        ((score_candidate(SimpleNamespace(
+                            title=track.title, artist=track.artist,
+                            duration=(track.duration_ms or 0) // 1000,
+                        ), result), result) for result in client.search(token, track.artist, track.title)),
+                        key=lambda pair: pair[0], reverse=True
+                    ) if candidate.get("id") == entry["id"]), None)
+                    if item and item.get("uri"):
+                        uris.append(item["uri"])
+            if uris:
+                client.add_items(token, target_id, uris)
             target_url = f"https://open.spotify.com/playlist/{target_id}"
         else:
             client = SoundCloudClient(
@@ -414,6 +440,11 @@ def transfer_library_playlist(request, playlist_id):
                 query = f"{track.artist} {track.title}"
                 candidates = client.search_tracks(token, query)
                 ranked = []
+                source = SimpleNamespace(
+                    title=track.title,
+                    artist=track.artist,
+                    duration=(track.duration_ms or 0) // 1000,
+                )
                 for candidate in candidates:
                     user = candidate.get("user") or {}
                     normalized = {
@@ -421,33 +452,41 @@ def transfer_library_playlist(request, playlist_id):
                         "artists": [{"name": candidate.get("metadata_artist") or user.get("username", "")}],
                         "duration_ms": candidate.get("duration"),
                     }
-                    source = SimpleNamespace(
-                        title=track.title,
-                        artist=track.artist,
-                        duration=(track.duration_ms or 0) // 1000,
-                    )
                     ranked.append((score_candidate(source, normalized), candidate))
                 ranked.sort(key=lambda pair: pair[0], reverse=True)
                 if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("id"):
-                    matched_ids.append(str(ranked[0][1]["id"]))
-                    matched_tracks.append((track, str(ranked[0][1]["id"]), str(ranked[0][1].get("permalink_url") or "")))
+                    candidate = ranked[0][1]
+                    matched[track.pk] = {
+                        "id": str(candidate["id"]),
+                        "url": str(candidate.get("permalink_url") or ""),
+                    }
                 else:
-                    not_found += 1
-            if not matched_ids:
-                raise TransferError("Не удалось подобрать композиции в SoundCloud.")
-            result = client.create_playlist(token, playlist.title, matched_ids)
+                    unmatched.append((track, [
+                        {
+                            "id": str(candidate.get("id") or ""),
+                            "uri": str(candidate.get("urn") or candidate.get("id") or ""),
+                            "title": str(candidate.get("title") or "")[:180],
+                            "artist": str(candidate.get("metadata_artist") or (candidate.get("user") or {}).get("username") or "")[:180],
+                            "duration_ms": int(candidate.get("duration") or 0),
+                            "url": str(candidate.get("permalink_url") or ""),
+                        }
+                        for score, candidate in ranked[:5] if score >= 0.45 and candidate.get("id")
+                    ]))
+            target_ids = [matched[track.pk]["id"] for track in tracks if track.pk in matched]
+            result = client.create_playlist(token, playlist.title, target_ids)
             target_id = str(result["id"])
-            target_url = result.get("permalink_url") or "https://soundcloud.com"
+            target_url = str(result.get("permalink_url") or "https://soundcloud.com")
+
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("library")
+        return redirect("playlist_detail", playlist_id=playlist.pk)
 
     target_playlist = LibraryPlaylist.objects.create(
         profile=playlist.profile,
         title=f"{playlist.title} · {target.title()}",
         provider=target,
         external_url=target_url,
-        description=f"Создано переносом из библиотеки · найдено {len(matched_ids)} из {len(tracks)}",
+        description=f"Перенос из библиотеки · найдено {len(matched)} из {len(tracks)}",
     )
     LibraryTrack.objects.bulk_create([
         LibraryTrack(
@@ -456,18 +495,191 @@ def transfer_library_playlist(request, playlist_id):
             artist=track.artist,
             album=track.album,
             duration_ms=track.duration_ms,
-            external_id=external_id,
-            external_url=external_url,
+            external_id=matched[track.pk]["id"],
+            external_url=matched[track.pk]["url"],
             position=index,
         )
-        for index, (track, external_id, external_url) in enumerate(matched_tracks)
+        for index, track in enumerate(tracks) if track.pk in matched
+    ])
+
+    review = LibraryTransfer.objects.create(
+        profile=playlist.profile,
+        source_playlist=playlist,
+        target_provider=target,
+        target_playlist_id=str(target_id),
+        target_url=target_url,
+        status=LibraryTransfer.Status.REVIEW if unmatched else LibraryTransfer.Status.COMPLETED,
+        total=len(tracks),
+        matched=len(matched),
+        completed_at=timezone.now() if not unmatched else None,
+    )
+    pending_by_id = {track.pk: candidates for track, candidates in unmatched}
+    LibraryTransferItem.objects.bulk_create([
+        LibraryTransferItem(
+            transfer=review,
+            source_track=track,
+            position=index,
+            status=LibraryTransferItem.Status.MATCHED if track.pk in matched else LibraryTransferItem.Status.PENDING,
+            candidates=pending_by_id.get(track.pk, []),
+            target_external_id=matched.get(track.pk, {}).get("id", ""),
+            target_url=matched.get(track.pk, {}).get("url", ""),
+        )
+        for index, track in enumerate(tracks)
     ])
     messages.success(
         request,
-        f"Создан плейлист {target.title()}: найдено {len(matched_ids)} из {len(tracks)} треков. "
-        f"Не найдено: {not_found}. {target_url}",
+        f"Создан плейлист {target.title()}: найдено {len(matched)} из {len(tracks)}. "
+        f"Требуют ручного сопоставления: {len(unmatched)}.",
     )
-    return redirect("library")
+    return redirect("transfer_review", transfer_id=review.pk)
+
+
+@require_GET
+def transfer_review(request, transfer_id):
+    review = get_object_or_404(
+        LibraryTransfer.objects.prefetch_related("items__source_track"),
+        pk=transfer_id,
+        profile=_profile(request),
+    )
+    pending = list(review.items.filter(status=LibraryTransferItem.Status.PENDING).order_by("position"))
+    first_pending_id = pending[0].pk if pending else None
+    return render(request, "transfer/transfer_review.html", {
+        "transfer": review,
+        "items": review.items.select_related("source_track").all(),
+        "first_pending_id": first_pending_id,
+    })
+
+
+@require_POST
+def search_transfer_item(request, transfer_id, item_id):
+    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
+    item = get_object_or_404(
+        LibraryTransferItem.objects.select_related("source_track"),
+        pk=item_id, transfer=review, status=LibraryTransferItem.Status.PENDING,
+    )
+    if review.items.filter(
+        status=LibraryTransferItem.Status.PENDING,
+        position__lt=item.position,
+    ).exists():
+        messages.error(request, "Сначала разберись с предыдущими треками, чтобы сохранить порядок.")
+        return redirect("transfer_review", transfer_id=review.pk)
+    query = (request.POST.get("query") or "").strip()
+    if not query or len(query) > 180:
+        messages.error(request, "Введи поисковый запрос длиной до 180 символов.")
+        return redirect("transfer_review", transfer_id=review.pk)
+    try:
+        if review.target_provider == "spotify":
+            client, token = _spotify_access(request)
+            results = client.search(token, "", query)
+            candidates = [{
+                "id": str(result.get("id") or ""),
+                "uri": str(result.get("uri") or ""),
+                "title": str(result.get("name") or "")[:180],
+                "artist": ", ".join(str(artist.get("name") or "") for artist in result.get("artists", []))[:180],
+                "duration_ms": int(result.get("duration_ms") or 0),
+                "url": str((result.get("external_urls") or {}).get("spotify", "")),
+            } for result in results if result.get("id") and result.get("uri")]
+        else:
+            client, token = _soundcloud_access(request)
+            results = client.search_tracks(token, query)
+            candidates = [{
+                "id": str(result.get("id") or ""),
+                "uri": str(result.get("urn") or result.get("id") or ""),
+                "title": str(result.get("title") or "")[:180],
+                "artist": str(result.get("metadata_artist") or (result.get("user") or {}).get("username") or "")[:180],
+                "duration_ms": int(result.get("duration") or 0),
+                "url": str(result.get("permalink_url") or ""),
+            } for result in results if result.get("id")]
+    except TransferError as exc:
+        messages.error(request, str(exc))
+        return redirect("transfer_review", transfer_id=review.pk)
+    item.candidates = candidates[:10]
+    item.save(update_fields=["candidates", "updated_at"])
+    messages.success(request, f"Найдено вариантов: {len(item.candidates)}. Выбери правильную композицию.")
+    return redirect("transfer_review", transfer_id=review.pk)
+
+
+@require_POST
+def select_transfer_candidate(request, transfer_id, item_id):
+    from django.utils import timezone
+
+    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
+    item = get_object_or_404(
+        LibraryTransferItem.objects.select_related("source_track"),
+        pk=item_id, transfer=review, status=LibraryTransferItem.Status.PENDING,
+    )
+    if review.items.filter(
+        status=LibraryTransferItem.Status.PENDING,
+        position__lt=item.position,
+    ).exists():
+        messages.error(request, "Сначала сопоставь или пропусти предыдущие треки.")
+        return redirect("transfer_review", transfer_id=review.pk)
+    candidate_id = (request.POST.get("candidate_id") or "").strip()
+    candidate = next((entry for entry in item.candidates if entry.get("id") == candidate_id), None)
+    if not candidate:
+        messages.error(request, "Выбранный вариант отсутствует в результатах поиска. Выполни поиск повторно.")
+        return redirect("transfer_review", transfer_id=review.pk)
+    try:
+        if review.target_provider == "spotify":
+            client, token = _spotify_access(request)
+            if not candidate.get("uri"):
+                raise TransferError("Spotify не вернул URI выбранной композиции.")
+            client.add_items(token, review.target_playlist_id, [candidate["uri"]], position=item.position)
+        else:
+            client, token = _soundcloud_access(request)
+            existing = list(
+                review.items.filter(status=LibraryTransferItem.Status.MATCHED)
+                .exclude(target_external_id="")
+                .order_by("position")
+                .values_list("position", "target_external_id")
+            )
+            ordered = sorted(existing + [(item.position, candidate_id)], key=lambda value: value[0])
+            client.update_playlist_tracks(
+                token,
+                review.target_playlist_id,
+                [track_id for _, track_id in ordered],
+            )
+    except TransferError as exc:
+        messages.error(request, str(exc))
+        return redirect("transfer_review", transfer_id=review.pk)
+
+    item.status = LibraryTransferItem.Status.MATCHED
+    item.target_external_id = candidate_id
+    item.target_url = candidate.get("url", "")
+    item.save(update_fields=["status", "target_external_id", "target_url", "updated_at"])
+    review.matched += 1
+    if not review.items.filter(status=LibraryTransferItem.Status.PENDING).exclude(pk=item.pk).exists():
+        review.status = LibraryTransfer.Status.COMPLETED
+        review.completed_at = timezone.now()
+    review.save(update_fields=["matched", "status", "completed_at"])
+    messages.success(request, f"«{candidate.get('title') or item.source_track.title}» добавлен в целевой плейлист.")
+    return redirect("transfer_review", transfer_id=review.pk)
+
+
+@require_POST
+def skip_transfer_item(request, transfer_id, item_id):
+    from django.utils import timezone
+
+    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
+    item = get_object_or_404(
+        LibraryTransferItem,
+        pk=item_id, transfer=review, status=LibraryTransferItem.Status.PENDING,
+    )
+    if review.items.filter(
+        status=LibraryTransferItem.Status.PENDING,
+        position__lt=item.position,
+    ).exists():
+        messages.error(request, "Сначала разберись с предыдущими треками.")
+        return redirect("transfer_review", transfer_id=review.pk)
+    item.status = LibraryTransferItem.Status.SKIPPED
+    item.save(update_fields=["status", "updated_at"])
+    review.skipped += 1
+    if not review.items.filter(status=LibraryTransferItem.Status.PENDING).exclude(pk=item.pk).exists():
+        review.status = LibraryTransfer.Status.COMPLETED
+        review.completed_at = timezone.now()
+    review.save(update_fields=["skipped", "status", "completed_at"])
+    messages.info(request, f"«{item.source_track.title}» пропущен.")
+    return redirect("transfer_review", transfer_id=review.pk)
 
 
 @require_POST
