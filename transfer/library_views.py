@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 from django.conf import settings
+from django.db import transaction
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -493,7 +494,7 @@ def transfer_library_playlist(request, playlist_id):
             target_ids = [matched[track.pk]["id"] for track in tracks if track.pk in matched]
             result = client.create_playlist(token, playlist.title, target_ids)
             target_id = str(result["id"])
-            target_url = str(result.get("permalink_url") or "https://soundcloud.com")
+            target_url = _safe_candidate_url(result.get("permalink_url"), "soundcloud") or "https://soundcloud.com"
 
     except TransferError as exc:
         messages.error(request, str(exc))
@@ -622,13 +623,17 @@ def search_transfer_item(request, transfer_id, item_id):
     return redirect("transfer_review", transfer_id=review.pk)
 
 
+@transaction.atomic
 @require_POST
 def select_transfer_candidate(request, transfer_id, item_id):
     from django.utils import timezone
 
-    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
+    review = get_object_or_404(
+        LibraryTransfer.objects.select_for_update(),
+        pk=transfer_id, profile=_profile(request),
+    )
     item = get_object_or_404(
-        LibraryTransferItem.objects.select_related("source_track"),
+        LibraryTransferItem.objects.select_for_update().select_related("source_track"),
         pk=item_id, transfer=review, status=LibraryTransferItem.Status.PENDING,
     )
     if review.items.filter(
@@ -694,6 +699,7 @@ def select_transfer_candidate(request, transfer_id, item_id):
     return redirect("transfer_review", transfer_id=review.pk)
 
 
+@transaction.atomic
 @require_POST
 def skip_transfer_item(request, transfer_id, item_id):
     from django.utils import timezone
