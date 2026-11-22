@@ -196,8 +196,6 @@ def open_playlist_source(request, playlist_id):
 
 @require_GET
 def open_track_source(request, track_id):
-    from django.core.exceptions import ValidationError
-    from django.core.validators import URLValidator
     from django.http import HttpResponseRedirect
 
     track = get_object_or_404(
