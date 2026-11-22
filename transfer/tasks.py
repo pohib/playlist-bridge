@@ -5,7 +5,7 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from .services import SpotifyClient, TransferError, VKIDClient, execute_transfer
+from .services import SpotifyClient, TransferError, execute_transfer
 from .credentials import get_access_token
 from .models import TransferJob
 
@@ -34,25 +34,17 @@ def run_transfer(self, job_id):
             settings.SPOTIFY_CLIENT_SECRET,
             settings.SPOTIFY_REDIRECT_URI,
         )
-        vk = VKIDClient(
-            settings.VK_ID_CLIENT_ID,
-            settings.VK_ID_REDIRECT_URI,
-            settings.VK_ID_SERVICE_TOKEN,
-        )
-
         def spotify_token():
             return get_access_token(job.session_fingerprint, "spotify", spotify)[0]
 
-        def vk_token():
-            return get_access_token(job.session_fingerprint, "vk", vk)[0]
 
         def update_progress(values):
             TransferJob.objects.filter(pk=job.pk, status=TransferJob.Status.RUNNING).update(**values)
 
         result = execute_transfer(
-            vk_token=vk_token(),
             vk_version=settings.VK_API_VERSION,
             vk_client_id=settings.VK_ID_CLIENT_ID,
+            vk_client_secret=settings.VK_ANON_CLIENT_SECRET,
             spotify=spotify,
             spotify_token=spotify_token(),
             token_provider=spotify_token,
