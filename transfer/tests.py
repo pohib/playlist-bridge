@@ -180,6 +180,7 @@ class VKPlaylistBatchTests(TestCase):
             client.fetch_playlist("https://vk.ru/music/playlist/42_9")
 
 
+@override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
 class HttpSurfaceTests(TestCase):
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_home(self):
