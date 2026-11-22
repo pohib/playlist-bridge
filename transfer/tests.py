@@ -8,8 +8,8 @@ from urllib.parse import parse_qs, urlparse
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
-from django.db import IntegrityError, transaction
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from requests import HTTPError
