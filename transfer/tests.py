@@ -119,17 +119,17 @@ class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_is_requested_without_user_cookie(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "app-secret")
+        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {
             "type": "okay",
-            "data": {"access_token": "anonym.test-token", "expired_at": int(time.time()) + 3600},
+            "data": {"access_token": "anonymous-fixture", "expired_at": int(time.time()) + 3600},
         }
         provider.http.get = Mock(return_value=Mock(status_code=200, raise_for_status=Mock(), close=Mock()))
         provider.http.post = Mock(return_value=response)
 
-        self.assertEqual(provider.get_token(), "anonym.test-token")
+        self.assertEqual(provider.get_token(), "anonymous-fixture")
         provider.http.get.assert_called_once_with(
             "https://vk.ru/",
             headers={"Accept": "text/html"},
@@ -139,7 +139,7 @@ class VKAnonymousTokenTests(TestCase):
         )
         call = provider.http.post.call_args
         self.assertEqual(call.kwargs["data"]["client_id"], "app-id")
-        self.assertEqual(call.kwargs["data"]["client_secret"], "app-secret")
+        self.assertEqual(call.kwargs["data"]["client_secret"], "fixture-value")
         self.assertEqual(call.kwargs["data"]["scopes"], provider.SCOPES)
         self.assertNotIn("cookies", call.kwargs)
         self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
@@ -147,7 +147,7 @@ class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_rejects_unexpected_response(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "app-secret")
+        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"type": "error", "data": {}}
@@ -159,7 +159,7 @@ class VKAnonymousTokenTests(TestCase):
 
 class VKPlaylistBatchTests(TestCase):
     def make_client(self):
-        client = VKClient("vk-app", "app-secret", "5.289")
+        client = VKClient("vk-app", "fixture-value", "5.289")
         client.token_provider.get_token = Mock(return_value="anonym.test")
         return client
 
@@ -461,7 +461,7 @@ class ApiSessionSecurityTests(TestCase):
     @override_settings(
         TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
         VK_ID_CLIENT_ID="vk-app",
-        VK_ANON_CLIENT_SECRET="app-secret",
+        VK_ANON_CLIENT_SECRET="fixture-value",
     )
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
@@ -596,7 +596,7 @@ class VKLibraryImportTests(TestCase):
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_ANON_CLIENT_SECRET="app-secret", VK_API_VERSION="5.289")
+    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_ANON_CLIENT_SECRET="fixture-value", VK_API_VERSION="5.289")
     def test_import_saves_playlist_tracks_in_original_order(self, fetch_playlist):
         response = self.client.post(
             reverse("library_import_vk"),
