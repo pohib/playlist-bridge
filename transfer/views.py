@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
+from django.utils import timezone
 
 from .core import SpotifyClient, TransferError, execute_transfer
 
@@ -23,12 +24,12 @@ def csv_safe_cell(value):
 
 def spotify_client():
     if not settings.SPOTIFY_CLIENT_ID or not settings.SPOTIFY_CLIENT_SECRET:
-        raise TransferError("Spotify OAuth credentials не настроены.")
+        raise TransferError("Не заданы SPOTIFY_CLIENT_ID и/или SPOTIFY_CLIENT_SECRET. Заполни их в .env из Spotify Developer Dashboard и перезапусти контейнеры.")
     return SpotifyClient(settings.SPOTIFY_CLIENT_ID, settings.SPOTIFY_CLIENT_SECRET, settings.SPOTIFY_REDIRECT_URI)
 
 @require_GET
 def home(request):
-    return render(request, "transfer/home.html", {"connected": bool(request.session.get("spotify_token")), "result": request.session.pop("transfer_result", None)})
+    return render(request, "transfer/home.html", {"connected": bool(request.session.get("spotify_token")), "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "vk_configured": bool(settings.VK_API_TOKEN), "result": request.session.pop("transfer_result", None)})
 
 @require_GET
 def healthz(request):
