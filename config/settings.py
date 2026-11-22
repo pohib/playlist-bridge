@@ -133,7 +133,7 @@ LOGGING = {
             "formatter": "structured",
         },
         "reports_file": {
-            "class": "logging.handlers.RotatingFileHandler",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
             "filename": str(REPORTS_DIR / "application.log"),
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
