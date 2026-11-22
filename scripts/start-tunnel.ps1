@@ -28,7 +28,7 @@ try {
     $healthy = $false
     for ($i = 0; $i -lt 60; $i++) {
         try {
-            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/healthz/" -UseBasicParsing -TimeoutSec 2
+            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/healthz/" -Headers @{ "X-Forwarded-Proto" = "https" } -UseBasicParsing -TimeoutSec 2
             if ($response.StatusCode -eq 200) { $healthy = $true; break }
         } catch {}
         Start-Sleep -Seconds 2
@@ -88,6 +88,19 @@ try {
     if ($LASTEXITCODE -ne 0) {
         Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
         throw "Не удалось перезапустить web/worker с HTTPS-настройками."
+    }
+    $healthy = $false
+    for ($i = 0; $i -lt 45; $i++) {
+        try {
+            $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/healthz/" -Headers @{ "X-Forwarded-Proto" = "https" } -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -eq 200) { $healthy = $true; break }
+        } catch {}
+        Start-Sleep -Seconds 2
+    }
+    if (-not $healthy) {
+        docker compose logs --tail=80 web
+        Stop-Process -Id $tunnel.Id -Force -ErrorAction SilentlyContinue
+        throw "Django не прошёл health check после включения HTTPS."
     }
 
     Write-Host ""
