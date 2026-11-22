@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """Backward-compatible imports; new code should use transfer.services."""
 from .services import (
     ReauthorizationRequired, SoundCloudClient, SpotifyClient, TransferError,

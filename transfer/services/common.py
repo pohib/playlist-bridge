@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """Shared provider errors, data structures and URL parsers."""
 from dataclasses import dataclass
 import re

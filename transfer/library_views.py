@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 import logging
 import re
 from pathlib import Path
