@@ -1,5 +1,8 @@
 import csv
+import hashlib
+import hmac
 import io
+import json
 import logging
 import secrets
 import time
@@ -8,8 +11,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
 
 from .core import SpotifyClient, TransferError, execute_transfer
 
@@ -124,10 +127,6 @@ def download_report(request):
     return response
 
 
-import hashlib
-import hmac
-import json
-
 from cryptography.fernet import Fernet
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -210,7 +209,8 @@ def api_create_transfer(request):
     try:
         Fernet(settings.TOKEN_ENCRYPTION_KEY.encode())
         access_token = get_access_token(request)
-        encrypted = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).encrypt(access_token.encode()).decode()
+        token_bundle = json.dumps(request.session.get("spotify_token", {}), separators=(",", ":"))
+        encrypted = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).encrypt(token_bundle.encode()).decode()
     except (ValueError, TransferError) as exc:
         return api_error(str(exc), 503)
 
