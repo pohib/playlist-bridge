@@ -45,6 +45,32 @@ class InputValidationTests(TestCase):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
 
 
+class SpotifyApiDestinationTests(TestCase):
+    def setUp(self):
+        self.client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
+
+    def test_spotify_api_url_uses_fixed_https_origin(self):
+        self.assertEqual(
+            self.client._validated_api_url("/playlists/AbCdEf1234567890/items"),
+            "https://api.spotify.com/v1/playlists/AbCdEf1234567890/items",
+        )
+
+    def test_spotify_api_rejects_absolute_and_scheme_relative_urls(self):
+        for path in (
+            "https://attacker.example/steal",
+            "//attacker.example/steal",
+            "/\\\\attacker.example/steal",
+            "/playlists/../../admin",
+            "/unknown/endpoint",
+        ):
+            with self.subTest(path=path), self.assertRaises(TransferError):
+                self.client._validated_api_url(path)
+
+    def test_spotify_api_rejects_unapproved_http_method(self):
+        with self.assertRaises(TransferError):
+            self.client.api("TRACE", "/me", "test-token")
+
+
 class VKPlaylistBatchTests(TestCase):
     def test_fetch_playlist_processes_all_ids_in_order_across_batches(self):
         client = VKClient("test-access", "5.289", "vk-app")
