@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ("target_provider", models.CharField(choices=[("vk", "ВКонтакте"), ("spotify", "Spotify"), ("soundcloud", "SoundCloud"), ("youtube_music", "YouTube Music"), ("apple_music", "Apple Music"), ("manual", "Локальная коллекция")], max_length=24)),
-                ("target_playlist_id", models.CharField(max_length=128)),
+                ("provider_playlist_id", models.CharField(max_length=128)),
                 ("target_url", models.URLField(blank=True, max_length=2048)),
                 ("status", models.CharField(choices=[("review", "Требует проверки"), ("completed", "Завершён")], default="review", max_length=16)),
                 ("total", models.PositiveIntegerField(default=0)),
