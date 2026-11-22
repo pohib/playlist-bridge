@@ -22,10 +22,6 @@ Django-приложение для переноса VK-плейлистов в S
 
 Не помещай пользовательские VK/Spotify access token или refresh token в .env.
 
-Сгенерировать Fernet key:
-
-    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-
 Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), а VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go). Для VK ID выбери платформу Web и зарегистрируй Redirect URL. Не используй локальный HTTP callback: VK требует публичный HTTPS-адрес. Точные callback URL появятся после запуска временного Cloudflare Tunnel по инструкции ниже. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
@@ -161,6 +157,28 @@ Quick Tunnel не гарантирует постоянный адрес. При
 Команда down -v удаляет PostgreSQL volume, включая сохранённые OAuth credentials и историю переносов. Не выполняй её для обычной остановки.
 
 Не теряй TOKEN_ENCRYPTION_KEY: без него сохранённые зашифрованные токены восстановить нельзя. Храни ключ отдельно в менеджере секретов и делай защищённую резервную копию.
+
+
+## Локальные тесты и проверки
+
+Для запуска тестов на Windows установи Python 3.12 и выполни из корня проекта в отдельном PowerShell:
+
+    py -3.12 -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt -r requirements-dev.txt
+    python manage.py check
+    python manage.py makemigrations --check --dry-run
+    ruff check .
+    pytest -q
+
+Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляй DATABASE_URL в .env только ради тестов.
+
+CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и OWASP ZAP baseline DAST. Результат проверки смотри во вкладке Actions соответствующего коммита.
+
+## Защита Spotify API от SSRF
+
+Spotify-клиент не принимает произвольные URL или HTTP-методы: вызываются только заранее определённые операции API. Для операций с плейлистом отдельно проверяется ID, а автоматическое следование HTTP-редиректам отключено. Эти меры ограничивают сетевое назначение фиксированным API Spotify и не позволяют передать пользовательский URL в HTTP-клиент. Регрессионные тесты проверяют подмену адреса, некорректные ID и редиректы. Статус CodeQL подтверждается только после успешного завершения нового анализа на актуальном commit SHA.
 
 ## API v1
 
