@@ -106,6 +106,27 @@ class OAuthSecurityTests(TestCase):
         self.assertEqual(params["state"][0], "random-state")
         self.assertEqual(params["scope"][0], "audio")
 
+    def test_vk_oauth_secrets_are_sent_in_post_body(self):
+        service_token = Fernet.generate_key().decode()
+        client = VKIDClient("vk-app-id", "https://example.test/vk/callback/", service_token)
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "access_token": Fernet.generate_key().decode(),
+            "refresh_token": Fernet.generate_key().decode(),
+            "state": "expected-state",
+        }
+        client.http.post = Mock(return_value=response)
+
+        client.exchange_code("one-time-code", "device-id", "expected-state", "pkce-verifier")
+
+        call = client.http.post.call_args
+        self.assertNotIn("params", call.kwargs)
+        self.assertEqual(call.kwargs["data"]["code"], "one-time-code")
+        self.assertEqual(call.kwargs["data"]["code_verifier"], "pkce-verifier")
+        self.assertEqual(call.kwargs["data"]["service_token"], service_token)
+        self.assertEqual(call.kwargs["data"]["state"], "expected-state")
+
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     def test_oauth_tokens_are_encrypted_at_rest(self):
         access_token = Fernet.generate_key().decode()
