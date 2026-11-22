@@ -564,3 +564,7 @@ class SoundCloudClient:
         if not result.get("id"):
             raise TransferError("SoundCloud не подтвердил загрузку аудиофайла.")
         return result
+
+
+    def disconnect(self, token):
+        self._request("POST", "/disconnect", token)
