@@ -13,6 +13,7 @@ urlpatterns = [
     path("vk/disconnect/", views.disconnect_vk, name="disconnect_vk"),
     path("transfer/", views.transfer_playlist, name="transfer_playlist"),
     path("report.csv", views.download_report, name="download_report"),
+    path("library/profile/update/", library_views.update_profile, name="library_update_profile"),
     path("library/playlists/create/", library_views.create_playlist, name="library_create_playlist"),
     path("library/playlists/<uuid:playlist_id>/tracks/add/", library_views.add_track, name="library_add_track"),
     path("library/playlists/<uuid:playlist_id>/delete/", library_views.delete_playlist, name="library_delete_playlist"),
