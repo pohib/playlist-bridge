@@ -4,7 +4,7 @@
 <section class="auth-layout"><div class="auth-aside"><div class="eyebrow"><span class="pulse"></span> YOUR SPACE STARTS HERE</div><h1>Одна библиотека.<br><span>Все твои сервисы.</span></h1><p>Создай профиль, чтобы хранить коллекции, подключения и историю переносов между устройствами.</p></div>
 <article class="auth-card"><span class="section-kicker">НОВЫЙ ПРОФИЛЬ</span><h2>Создать аккаунт</h2><p class="muted-copy">Это займёт меньше минуты.</p>
 <form method="post" class="auth-form">{% csrf_token %}
-{% for field in form %}<label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text|safe }}</small>{% endif %}</label>{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% endfor %}
+{% for field in form %}<label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text|striptags }}</small>{% endif %}</label>{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% endfor %}
 <button class="primary-button auth-submit" type="submit">Создать профиль <span>↗</span></button></form>
 <div class="auth-switch">Уже зарегистрирован? <a href="{% url 'login' %}">Войти</a></div></article></section>
 {% endblock %}
