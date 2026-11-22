@@ -1,0 +1,16 @@
+{% extends "transfer/base.html" %}
+{% block title %}Обзор — Playlist Bridge{% endblock %}
+{% block content %}
+<section class="page-heading"><div><span class="section-kicker">YOUR WORKSPACE</span><h1>Привет, <span>{{ user.username }}</span>.</h1><p>Здесь начинается маршрут твоей музыки.</p></div><a class="primary-button" href="{% url 'library' %}">Открыть библиотеку <span>↗</span></a></section>
+<section class="dashboard-tiles">
+  <a class="dashboard-tile tile-library" href="{% url 'library' %}"><span class="tile-icon">▤</span><span class="tile-meta">КОЛЛЕКЦИИ</span><strong>Моя библиотека</strong><small>Плейлисты и отдельные треки в одном месте</small><b>Перейти →</b></a>
+  <a class="dashboard-tile tile-services" href="{% url 'connections' %}"><span class="tile-icon">⌘</span><span class="tile-meta">АККАУНТЫ</span><strong>Музыкальные сервисы</strong><small>Подключай и управляй доступом через OAuth</small><b>Настроить →</b></a>
+  <a class="dashboard-tile tile-transfers" href="{% url 'transfers' %}"><span class="tile-icon">⇄</span><span class="tile-meta">ИСТОРИЯ</span><strong>Переносы</strong><small>Результаты, статусы и найденные совпадения</small><b>Посмотреть →</b></a>
+</section>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">RECENTLY ADDED</span><h2>Недавние плейлисты</h2></div><a class="subtle-link" href="{% url 'library' %}">Вся библиотека →</a></div>
+{% if recent_playlists %}<div class="compact-playlists">{% for playlist in recent_playlists %}<a class="compact-playlist" href="{% url 'playlist_detail' playlist.id %}"><span class="playlist-symbol">{{ playlist.title|first|upper }}</span><span><strong>{{ playlist.title }}</strong><small>{{ playlist.get_provider_display }} · {{ playlist.tracks.count }} треков</small></span><b>↗</b></a>{% endfor %}</div>{% else %}<div class="empty-state"><span>♫</span><strong>Библиотека пока пуста</strong><p>Импортируй первый плейлист или создай собственную коллекцию.</p><a href="{% url 'library' %}">Добавить музыку →</a></div>{% endif %}
+</section>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">ACTIVITY</span><h2>Последние переносы</h2></div><a class="subtle-link" href="{% url 'transfers' %}">Вся история →</a></div>
+{% if recent_jobs %}<div class="job-list">{% for job in recent_jobs %}<div class="job-row"><span class="job-dot status-{{ job.status }}"></span><span><strong>{{ job.get_status_display }}</strong><small>{{ job.created_at|date:"d.m.Y H:i" }} · {{ job.matched }}/{{ job.total }} найдено</small></span><b>{{ job.progress }}%</b></div>{% endfor %}</div>{% else %}<p class="muted-copy">Пока нет выполненных переносов. Выбери плейлист в библиотеке, чтобы начать.</p>{% endif %}
+</section>
+{% endblock %}
