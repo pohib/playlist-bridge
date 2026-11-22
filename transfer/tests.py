@@ -37,7 +37,7 @@ class HttpSurfaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Content-Security-Policy", response.headers)
         self.assertIn("Permissions-Policy", response.headers)
-        self.assertEqual(response.headers["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate")
+        self.assertEqual(response.headers["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate, private")
 
     def test_health(self):
         self.assertEqual(self.client.get(reverse("healthz")).json(), {"status": "ok"})
