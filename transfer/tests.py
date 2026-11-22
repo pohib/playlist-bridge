@@ -98,6 +98,7 @@ class OAuthSecurityTests(TestCase):
         self.assertEqual(params["code_challenge"][0], expected)
         self.assertEqual(params["code_challenge_method"][0], "s256")
         self.assertEqual(params["state"][0], "random-state")
+        self.assertEqual(params["scope"][0], "audio")
 
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     def test_oauth_tokens_are_encrypted_at_rest(self):
