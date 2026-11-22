@@ -359,6 +359,11 @@ class SpotifyClient:
         return playlist
 
     def add_items(self, token, playlist_id, uris, position=None):
+        if not uris or any(
+            not isinstance(uri, str) or not re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", uri)
+            for uri in uris
+        ):
+            raise TransferError("Список содержит некорректный Spotify track URI.")
         for offset in range(0, len(uris), 100):
             body = {"uris": uris[offset:offset + 100]}
             if position is not None:
@@ -603,6 +608,8 @@ class SoundCloudClient:
         return payload.get("collection", []) if isinstance(payload, dict) else payload
 
     def create_playlist(self, token, title, tracks, description=""):
+        if len(tracks) > 100 or any(not re.fullmatch(r"[0-9]+", str(track_id)) for track_id in tracks):
+            raise TransferError("Список композиций SoundCloud содержит некорректные ID или превышает лимит.")
         payload = self._request(
             "POST", "/playlists", token,
             json_body={"playlist": {
