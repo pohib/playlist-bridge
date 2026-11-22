@@ -4,8 +4,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101014">
-  <title>VK → Spotify — перенос плейлистов</title>
+  <meta name="theme-color" content="#090d16">
+  <meta name="description" content="Playlist Bridge — перенос плейлистов из ВКонтакте в Spotify.">
+  <link rel="icon" type="image/svg+xml" href="{% static 'transfer/images/brand.svg' %}">
+  <title>Playlist Bridge — VK → Spotify</title>
   <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}">
   <script defer src="{% static 'transfer/js/app.js' %}"></script>
 </head>
@@ -13,8 +15,9 @@
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="{% url 'home' %}" aria-label="VK to Spotify">
-        <span class="brand-mark">V<span>→</span>S</span><span>playlist bridge</span>
+      <a class="brand" href="{% url 'home' %}" aria-label="Playlist Bridge — на главную">
+        <img class="brand-mark" src="{% static 'transfer/images/brand.svg' %}" alt="">
+        <span>playlist bridge</span>
       </a>
       <span class="version">BETA · API v1</span>
     </header>
