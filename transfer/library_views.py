@@ -1,9 +1,10 @@
+import re
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-import re
-
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -347,7 +348,6 @@ def transfer_library_playlist(request, playlist_id):
                 settings.SPOTIFY_REDIRECT_URI,
             )
             token, _ = get_access_token(fingerprint, "spotify", client)
-            user = client.current_user(token)
             for track in tracks:
                 source = SimpleNamespace(
                     title=track.title,
@@ -438,8 +438,6 @@ def transfer_library_playlist(request, playlist_id):
 
 @require_POST
 def upload_track_to_soundcloud(request):
-    from pathlib import Path
-
     uploaded = request.FILES.get("audio_file")
     title = (request.POST.get("title") or "").strip()
     artist = (request.POST.get("artist") or "").strip()
