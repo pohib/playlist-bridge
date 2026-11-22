@@ -258,3 +258,10 @@ footer span:first-child { color: #a9b4c4; font-weight: 850; letter-spacing: .02e
   .compact-button { width: 100%; }
   .playlist-card { padding: 14px; }
 }
+
+.import-vk-form { margin-bottom: 16px; }
+.import-vk-form .form-inline { align-items: center; }
+.import-vk-form .compact-button { flex: 0 0 auto; min-width: 190px; margin-top: 0; }
+@media (max-width: 600px) {
+  .import-vk-form .compact-button { width: 100%; }
+}
