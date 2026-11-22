@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
@@ -124,9 +125,7 @@ class SessionIsolationTests(TestCase):
     def fingerprint(client):
         client.get(reverse("home"))
         session_key = client.cookies[settings.SESSION_COOKIE_NAME].value
-        return hashlib.sha256(
-            (settings.SECRET_KEY + session_key).encode()
-        ).hexdigest() if False else __import__("hmac").new(
+        return hmac.new(
             settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
         ).hexdigest()
 
