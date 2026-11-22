@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from .core import parse_vk_playlist_url, normalize_track_text
+from .views import csv_safe_cell
 
 class InputValidationTests(TestCase):
     def test_vk_playlist_url_parsed(self):
@@ -13,6 +14,9 @@ class InputValidationTests(TestCase):
             parse_vk_playlist_url("javascript:alert(1)")
     def test_normalization(self):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
+    def test_csv_formula_is_neutralized(self):
+        self.assertEqual(csv_safe_cell("=1+1"), "'=1+1")
+        self.assertEqual(csv_safe_cell("Artist - Track"), "Artist - Track")
 
 class HttpSurfaceTests(TestCase):
     def test_home(self):
