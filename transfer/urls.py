@@ -1,4 +1,5 @@
-from django.urls import path
+from django.contrib.auth import views as django_auth_views
+from django.urls import path, reverse_lazy
 
 from . import auth_views, library_views, site_views, views
 
@@ -7,6 +8,7 @@ urlpatterns = [
     path("accounts/register/", auth_views.register, name="register"),
     path("accounts/login/", auth_views.sign_in, name="login"),
     path("accounts/logout/", auth_views.sign_out, name="logout"),
+    path("accounts/password_change/", django_auth_views.PasswordChangeView.as_view(template_name="transfer/auth/password_change.html", success_url=reverse_lazy("profile")), name="password_change"),
     path("app/", site_views.dashboard, name="dashboard"),
     path("library/", site_views.library, name="library"),
     path("library/<uuid:playlist_id>/", site_views.playlist_detail, name="playlist_detail"),
