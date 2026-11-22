@@ -33,7 +33,11 @@ class InputValidationTests(TestCase):
 class HttpSurfaceTests(TestCase):
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_home(self):
-        self.assertEqual(self.client.get(reverse("home")).status_code, 200)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Content-Security-Policy", response.headers)
+        self.assertIn("Permissions-Policy", response.headers)
+        self.assertEqual(response.headers["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate")
 
     def test_health(self):
         self.assertEqual(self.client.get(reverse("healthz")).json(), {"status": "ok"})
