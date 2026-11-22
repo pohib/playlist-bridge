@@ -1,56 +1,33 @@
 name: Dependabot auto-merge
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 concurrency:
-  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  group: dependabot-auto-merge-\${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 permissions:
   contents: write
   pull-requests: write
-  checks: read
 
 jobs:
-  enable-auto-merge:
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.draft == false
+  merge-passing-dependabot-pr:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-latest
     steps:
-      - name: Read Dependabot update metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Wait for required CI jobs and enable auto-merge
+      - name: Merge Dependabot PR after every CI job passes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_UPDATED_AT: ${{ github.event.pull_request.updated_at }}
-          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: \${{ github.event.workflow_run.head_branch }}
+          REPOSITORY: \${{ github.repository }}
         run: |
-          required_checks=(tests sast-sca-secrets container dast)
-          for attempt in $(seq 1 90); do
-            checks=$(gh api "repos/$REPOSITORY/commits/$PR_HEAD_SHA/check-runs")
-            all_passed=true
-            for name in "${required_checks[@]}"; do
-              status=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .status // "missing"' <<< "$checks")
-              conclusion=$(jq -r --arg name "$name" '[.check_runs[] | select(.name == $name and .started_at >= env.PR_UPDATED_AT)] | sort_by(.started_at) | last | .conclusion // ""' <<< "$checks")
-              if [[ "$status" == "completed" && "$conclusion" != "success" && "$conclusion" != "cancelled" && "$conclusion" != "skipped" && "$conclusion" != "neutral" ]]; then
-                echo "Required check $name finished with conclusion: $conclusion"
-                exit 1
-              fi
-              if [[ "$status" != "completed" || "$conclusion" != "success" ]]; then
-                all_passed=false
-              fi
-            done
-            if [[ "$all_passed" == "true" ]]; then
-              gh pr merge --squash "$PR_URL"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Timed out waiting for required CI jobs."
-          exit 1
+          pr_data=$(gh pr list --repo "$REPOSITORY" --head "$HEAD_BRANCH" --state open --json number,author)
+          pr_number=$(jq -r '[.[] | select(.author.login == "dependabot[bot]")] | first | .number // empty' <<< "$pr_data")
+          if [[ -z "$pr_number" ]]; then
+            echo "No open Dependabot PR found for $HEAD_BRANCH."
+            exit 0
+          fi
+          gh pr merge "$pr_number" --squash
