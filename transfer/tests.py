@@ -871,6 +871,7 @@ class AccountWorkspaceTests(TestCase):
 
     def test_account_libraries_are_isolated_between_users(self):
         from django.contrib.auth import get_user_model
+
         from .models import LibraryPlaylist, LibraryProfile
 
         user_model = get_user_model()
