@@ -1,13 +1,12 @@
 import base64
 import hashlib
 import hmac
-from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
-
-from django.conf import settings
-from django.db import IntegrityError, transaction
+from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
+from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -79,7 +78,7 @@ class VersionedApiTests(TestCase):
     @override_settings(
         VK_ID_CLIENT_ID="test-vk-app",
         SPOTIFY_CLIENT_ID="test-client",
-        SPOTIFY_CLIENT_SECRET="test-secret",
+        SPOTIFY_CLIENT_SECRET=Fernet.generate_key().decode(),
         TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
     )
     def test_create_transfer_requires_spotify_session(self):
@@ -107,7 +106,7 @@ class OAuthSecurityTests(TestCase):
 
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     def test_oauth_tokens_are_encrypted_at_rest(self):
-        token = {"access_token": "user-access-secret", "refresh_token": "user-refresh-secret"}
+        token = {"access_token": Fernet.generate_key().decode(), "refresh_token": Fernet.generate_key().decode()}
         credential = store_credential("a" * 64, "spotify", token, "spotify-user")
         self.assertNotIn("user-access-secret", credential.encrypted_payload)
         self.assertNotIn("user-refresh-secret", credential.encrypted_payload)
@@ -164,9 +163,8 @@ class TransferConcurrencyTests(TestCase):
 
     def test_database_rejects_second_active_job_for_same_session(self):
         self.create_job()
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                self.create_job()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.create_job()
 
     @patch("transfer.tasks.get_access_token", return_value=("test-token", {}))
     @patch("transfer.tasks.execute_transfer")
@@ -233,8 +231,8 @@ class ApiSessionSecurityTests(TestCase):
         fingerprint = hmac.new(
             settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
         ).hexdigest()
-        store_credential(fingerprint, "spotify", {"access_token": "spotify-test"})
-        store_credential(fingerprint, "vk", {"access_token": "vk-test"})
+        store_credential(fingerprint, "spotify", {"access_token": Fernet.generate_key().decode()})
+        store_credential(fingerprint, "vk", {"access_token": Fernet.generate_key().decode()})
 
         payload = '{"source_url":"https://vk.ru/music/playlist/241688629_5"}'
         first = self.client.post(
