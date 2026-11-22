@@ -82,16 +82,16 @@ API использует ту же браузерную сессию и CSRF:
 ## Безопасность и CI
 
 - pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
-- Bandit, Semgrep и CodeQL (security-extended) с SARIF публикацией в GitHub Code Scanning;
+- Bandit, Semgrep и CodeQL (security-extended) как обязательные jobs CI с SARIF публикацией в GitHub Code Scanning;
 - pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
 - OWASP ZAP baseline DAST против запущенного приложения;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
 - Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
 
-Автоматическое слияние выполняет workflow через GITHUB_TOKEN после успешного CI; включать Allow auto-merge не требуется. Для дополнительной защиты включи ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container и dast.
+Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включи ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container, dast и codeql.
 
-SARIF загружается на push/workflow_dispatch; GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверь доступность этой функции на текущем плане.
+SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, а CodeQL также анализирует pull request. GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверь доступность этой функции на текущем плане.
 
 ## Ограничения
 
