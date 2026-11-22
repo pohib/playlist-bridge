@@ -30,6 +30,7 @@ class InputValidationTests(TestCase):
 
 
 class HttpSurfaceTests(TestCase):
+    @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_home(self):
         self.assertEqual(self.client.get(reverse("home")).status_code, 200)
 
