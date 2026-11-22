@@ -6,7 +6,7 @@ $tunnel = $null
 
 try {
     if (-not (Test-Path ".env")) {
-        throw "Файл .env не найден. Сначала скопируй .env.example в .env и заполни секреты."
+        throw "Missing .env file. Copy .env.example to .env and configure the secrets first."
     }
 
     $envPath = Join-Path $repoRoot ".env"
@@ -21,29 +21,29 @@ try {
             if ($line.StartsWith($required + "=")) {
                 $value = $line.Substring($required.Length + 1).Trim()
                 if ([string]::IsNullOrWhiteSpace($value) -or $value.StartsWith("replace-")) {
-                    throw "В .env необходимо задать значение для $required."
+                    throw "Set a value for $required."
                 }
                 $found = $true
                 break
             }
         }
         if (-not $found) {
-            throw "В .env отсутствует параметр $required."
+            throw "Missing .env parameter $required."
         }
     }
 
     $cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue
     if (-not $cloudflared) {
-        throw "cloudflared не найден. Установи его командой: winget install --id Cloudflare.cloudflared -e"
+        throw "cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e"
     }
 
-    Write-Host "[1/4] Сборка и запуск контейнеров..."
+    Write-Host "[1/4] Building and starting containers..."
     docker compose up -d --build
     if ($LASTEXITCODE -ne 0) {
-        throw "docker compose up завершился с ошибкой."
+        throw "docker compose up failed."
     }
 
-    Write-Host "[2/4] Проверка Django..."
+    Write-Host "[2/4] Checking Django..."
     $healthy = $false
     for ($i = 0; $i -lt 60; $i++) {
         try {
@@ -61,10 +61,10 @@ try {
     if (-not $healthy) {
         docker compose ps
         docker compose logs --tail=80 web
-        throw "Django не стал доступен на локальном health endpoint."
+        throw "Django did not become available at the local health endpoint."
     }
 
-    Write-Host "[3/4] Запуск Cloudflare Quick Tunnel..."
+    Write-Host "[3/4] Starting Cloudflare Quick Tunnel..."
     $stdout = Join-Path $env:TEMP "vk-to-spotify-cloudflared-out.log"
     $stderr = Join-Path $env:TEMP "vk-to-spotify-cloudflared-err.log"
     Remove-Item $stdout -Force -ErrorAction SilentlyContinue
@@ -91,12 +91,12 @@ try {
             break
         }
         if ($tunnel.HasExited) {
-            throw "cloudflared завершился. Проверь лог $stderr."
+            throw "cloudflared exited. Check log $stderr."
         }
     }
 
     if (-not $publicUrl) {
-        throw "Не удалось получить HTTPS адрес Cloudflare. Проверь лог $stderr."
+        throw "Could not obtain the Cloudflare HTTPS URL. Check log $stderr."
     }
 
     $hostName = ([uri]$publicUrl).Host
@@ -128,10 +128,10 @@ try {
 
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "[4/4] Перезапуск web и worker с HTTPS..."
+    Write-Host "[4/4] Restarting web and worker with HTTPS..."
     docker compose up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) {
-        throw "Не удалось перезапустить web и worker."
+        throw "Could not restart web and worker."
     }
 
     $healthy = $false
@@ -150,7 +150,7 @@ try {
 
     if (-not $healthy) {
         docker compose logs --tail=80 web
-        throw "Django не прошел health check после включения HTTPS."
+        throw "Django health check failed after enabling HTTPS."
     }
 
     Write-Host ""
@@ -158,10 +158,10 @@ try {
     Write-Host "VK ID callback: $origin/vk/callback/"
     Write-Host "Spotify callback: $origin/spotify/callback/"
     Write-Host "Tunnel PID: $($tunnel.Id)"
-    Write-Host "Обнови callback URL в кабинетах VK ID и Spotify."
-    Write-Host "Оставь cloudflared запущенным на время работы приложения."
-    Write-Host "Для остановки туннеля: Stop-Process -Id $($tunnel.Id)"
-    Write-Host "При новом запуске Quick Tunnel адрес может измениться."
+    Write-Host "Update callback URLs in the VK ID and Spotify dashboards."
+    Write-Host "Keep cloudflared running while using the application."
+    Write-Host "To stop the tunnel: Stop-Process -Id $($tunnel.Id)"
+    Write-Host "The Quick Tunnel URL may change when restarted."
 }
 catch {
     if ($null -ne $tunnel -and -not $tunnel.HasExited) {
