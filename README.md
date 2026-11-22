@@ -4,9 +4,10 @@ Django-приложение для сбора плейлистов и треко
 
 ## Пользовательская авторизация
 
-Пользователь подключает оба сервиса кнопками на главной странице:
+Пользователь подключает доступные сервисы кнопками на главной странице:
 - Spotify — OAuth Authorization Code.
 - VK — VK ID OAuth 2.1 Authorization Code с PKCE, state и device_id.
+- SoundCloud — OAuth 2.1 Authorization Code с PKCE S256 и одноразовыми refresh tokens.
 
 Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.
 
@@ -38,13 +39,13 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 - SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
 - версия VK API и адрес Redis.
 
-Не помещай пользовательские VK/Spotify access token или refresh token в .env.
+Не помещай пользовательские VK/Spotify/SoundCloud access token или refresh token в .env.
 
-Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), а VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go). Для VK ID выбери платформу Web и зарегистрируй Redirect URL. Не используй локальный HTTP callback: VK требует публичный HTTPS-адрес. Точные callback URL появятся после запуска временного Cloudflare Tunnel по инструкции ниже. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
+Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go), а SoundCloud — в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. Для VK ID выбери платформу Web и зарегистрируй Redirect URL. Не используй локальный HTTP callback: VK требует публичный HTTPS-адрес. Точные callback URL появятся после запуска временного Cloudflare Tunnel по инструкции ниже. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
-Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах VK ID и Spotify.
+Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах VK ID, Spotify и SoundCloud.
 
 ### 1. Подготовь проект и .env
 
