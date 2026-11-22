@@ -117,7 +117,7 @@ def update_profile(request):
 @require_POST
 def import_vk_playlist(request):
     from django.conf import settings
-    from .core import VKClient, TransferError
+    from .core import TransferError, VKClient
     from .credentials import get_access_token
     from .views import vk_client
 
