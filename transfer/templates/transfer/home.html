@@ -21,7 +21,7 @@
     <section class="hero">
       <div class="eyebrow"><span class="pulse"></span> MUSIC TRANSFER TOOL</div>
       <h1>Твоя музыка.<br><span>На новой платформе.</span></h1>
-      <p class="lead">Переноси плейлисты из VK в Spotify, сохраняя порядок композиций. Совпадения проверяются по названию, исполнителю и длительности.</p>
+      <p class="lead">Подключи свои аккаунты VK и Spotify через OAuth, затем переноси плейлисты, сохраняя порядок композиций. Совпадения проверяются по названию, исполнителю и длительности.</p>
     </section>
     <section class="panel">
       <div class="panel-heading">
@@ -30,19 +30,33 @@
       </div>
       <div class="connection-row">
         <div class="service-icon vk-icon">vk</div>
-        <div class="service-copy"><strong>ВКонтакте</strong><span>{% if vk_configured %}API доступ настроен{% else %}Не задан VK_API_TOKEN{% endif %}</span></div>
-        <span class="connection-state {% if vk_configured %}good{% else %}bad{% endif %}">{% if vk_configured %}Готово{% else %}Настроить{% endif %}</span>
+        <div class="service-copy"><strong>ВКонтакте</strong><span>{% if vk_connected %}Аккаунт авторизован, токен зашифрован{% elif vk_configured %}Требуется OAuth авторизация VK ID{% else %}Не настроено приложение VK ID{% endif %}</span></div>
+        {% if vk_connected %}
+          <form method="post" action="{% url 'disconnect_vk' %}">{% csrf_token %}<button class="connect-link" type="submit">Отключить</button></form>
+        {% else %}
+          <a class="connect-link {% if not vk_configured %}disabled{% endif %}" href="{% if vk_configured %}{% url 'vk_login' %}{% else %}#{% endif %}" {% if not vk_configured %}aria-disabled="true"{% endif %}>Подключить <span>↗</span></a>
+        {% endif %}
       </div>
       <div class="connection-row">
         <div class="service-icon spotify-icon">●</div>
-        <div class="service-copy"><strong>Spotify</strong><span>{% if connected %}Аккаунт авторизован{% elif spotify_configured %}Требуется OAuth авторизация{% else %}Не заданы OAuth credentials{% endif %}</span></div>
-        {% if connected %}<span class="connection-state good">Готово</span>{% else %}<a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true" title="Заполни SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET в .env"{% endif %}>Подключить <span>↗</span></a>{% endif %}
+        <div class="service-copy"><strong>Spotify</strong><span>{% if connected %}Аккаунт авторизован, токен зашифрован{% elif spotify_configured %}Требуется OAuth авторизация{% else %}Не настроено приложение Spotify{% endif %}</span></div>
+        {% if connected %}
+          <form method="post" action="{% url 'disconnect_spotify' %}">{% csrf_token %}<button class="connect-link" type="submit">Отключить</button></form>
+        {% else %}
+          <a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true"{% endif %}>Подключить <span>↗</span></a>
+        {% endif %}
       </div>
       {% if not spotify_configured %}
-      <div class="inline-help"><strong>Spotify OAuth ещё не настроен.</strong> Создай приложение в Spotify Developer Dashboard, добавь Redirect URI <code>{{ request.scheme }}://{{ request.get_host }}{% url 'spotify_callback' %}</code>, затем заполни <code>SPOTIFY_CLIENT_ID</code> и <code>SPOTIFY_CLIENT_SECRET</code> в файле <code>.env</code>. После этого перезапусти контейнеры.</div>
+      <div class="inline-help"><strong>Spotify OAuth не настроен на сервере.</strong> Создай приложение в Spotify Developer Dashboard и укажи Redirect URI <code>{{ request.scheme }}://{{ request.get_host }}{% url 'spotify_callback' %}</code>. В <code>.env</code> хранятся только Client ID и Client Secret разработчика, а не пользовательские токены.</div>
       {% endif %}
-      {% if not vk_configured %}<div class="inline-help warning"><strong>VK API token отсутствует.</strong> Укажи <code>VK_API_TOKEN</code> в .env.</div>{% endif %}
-      {% if not encryption_key_configured %}<div class="inline-help warning"><strong>Не настроено шифрование токенов.</strong> Сгенерируй ключ командой <code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code> и добавь его как <code>TOKEN_ENCRYPTION_KEY</code> в .env.</div>{% endif %}
+      {% if not vk_configured %}
+      <div class="inline-help warning"><strong>VK ID OAuth не настроен.</strong> Создай приложение VK ID и добавь Redirect URI <code>{{ request.scheme }}://{{ request.get_host }}{% url 'vk_callback' %}</code>. Укажи <code>VK_ID_CLIENT_ID</code> и при необходимости <code>VK_ID_SERVICE_TOKEN</code> в <code>.env</code>.</div>
+      {% endif %}
+      {% if not encryption_key_configured %}
+      <div class="inline-help warning"><strong>Не настроено шифрование токенов.</strong> Сгенерируй ключ Fernet и добавь его в <code>TOKEN_ENCRYPTION_KEY</code> в <code>.env</code>.</div>
+      {% endif %}
+      {% if oauth_success %}<div class="notice">{{ oauth_success }}</div>{% endif %}
+      {% if oauth_error %}<div class="inline-help warning">{{ oauth_error }}</div>{% endif %}
     </section>
     <section class="panel transfer-panel">
       <div class="panel-heading">
@@ -56,7 +70,7 @@
         <label for="target_playlist">Целевой плейлист Spotify <span class="optional">необязательно</span></label>
         <input id="target_playlist" name="target_playlist" maxlength="2048" placeholder="Вставь ссылку или ID — либо оставь пустым">
         <p class="field-hint">Если поле пустое, будет создан новый приватный плейлист. Для существующего проверяется владелец.</p>
-        <button class="primary-button" type="submit" {% if not connected or not vk_configured or not encryption_key_configured %}disabled{% endif %}><span>Начать перенос</span><span class="button-arrow">→</span></button>
+        <button class="primary-button" type="submit" {% if not connected or not vk_connected or not encryption_key_configured %}disabled{% endif %}><span>Начать перенос</span><span class="button-arrow">→</span></button>
       </form>
       <div id="transfer-status" class="transfer-status" hidden aria-live="polite">
         <div class="progress-top"><strong id="job-title">Перенос запущен</strong><span id="progress-value">0%</span></div>
