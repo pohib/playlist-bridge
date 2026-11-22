@@ -415,3 +415,70 @@ class SpotifyRefreshLifecycleTests(TestCase):
         with self.assertRaises(ReauthorizationRequired):
             client.refresh_token(Fernet.generate_key().decode())
 
+
+
+class LibraryWorkspaceTests(TestCase):
+    def test_create_playlist_and_add_track(self):
+        response = self.client.post(
+            reverse("library_create_playlist"),
+            {
+                "title": "Night Drive",
+                "provider": "vk",
+                "description": "Late night set",
+                "external_url": "https://vk.com/music",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+        playlist = LibraryPlaylist.objects.get(title="Night Drive")
+        self.assertEqual(playlist.provider, "vk")
+
+        response = self.client.post(
+            reverse("library_add_track", kwargs={"playlist_id": playlist.pk}),
+            {
+                "title": "After Hours",
+                "artist": "The Weeknd",
+                "album": "After Hours",
+                "duration_seconds": "240",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        track = LibraryTrack.objects.get(playlist=playlist)
+        self.assertEqual(track.duration_ms, 240000)
+        self.assertEqual(track.artist, "The Weeknd")
+        self.assertEqual(LibraryProfile.objects.count(), 1)
+
+    def test_library_objects_are_isolated_between_sessions(self):
+        from .models import LibraryPlaylist, LibraryProfile
+        self.client.post(
+            reverse("library_create_playlist"),
+            {"title": "Private list", "provider": "manual"},
+        )
+        playlist = LibraryPlaylist.objects.get(title="Private list")
+
+        other_client = self.client_class()
+        response = other_client.post(
+            reverse("library_add_track", kwargs={"playlist_id": playlist.pk}),
+            {"title": "Hidden", "artist": "Other"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(playlist.tracks.count(), 0)
+        self.assertEqual(LibraryProfile.objects.count(), 2)
+
+    def test_playlist_rejects_non_http_external_url(self):
+        response = self.client.post(
+            reverse("library_create_playlist"),
+            {"title": "Bad link", "provider": "manual", "external_url": "javascript:alert(1)"},
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryPlaylist
+        self.assertFalse(LibraryPlaylist.objects.filter(title="Bad link").exists())
+
+    def test_profile_name_can_be_updated(self):
+        response = self.client.post(
+            reverse("library_update_profile"),
+            {"display_name": "My Music"},
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryProfile
+        self.assertEqual(LibraryProfile.objects.get().display_name, "My Music")
