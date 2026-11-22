@@ -67,12 +67,12 @@ class SpotifyApiDestinationTests(TestCase):
     def test_spotify_add_items_supports_original_position(self):
         client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
         client.api = Mock()
-        client.add_items("token", "AbCdEf1234567890GhIjKl", ["spotify:track:abc"], position=3)
+        client.add_items("token", "AbCdEf1234567890GhIjKl", ["spotify:track:4iV5W9uYEdYUVa79Axb7Rh"], position=3)
         client.api.assert_called_once_with(
             "playlist_items",
             "token",
             playlist_id="AbCdEf1234567890GhIjKl",
-            body={"uris": ["spotify:track:abc"], "position": 3},
+            body={"uris": ["spotify:track:4iV5W9uYEdYUVa79Axb7Rh"], "position": 3},
         )
 
     def test_spotify_api_rejects_unknown_operations_and_untrusted_ids(self):
