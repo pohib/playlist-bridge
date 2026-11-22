@@ -1,4 +1,4 @@
-import django.conf
+from django.conf import settings
 import django.db.models.deletion
 from django.db import migrations, models
 
