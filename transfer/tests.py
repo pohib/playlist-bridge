@@ -753,7 +753,7 @@ class UnifiedLibraryTransferTests(TestCase):
         track = LibraryTrack.objects.create(playlist=source, title="Track", artist="Artist")
         review = LibraryTransfer.objects.create(
             profile=profile, source_playlist=source, target_provider="soundcloud",
-            target_playlist_id="555", total=1,
+            provider_playlist_id="555", total=1,
         )
         item = LibraryTransferItem.objects.create(
             transfer=review, source_track=track, position=0,
@@ -919,7 +919,7 @@ class AccountWorkspaceTests(TestCase):
             profile=profile,
             source_playlist=playlist,
             target_provider="spotify",
-            target_playlist_id="",
+            provider_playlist_id="",
             total=1,
         )
         LibraryTransferItem.objects.create(
