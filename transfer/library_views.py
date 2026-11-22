@@ -1,3 +1,4 @@
+import logging
 import re
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from .core import (
 )
 from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+
+logger = logging.getLogger(__name__)
 
 
 def _profile(request):
@@ -45,6 +48,25 @@ def _safe_optional_url(value):
     if value:
         URLValidator(schemes=["http", "https"])(value)
     return value
+
+
+def _safe_candidate_url(value, provider):
+    from urllib.parse import urlparse
+
+    parsed = urlparse((value or "").strip())
+    allowed_hosts = {
+        "spotify": {"open.spotify.com", "www.open.spotify.com"},
+        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
+    }
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in allowed_hosts.get(provider, set())
+        or parsed.port not in (None, 443)
+        or parsed.username
+        or parsed.password
+    ):
+        return ""
+    return parsed.geturl()
 
 
 @require_POST
@@ -398,7 +420,7 @@ def transfer_library_playlist(request, playlist_id):
                     matched[track.pk] = {
                         "id": str(item.get("id") or ""),
                         "uri": str(item.get("uri") or ""),
-                        "url": str((item.get("external_urls") or {}).get("spotify", "")),
+                        "url": _safe_candidate_url((item.get("external_urls") or {}).get("spotify", ""), "spotify"),
                     }
                 else:
                     unmatched.append((track, [
@@ -450,7 +472,7 @@ def transfer_library_playlist(request, playlist_id):
                     candidate = ranked[0][1]
                     matched[track.pk] = {
                         "id": str(candidate["id"]),
-                        "url": str(candidate.get("permalink_url") or ""),
+                        "url": _safe_candidate_url(candidate.get("permalink_url"), "soundcloud"),
                     }
                 else:
                     unmatched.append((track, [
@@ -519,6 +541,10 @@ def transfer_library_playlist(request, playlist_id):
         )
         for index, track in enumerate(tracks)
     ])
+    logger.info(
+        "Library transfer created transfer_id=%s profile_id=%s target=%s total=%s matched=%s pending=%s",
+        review.pk, playlist.profile_id, target, len(tracks), len(matched), len(unmatched),
+    )
     messages.success(
         request,
         f"Создан плейлист {target.title()}: найдено {len(matched)} из {len(tracks)}. "
@@ -570,7 +596,7 @@ def search_transfer_item(request, transfer_id, item_id):
                 "title": str(result.get("name") or "")[:180],
                 "artist": ", ".join(str(artist.get("name") or "") for artist in result.get("artists", []))[:180],
                 "duration_ms": int(result.get("duration_ms") or 0),
-                "url": str((result.get("external_urls") or {}).get("spotify", "")),
+                "url": _safe_candidate_url((result.get("external_urls") or {}).get("spotify", ""), "spotify"),
             } for result in results if result.get("id") and result.get("uri")]
         else:
             client, token = _soundcloud_access(request)
@@ -581,7 +607,7 @@ def search_transfer_item(request, transfer_id, item_id):
                 "title": str(result.get("title") or "")[:180],
                 "artist": str(result.get("metadata_artist") or (result.get("user") or {}).get("username") or "")[:180],
                 "duration_ms": int(result.get("duration") or 0),
-                "url": str(result.get("permalink_url") or ""),
+                "url": _safe_candidate_url(result.get("permalink_url"), "soundcloud"),
             } for result in results if result.get("id")]
     except TransferError as exc:
         messages.error(request, str(exc))
