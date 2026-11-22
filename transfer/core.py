@@ -341,6 +341,14 @@ class SpotifyClient:
         })
         return data.get("tracks", {}).get("items", [])
 
+    def search_tracks(self, token, query):
+        data = self.api("search", token, params={
+            "q": query[:180],
+            "type": "track",
+            "limit": 10,
+        })
+        return data.get("tracks", {}).get("items", [])
+
     def current_user(self, token):
         return self.api("current_user", token)
 
