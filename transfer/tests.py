@@ -212,6 +212,15 @@ class VKPlaylistBatchTests(TestCase):
         with patch.object(client, "post", return_value={"response": {"audios": []}}), self.assertRaises(TransferError):
             client.fetch_playlist("https://vk.ru/music/playlist/42_9")
 
+    def test_fetch_track_uses_audio_get_by_id(self):
+        client = self.make_client()
+        with patch.object(client, "post", return_value={"response": [
+            {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Single", "duration": 90}
+        ]}) as post:
+            track = client.fetch_track("https://vk.ru/audio42_7")
+        self.assertEqual((track.owner_id, track.track_id, track.title), (42, 7, "Single"))
+        post.assert_called_once_with("audio.getById", data={"audios": "42_7"})
+
 
 @override_settings(
     STORAGES={
