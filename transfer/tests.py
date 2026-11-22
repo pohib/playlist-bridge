@@ -1,17 +1,19 @@
 import base64
 import hashlib
 import hmac
-from unittest.mock import patch
+import time
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
+from requests import HTTPError
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
-from .credentials import decrypt_payload, store_credential
+from .core import ReauthorizationRequired, SpotifyClient, VKIDClient, normalize_track_text, parse_vk_playlist_url
+from .credentials import decrypt_payload, get_access_token, store_credential
 from .models import OAuthCredential, TransferJob
 
 
@@ -249,3 +251,38 @@ class ApiSessionSecurityTests(TestCase):
         self.assertEqual(first.json()["job"]["id"], second.json()["job"]["id"])
         self.assertEqual(TransferJob.objects.filter(session_fingerprint=fingerprint).count(), 1)
         enqueue.assert_called_once()
+
+
+
+class SpotifyRefreshLifecycleTests(TestCase):
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
+    def test_six_month_old_spotify_authorization_is_deleted(self):
+        fingerprint = "s" * 64
+        store_credential(
+            fingerprint,
+            "spotify",
+            {
+                "access_token": Fernet.generate_key().decode(),
+                "refresh_token": Fernet.generate_key().decode(),
+                "obtained_at": time.time() - 3600,
+                "authorized_at": time.time() - 181 * 24 * 60 * 60,
+            },
+        )
+
+        with self.assertRaises(ReauthorizationRequired):
+            get_access_token(fingerprint, "spotify", Mock())
+
+        self.assertFalse(OAuthCredential.objects.filter(
+            session_fingerprint=fingerprint, provider="spotify"
+        ).exists())
+
+    def test_spotify_invalid_grant_requires_reauthorization(self):
+        client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
+        response = Mock()
+        response.raise_for_status.side_effect = HTTPError("invalid_grant")
+        response.json.return_value = {"error": "invalid_grant"}
+        client.http.post = Mock(return_value=response)
+
+        with self.assertRaises(ReauthorizationRequired):
+            client.refresh_token("expired-refresh-token")
+
