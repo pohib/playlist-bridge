@@ -1,3 +1,4 @@
+from cryptography.fernet import Fernet
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -67,7 +68,7 @@ class VersionedApiTests(TestCase):
         VK_API_TOKEN="test-vk-token",
         SPOTIFY_CLIENT_ID="test-client",
         SPOTIFY_CLIENT_SECRET="test-secret",
-        TOKEN_ENCRYPTION_KEY="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
     )
     def test_create_transfer_requires_spotify_session(self):
         response = self.client.post(
