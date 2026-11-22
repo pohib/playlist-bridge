@@ -8,7 +8,7 @@ from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import SoundCloudClient, SpotifyClient, TransferError, VKClient, VKIDClient, parse_vk_playlist_url, score_candidate
+from .core import SoundCloudClient, SpotifyClient, TransferError, VKClient, VKIDClient, parse_vk_playlist_url, parse_vk_track_url, score_candidate
 from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
@@ -599,3 +599,33 @@ def import_spotify_library(request):
     return redirect("home")
 
 
+
+
+@require_POST
+def import_vk_track(request):
+    source_url = request.POST.get("source_url", "").strip()
+    try:
+        parse_vk_track_url(source_url)
+        if not settings.VK_ID_CLIENT_ID:
+            raise TransferError("VK ID OAuth не настроен на сервере.")
+        client = VKIDClient(settings.VK_ID_CLIENT_ID, settings.VK_ID_REDIRECT_URI, settings.VK_ID_SERVICE_TOKEN)
+        token, _ = get_access_token(get_session_fingerprint(request), "vk", client)
+        track = VKClient(token, settings.VK_API_VERSION, settings.VK_ID_CLIENT_ID).fetch_track(source_url)
+        playlist = LibraryPlaylist.objects.create(
+            profile=_profile(request),
+            title=f"VK — {track.artist} — {track.title}"[:120],
+            provider=LibraryPlaylist.Provider.VK,
+            external_url=source_url,
+            description="Импортирована отдельная аудиозапись VK",
+        )
+        LibraryTrack.objects.create(
+            playlist=playlist, title=track.title[:180], artist=track.artist[:180],
+            duration_ms=max(0, track.duration) * 1000,
+            external_id=f"{track.owner_id}_{track.track_id}",
+            external_url=source_url, position=0,
+        )
+    except (ValueError, TransferError) as exc:
+        messages.error(request, str(exc))
+        return redirect("home")
+    messages.success(request, f"Трек «{track.title}» добавлен в библиотеку.")
+    return redirect("home")
