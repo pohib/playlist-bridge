@@ -21,4 +21,5 @@ def library_workspace(request):
         "library_track_count": sum(playlist.tracks.count() for playlist in playlists),
         "library_vk_connected": "vk" in credentials,
         "library_spotify_connected": "spotify" in credentials,
+        "library_soundcloud_connected": "soundcloud" in credentials,
     }
