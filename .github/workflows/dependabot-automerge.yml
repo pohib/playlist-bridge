@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 concurrency:
-  group: dependabot-auto-merge-\${{ github.event.workflow_run.head_branch }}
+  group: dependabot-auto-merge-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 permissions:
@@ -20,9 +20,9 @@ jobs:
     steps:
       - name: Merge Dependabot PR after every CI job passes
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          HEAD_BRANCH: \${{ github.event.workflow_run.head_branch }}
-          REPOSITORY: \${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           pr_data=$(gh pr list --repo "$REPOSITORY" --head "$HEAD_BRANCH" --state open --json number,author)
           pr_number=$(jq -r '[.[] | select(.author.login == "dependabot[bot]")] | first | .number // empty' <<< "$pr_data")
