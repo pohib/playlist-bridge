@@ -1,9 +1,10 @@
+import base64
+import hashlib
+from urllib.parse import parse_qs, urlparse
+
 from cryptography.fernet import Fernet
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from urllib.parse import parse_qs, urlparse
-import base64
-import hashlib
 
 from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
 from .credentials import decrypt_payload, store_credential
@@ -56,6 +57,7 @@ class VersionedApiTests(TestCase):
         response = self.client.get(reverse("api_status"))
         self.assertEqual(response.status_code, 200)
         self.assertIn("spotify_connected", response.json())
+        self.assertIn("vk_connected", response.json())
         self.assertEqual(response.json()["api_version"], "1")
 
     def test_create_transfer_requires_json(self):
