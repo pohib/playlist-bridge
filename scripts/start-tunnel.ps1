@@ -61,27 +61,52 @@ try {
         throw "docker compose up failed."
     }
 
+    
     Write-Host "[2/4] Checking Django..."
+
     $healthy = $false
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+
     if (-not $curl) {
-        throw "curl.exe was not found. It is required for reliable health checks on Windows PowerShell 5.1."
+        throw "curl.exe was not found."
     }
 
+    $healthUrl = "http://127.0.0.1:8000/healthz/"
+
     for ($i = 0; $i -lt 60; $i++) {
-        $healthBody = & $curl.Source --silent --show-error --fail --max-time 2 --header "X-Forwarded-Proto: https" "http://127.0.0.1:8000/healthz/" 2>$null
-        if ($LASTEXITCODE -eq 0 -and ($healthBody -join [Environment]::NewLine) -match '"status"\s*:\s*"ok"') {
+        $healthBody = @(
+            & $curl.Source `
+                --silent `
+                --fail `
+                --max-time 3 `
+                --stderr NUL `
+                --header "X-Forwarded-Proto: https" `
+                $healthUrl
+        )
+
+        $curlExitCode = $LASTEXITCODE
+
+        if (
+            $curlExitCode -eq 0 -and
+            (($healthBody -join "`n") -match '"status"\s*:\s*"ok"')
+        ) {
             $healthy = $true
             break
         }
+
         Start-Sleep -Seconds 2
     }
 
     if (-not $healthy) {
+        Write-Host "Django health check failed." -ForegroundColor Red
         docker compose ps
         docker compose logs --tail=80 web
-        throw "Django did not return a valid HTTP 200 health response at the local endpoint."
+
+        throw "Django did not return a valid HTTP 200 health response."
     }
+
+    Write-Host "Django is healthy." -ForegroundColor Green
+
 
     Write-Host "[3/4] Starting Cloudflare Quick Tunnel..."
     # Use cloudflared's own logfile instead of asynchronous .NET output events.
