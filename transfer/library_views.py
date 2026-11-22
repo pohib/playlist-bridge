@@ -174,8 +174,6 @@ def import_vk_playlist(request):
 
 @require_GET
 def open_playlist_source(request, playlist_id):
-    from django.core.exceptions import ValidationError
-    from django.core.validators import URLValidator
     from django.http import HttpResponseRedirect
 
     playlist = get_object_or_404(
@@ -285,7 +283,7 @@ def import_soundcloud_playlist(request):
             raise TransferError("Ссылка ведёт не на плейлист SoundCloud.")
         resource_id = resource.get("id")
         tracks = client.playlist_tracks(token, resource_id) if resource_id else resource.get("tracks", [])
-        playlist, _count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
+        playlist, count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("home")
@@ -303,7 +301,7 @@ def import_soundcloud_track(request):
         if resource.get("kind") != "track" and "duration" not in resource:
             raise TransferError("Ссылка ведёт не на трек SoundCloud.")
         profile = _profile(request)
-        playlist, count = _save_soundcloud_playlist(
+        playlist, _count = _save_soundcloud_playlist(
             profile,
             {"title": f"SoundCloud — {resource.get('title') or 'Track'}"},
             [resource],
@@ -562,7 +560,7 @@ def import_spotify_playlist(request):
         client, token = _spotify_access(request)
         resource = client.api("playlist_details", token, playlist_id=playlist_id)
         entries = client.get_playlist_items(token, playlist_id)
-        playlist, _count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
+        playlist, count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("home")
@@ -578,7 +576,7 @@ def import_spotify_track(request):
         client, token = _spotify_access(request)
         track = client.track_details(token, track_id)
         resource = {"name": f"Spotify — {track.get('name') or 'Track'}"}
-        playlist, count = _save_spotify_playlist(
+        playlist, _count = _save_spotify_playlist(
             _profile(request), resource, [{"item": track}], source_url,
         )
     except (ValueError, TransferError) as exc:
