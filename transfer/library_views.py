@@ -439,15 +439,15 @@ def transfer_library_playlist(request, playlist_id):
                         }
                         for score, item in ranked[:5] if score >= 0.45 and item.get("id") and item.get("uri")
                     ]))
-            target_id = client.create_playlist(token, playlist.title)
             uris = [
                 matched[track.pk]["uri"]
                 for track in tracks
                 if track.pk in matched and matched[track.pk].get("uri")
             ]
-            if uris:
+            target_id = client.create_playlist(token, playlist.title) if uris else ""
+            if target_id:
                 client.add_items(token, target_id, uris)
-            target_url = f"https://open.spotify.com/playlist/{target_id}"
+            target_url = f"https://open.spotify.com/playlist/{target_id}" if target_id else ""
         else:
             client = SoundCloudClient(
                 settings.SOUNDCLOUD_CLIENT_ID,
@@ -492,9 +492,13 @@ def transfer_library_playlist(request, playlist_id):
                         for score, candidate in ranked[:5] if score >= 0.45 and candidate.get("id")
                     ]))
             target_ids = [matched[track.pk]["id"] for track in tracks if track.pk in matched]
-            result = client.create_playlist(token, playlist.title, target_ids)
-            target_id = str(result["id"])
-            target_url = _safe_candidate_url(result.get("permalink_url"), "soundcloud") or "https://soundcloud.com"
+            if target_ids:
+                result = client.create_playlist(token, playlist.title, target_ids)
+                target_id = str(result["id"])
+                target_url = _safe_candidate_url(result.get("permalink_url"), "soundcloud") or "https://soundcloud.com"
+            else:
+                target_id = ""
+                target_url = ""
 
     except TransferError as exc:
         messages.error(request, str(exc))
@@ -652,11 +656,16 @@ def select_transfer_candidate(request, transfer_id, item_id):
             client, token = _spotify_access(request)
             if not candidate.get("uri"):
                 raise TransferError("Spotify не вернул URI выбранной композиции.")
-            insert_position = review.items.filter(
-                status=LibraryTransferItem.Status.MATCHED,
-                position__lt=item.position,
-            ).count()
-            client.add_items(token, review.target_playlist_id, [candidate["uri"]], position=insert_position)
+            if not review.target_playlist_id:
+                review.target_playlist_id = client.create_playlist(token, review.source_playlist.title)
+                review.target_url = f"https://open.spotify.com/playlist/{review.target_playlist_id}"
+                client.add_items(token, review.target_playlist_id, [candidate["uri"]])
+            else:
+                insert_position = review.items.filter(
+                    status=LibraryTransferItem.Status.MATCHED,
+                    position__lt=item.position,
+                ).count()
+                client.add_items(token, review.target_playlist_id, [candidate["uri"]], position=insert_position)
         else:
             client, token = _soundcloud_access(request)
             existing = list(
@@ -666,11 +675,17 @@ def select_transfer_candidate(request, transfer_id, item_id):
                 .values_list("position", "target_external_id")
             )
             ordered = sorted(existing + [(item.position, candidate_id)], key=lambda value: value[0])
-            client.update_playlist_tracks(
-                token,
-                review.target_playlist_id,
-                [track_id for _, track_id in ordered],
-            )
+            ordered_ids = [track_id for _, track_id in ordered]
+            if not review.target_playlist_id:
+                result = client.create_playlist(token, review.source_playlist.title, ordered_ids)
+                review.target_playlist_id = str(result["id"])
+                review.target_url = _safe_candidate_url(result.get("permalink_url"), "soundcloud") or "https://soundcloud.com"
+            else:
+                client.update_playlist_tracks(token, review.target_playlist_id, ordered_ids)
+        if review.target_playlist:
+            review.target_playlist.external_url = review.target_url
+            review.target_playlist.save(update_fields=["external_url", "updated_at"])
+        review.save(update_fields=["target_playlist_id", "target_url"])
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("transfer_review", transfer_id=review.pk)
