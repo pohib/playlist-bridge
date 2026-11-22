@@ -196,11 +196,13 @@ class HttpSurfaceTests(TestCase):
         self.assertIn("Permissions-Policy", response.headers)
         self.assertEqual(response.headers["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate, private")
 
+    @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_home_shows_auth_actions_to_guest(self):
         response = self.client.get(reverse("home"))
         self.assertContains(response, "Создать свою библиотеку")
         self.assertContains(response, "У меня уже есть аккаунт")
 
+    @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_home_shows_application_actions_to_authenticated_user(self):
         user = get_user_model().objects.create_user(
             username="landing-user",
