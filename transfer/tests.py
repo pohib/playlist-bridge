@@ -566,7 +566,8 @@ class VKLibraryImportTests(TestCase):
         self.assertEqual(response.url, reverse("home"))
 
 
-class SoundCloudIntegrationTests(TestCase):    def test_soundcloud_playlist_update_replaces_tracks_with_validated_ids(self):
+class SoundCloudIntegrationTests(TestCase):
+    def test_soundcloud_playlist_update_replaces_tracks_with_validated_ids(self):
         client = SoundCloudClient("client-id", "client-secret", "https://example.test/callback/")
         client._request = Mock(return_value={})
         client.update_playlist_tracks("token", "555", ["987", "988"])
