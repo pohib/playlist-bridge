@@ -3,10 +3,7 @@ updates:
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Stockholm
+      interval: daily
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
@@ -32,20 +29,14 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Stockholm
+      interval: daily
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Stockholm
+      interval: daily
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
