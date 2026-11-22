@@ -122,11 +122,7 @@
       </div>
       <p class="section-description">Собирай плейлисты и треки из подключённых сервисов в единой библиотеке. Исходные ID, ссылки и порядок композиций сохраняются.</p>
       <div class="import-provider-grid">
-        <form method="post" action="{% url "library_import_vk" %}" class="create-playlist-form import-vk-form">
-          {% csrf_token %}<label for="vk-import-url">ВКонтакте · импорт плейлиста</label>
-          <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" maxlength="2048" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected or not encryption_key_configured %}disabled{% endif %}>Импортировать</button></div>
-        </form>
-        <form method="post" action="{% url "library_import_soundcloud_library" %}" class="create-playlist-form">
+          <form method="post" action="{% url "library_import_soundcloud_library" %}" class="create-playlist-form">
           {% csrf_token %}<label>SoundCloud · вся библиотека</label><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Загрузить мои плейлисты</button>
         </form>
         <form method="post" action="{% url "library_import_soundcloud_playlist" %}" class="create-playlist-form">
