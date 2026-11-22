@@ -6,7 +6,7 @@ Django-приложение для сбора плейлистов и треко
 
 Пользователь подключает доступные сервисы кнопками на главной странице:
 - Spotify — OAuth Authorization Code.
-- VK — VK ID OAuth 2.1 Authorization Code с PKCE, state и device_id.
+- VK — VK ID OAuth 2.1 Authorization Code с PKCE, state и device_id для доступа к аудио API. Публичность страницы плейлиста не гарантирует анонимный доступ к методам VK Audio API.
 - SoundCloud — OAuth 2.1 Authorization Code с PKCE S256 и одноразовыми refresh tokens.
 
 Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.

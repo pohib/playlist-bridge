@@ -115,36 +115,22 @@ class SpotifyApiDestinationTests(TestCase):
 
 
 class VKPlaylistBatchTests(TestCase):
-    def test_fetch_playlist_processes_all_ids_in_order_across_batches(self):
+    def test_fetch_playlist_reads_audio_get_items_and_preserves_order(self):
         client = VKClient("test-access", "5.289", "vk-app")
-        audio_ids = [f"42_{index}" for index in range(1, 46)]
-        batch_response = {
-            "response": {
-                "responses": [
-                    {"id": "13", "body": {"response": {"title": "Test playlist"}}},
-                    {
-                        "id": "14",
-                        "body": {"response": {"audios": [{"audio_id": value} for value in audio_ids]}},
-                    },
-                ]
+        audio_items = [
+            {
+                "owner_id": 42,
+                "id": index,
+                "artist": "Artist",
+                "title": f"Track {index}",
+                "duration": 180,
             }
-        }
-        audio_responses = []
-        for offset in range(0, len(audio_ids), 20):
-            audio_responses.append({
-                "response": [
-                    {
-                        "owner_id": 42,
-                        "id": int(value.split("_")[1]),
-                        "artist": "Artist",
-                        "title": f"Track {value.split('_')[1]}",
-                        "duration": 180,
-                    }
-                    for value in reversed(audio_ids[offset:offset + 20])
-                ]
-            })
+            for index in range(1, 46)
+        ]
+        metadata = {"response": {"title": "Test playlist"}}
+        audio_response = {"response": {"count": 45, "items": audio_items}}
 
-        with patch.object(client, "post", side_effect=[batch_response, *audio_responses]) as post:
+        with patch.object(client, "post", side_effect=[metadata, audio_response]) as post:
             name, tracks = client.fetch_playlist(
                 "https://vk.ru/music/playlist/42_9_testkey"
             )
@@ -152,24 +138,46 @@ class VKPlaylistBatchTests(TestCase):
         self.assertEqual(name, "Test playlist")
         self.assertEqual(len(tracks), 45)
         self.assertEqual([track.track_id for track in tracks], list(range(1, 46)))
-        self.assertEqual(post.call_count, 4)
+        self.assertEqual(post.call_count, 2)
         self.assertEqual(
-            [len(call.kwargs["data"]["audios"].split(",")) for call in post.call_args_list[1:]],
-            [20, 20, 5],
+            post.call_args_list[1].kwargs["data"],
+            {
+                "owner_id": 42,
+                "album_id": 9,
+                "count": 1000,
+                "offset": 0,
+                "access_key": "testkey",
+            },
         )
 
-    def test_fetch_playlist_rejects_empty_id_response(self):
+    def test_fetch_playlist_accepts_list_response_shape(self):
         client = VKClient("test-access", "5.289", "vk-app")
-        response = {
-            "response": {
-                "responses": [
-                    {"id": "13", "body": {"response": {"title": "Empty"}}},
-                    {"id": "14", "body": {"response": {"audios": []}}},
-                ]
-            }
-        }
-        with patch.object(client, "post", return_value=response), self.assertRaises(TransferError):
+        with patch.object(
+            client,
+            "post",
+            side_effect=[
+                {"response": {"title": "List shape"}},
+                {"response": [
+                    {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Track", "duration": 120}
+                ]},
+            ],
+        ):
+            name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9")
+        self.assertEqual(name, "List shape")
+        self.assertEqual([track.track_id for track in tracks], [7])
+
+    def test_fetch_playlist_rejects_empty_playlist(self):
+        client = VKClient("test-access", "5.289", "vk-app")
+        with patch.object(
+            client,
+            "post",
+            side_effect=[
+                {"response": {"title": "Empty"}},
+                {"response": {"count": 0, "items": []}},
+            ],
+        ), self.assertRaises(TransferError):
             client.fetch_playlist("https://vk.ru/music/playlist/42_9")
+
 
 class HttpSurfaceTests(TestCase):
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})

@@ -9,6 +9,7 @@ import requests
 
 from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_url
 
+
 class VKIDClient:
     AUTHORIZE_URL = "https://id.vk.ru/authorize"
     OAUTH_EXCHANGE_ENDPOINT = "https://id.vk.ru/oauth2/auth"
@@ -103,56 +104,95 @@ class VKClient:
             raise TransferError(f"Не удалось получить данные VK ({method}).") from exc
         if payload.get("error"):
             error = payload["error"]
-            raise TransferError(f"VK API вернул ошибку {error.get('error_code', 'unknown')}.")
+            code = error.get("error_code", "unknown")
+            message = error.get("error_msg", "")
+            if code in {5, 15, 18, 203}:
+                raise TransferError(
+                    "VK не разрешил чтение этого плейлиста. Проверь, что он публичный "
+                    "и доступен аккаунту, подключённому через VK ID."
+                )
+            raise TransferError(f"VK API вернул ошибку {code}: {message[:180]}")
         return payload
+
+    @staticmethod
+    def _response_items(payload):
+        response = payload.get("response", [])
+        if isinstance(response, dict):
+            items = response.get("items", response.get("audios", []))
+            count = response.get("count", len(items))
+            return items, count
+        if isinstance(response, list):
+            return response, len(response)
+        return [], 0
 
     def fetch_playlist(self, url):
         owner, playlist_id, access_key = parse_vk_playlist_url(url)
-        entity_id = f"{owner}_{playlist_id}" + (f"_{access_key}" if access_key else "")
-        requests_batch = [
-            {"id": "13", "method": "audio.getPlaylistById", "params": {
-                "owner_id": owner, "playlist_id": playlist_id, "access_key": access_key,
-                "extra_fields": "owner,duration",
-            }},
-            {"id": "14", "method": "audio.getIdsBySource", "params": {
-                "source": "playlist", "entity_id": entity_id,
-            }},
-        ]
-        payload = self.post("batch.call", json_body={"requests": requests_batch})
-        rows = payload.get("response", {}).get("responses", payload.get("responses", []))
-        indexed = {str(row.get("id")): row.get("body", {}) for row in rows}
-        metadata = indexed.get("13", {}).get("response", {})
-        id_data = indexed.get("14", {}).get("response", {})
-        ids = [str(row["audio_id"]) for row in id_data.get("audios", []) if row.get("audio_id")]
-        if not ids:
-            raise TransferError("Плейлист VK пуст или недоступен.")
-        tracks = {}
-        for offset in range(0, len(ids), 20):
-            response = self.post("audio.getById", data={"audios": ",".join(ids[offset:offset + 20])}).get("response", [])
-            if isinstance(response, dict):
-                response = response.get("items", response.get("audios", []))
-            for item in response:
+        params = {"owner_id": owner, "playlist_id": playlist_id}
+        if access_key:
+            params["access_key"] = access_key
+
+        metadata_payload = self.post("audio.getPlaylistById", data=params)
+        metadata = metadata_payload.get("response", {})
+        if isinstance(metadata, list):
+            metadata = metadata[0] if metadata else {}
+        if isinstance(metadata, dict) and isinstance(metadata.get("playlist"), dict):
+            metadata = metadata["playlist"]
+
+        tracks = []
+        offset = 0
+        page_size = 1000
+        total = None
+        while total is None or offset < total:
+            page_params = {
+                "owner_id": owner,
+                "album_id": playlist_id,
+                "count": page_size,
+                "offset": offset,
+            }
+            if access_key:
+                page_params["access_key"] = access_key
+            page, page_total = self._response_items(self.post("audio.get", data=page_params))
+            if total is None:
+                total = page_total
+            if not page:
+                break
+            for item in page:
                 try:
-                    track = VKTrack(int(item["owner_id"]), int(item["id"]), str(item.get("artist") or "").strip(),
-                                    str(item.get("title") or "").strip(), int(item.get("duration") or 0))
-                    tracks[f"{track.owner_id}_{track.track_id}"] = track
+                    track = VKTrack(
+                        int(item["owner_id"]),
+                        int(item["id"]),
+                        str(item.get("artist") or "").strip(),
+                        str(item.get("title") or "").strip(),
+                        int(item.get("duration") or 0),
+                    )
                 except (KeyError, TypeError, ValueError):
                     continue
-        ordered = [tracks["_".join(audio_id.split("_")[:2])] for audio_id in ids
-                   if "_".join(audio_id.split("_")[:2]) in tracks]
-        if not ordered:
-            raise TransferError("VK не вернул метаданные композиций.")
-        return metadata.get("title") or metadata.get("name") or "VK playlist", ordered
+                tracks.append(track)
+            offset += len(page)
+            if len(page) < page_size:
+                break
+
+        if not tracks:
+            raise TransferError(
+                "VK вернул плейлист без доступных аудиозаписей. Возможно, VK ограничил "
+                "доступ к аудио через API или плейлист действительно пуст."
+            )
+        title = metadata.get("title") or metadata.get("name") or "VK playlist"
+        return title, tracks
 
     def fetch_track(self, url):
         owner_id, track_id = parse_vk_track_url(url)
-        payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"}).get("response", [])
-        if isinstance(payload, dict):
-            payload = payload.get("items", payload.get("audios", []))
-        if not payload:
+        payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"})
+        items, _ = self._response_items(payload)
+        if not items:
             raise TransferError("VK не вернул аудиозапись. Возможно, она недоступна.")
-        item = payload[0]
+        item = items[0]
         try:
-            return VKTrack(int(item["owner_id"]), int(item["id"]), str(item.get("artist") or "").strip(), str(item.get("title") or "").strip(), int(item.get("duration") or 0))
+            return VKTrack(
+                int(item["owner_id"]), int(item["id"]),
+                str(item.get("artist") or "").strip(),
+                str(item.get("title") or "").strip(),
+                int(item.get("duration") or 0),
+            )
         except (KeyError, TypeError, ValueError) as exc:
             raise TransferError("VK вернул некорректные данные аудиозаписи.") from exc
