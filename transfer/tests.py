@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import hmac
 import time
 from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
@@ -26,7 +25,7 @@ from .core import (
     parse_vk_playlist_url,
     parse_vk_track_url,
 )
-from .credentials import decrypt_payload, get_access_token, store_credential
+from .credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
 from .models import OAuthCredential, TransferJob
 
 
@@ -281,9 +280,7 @@ class SessionIsolationTests(TestCase):
         session = SessionStore()
         session.create()
         client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
-        return hmac.new(
-            settings.SECRET_KEY.encode(), session.session_key.encode(), hashlib.sha256
-        ).hexdigest()
+        return get_session_fingerprint(client)
 
     def test_user_cannot_read_another_sessions_transfer_or_report(self):
         owner = self.client
@@ -386,9 +383,7 @@ class ApiSessionSecurityTests(TestCase):
         session = SessionStore()
         session.create()
         self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
-        fingerprint = hmac.new(
-            settings.SECRET_KEY.encode(), session.session_key.encode(), hashlib.sha256
-        ).hexdigest()
+        fingerprint = get_session_fingerprint(self.client)
         store_credential(fingerprint, "spotify", {"access_token": Fernet.generate_key().decode()})
         store_credential(fingerprint, "vk", {"access_token": Fernet.generate_key().decode()})
 
@@ -563,7 +558,7 @@ class VKLibraryImportTests(TestCase):
             reverse("library_open_playlist_source", kwargs={"playlist_id": playlist.pk}),
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("home"))
+        self.assertEqual(response.url, reverse("library"))
 
 
 class SoundCloudIntegrationTests(TestCase):
@@ -819,6 +814,10 @@ class UnifiedLibraryTransferTests(TestCase):
             parse_vk_track_url("https://attacker.example/audio-123_456")
 
 
+@override_settings(STORAGES={
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+})
 class AccountWorkspaceTests(TestCase):
     def test_account_library_is_persistent_across_browser_sessions(self):
         from django.contrib.auth import get_user_model
