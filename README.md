@@ -61,6 +61,27 @@ Compose автоматически ждёт PostgreSQL/Redis, выполняет
 
 Не удаляй volume postgres_data, если нужно сохранить OAuth-подключения и историю задач. Потеря TOKEN_ENCRYPTION_KEY сделает зашифрованные токены невосстановимыми — храни ключ в менеджере секретов и делай защищённую резервную копию.
 
+### Если PostgreSQL сообщает password authentication failed
+
+`POSTGRES_PASSWORD` из `.env` применяется только при первом создании пустого volume `postgres_data`. Если пароль в `.env` менялся после первого запуска, существующий пользователь PostgreSQL сохраняет старый пароль. Не удаляй volume ради исправления пароля.
+
+В PowerShell из каталога проекта выполни:
+
+    docker compose exec -u postgres db psql -U postgres -d postgres
+
+В открывшейся консоли PostgreSQL задай пароль пользователя:
+
+    \\password vktospotify
+
+Введи значение `POSTGRES_PASSWORD` из `.env` дважды (ввод не отображается), затем:
+
+    \\q
+    docker compose up -d --force-recreate web worker
+
+После этого `web` должен пройти миграции автоматически. Команда `docker compose exec web ...` использует имя сервиса `web`, а не имя контейнера `vktospotify-web-1`. Например:
+
+    docker compose exec web python manage.py check
+
 ## API v1
 
 API использует ту же браузерную сессию и CSRF:
