@@ -134,7 +134,7 @@ class VKAnonymousTokenTests(TestCase):
             "https://vk.ru/",
             headers={"Accept": "text/html"},
             timeout=(5, 15),
-            allow_redirects=True,
+            allow_redirects=False,
             stream=True,
         )
         call = provider.http.post.call_args
