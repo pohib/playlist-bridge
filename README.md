@@ -26,7 +26,7 @@ Django-приложение для переноса VK-плейлистов в S
 
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-Создай приложения в Spotify Developer Dashboard и VK ID Developer Dashboard. В обоих приложениях зарегистрируй точные callback URL:
+Создай приложения в Spotify Developer Dashboard и VK ID Developer Dashboard. Для Spotify в Users Management добавь Spotify-аккаунты тестировщиков (в Development Mode лимит — 5 пользователей). В обоих приложениях зарегистрируй точные callback URL:
 - http://127.0.0.1:8000/spotify/callback/
 - http://127.0.0.1:8000/vk/callback/
 
@@ -86,10 +86,10 @@ API использует ту же браузерную сессию и CSRF:
 - pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
 - OWASP ZAP baseline DAST против запущенного приложения;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
-- Dependabot PR автоматически сливаются после успешного завершения tests, SAST/SCA/secrets, container и DAST jobs; автоматизация охватывает patch/minor/major обновления.
+- Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
 
-Для auto-merge включи Allow auto-merge в Settings → General. В Settings → Branches настрой защиту main и обязательные checks tests, sast-sca-secrets, container, dast: без обязательных checks GitHub не сможет гарантировать, что merge ждёт завершения всех проверок.
+Автоматическое слияние выполняет workflow через GITHUB_TOKEN после успешного CI; включать Allow auto-merge не требуется. Для дополнительной защиты включи ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container и dast.
 
 SARIF загружается на push/workflow_dispatch; GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверь доступность этой функции на текущем плане.
 
@@ -97,5 +97,7 @@ SARIF загружается на push/workflow_dispatch; GitHub Code Scanning �
 
 - Доступность методов VK Audio зависит от разрешений и типа VK ID приложения; реальную выдачу прав на audio.getPlaylistById необходимо проверить на подключённом аккаунте.
 - Spotify rate limits могут замедлять перенос.
-- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.\n- В Development Mode Spotify действуют ограничения на количество пользователей; для публичного сервиса требуется отдельно пройти требования Spotify к расширенному доступу.\n- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включи обе.
+- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
+- В Spotify Development Mode владелец приложения должен иметь Premium; максимум 5 авторизованных пользователей, каждый тестировщик должен быть добавлен в Users Management allowlist. Для публичного сервиса действует отдельная процедура Extended Quota Mode.
+- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включи обе.
 - Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
