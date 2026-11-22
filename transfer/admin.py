@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+# The application does not expose OAuth credentials or transfer records through Django admin.
