@@ -64,6 +64,17 @@ class SpotifyApiDestinationTests(TestCase):
             ("POST", f"https://api.spotify.com/v1/playlists/{playlist_id}/items"),
         )
 
+    def test_spotify_add_items_supports_original_position(self):
+        client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
+        client.api = Mock()
+        client.add_items("token", "AbCdEf1234567890GhIjKl", ["spotify:track:abc"], position=3)
+        client.api.assert_called_once_with(
+            "playlist_items",
+            "token",
+            playlist_id="AbCdEf1234567890GhIjKl",
+            body={"uris": ["spotify:track:abc"], "position": 3},
+        )
+
     def test_spotify_api_rejects_unknown_operations_and_untrusted_ids(self):
         for operation in ("https://attacker.example/steal", "//attacker.example", "admin"):
             with self.subTest(operation=operation), self.assertRaises(TransferError):
@@ -545,7 +556,22 @@ class VKLibraryImportTests(TestCase):
         self.assertEqual(response.url, reverse("home"))
 
 
-class SoundCloudIntegrationTests(TestCase):
+class SoundCloudIntegrationTests(TestCase):    def test_soundcloud_playlist_update_replaces_tracks_with_validated_ids(self):
+        client = SoundCloudClient("client-id", "client-secret", "https://example.test/callback/")
+        client._request = Mock(return_value={})
+        client.update_playlist_tracks("token", "555", ["987", "988"])
+        client._request.assert_called_once_with(
+            "PUT",
+            "/playlists/555",
+            "token",
+            json_body={"playlist": {"tracks": [{"id": 987}, {"id": 988}]}},
+        )
+        with self.assertRaises(TransferError):
+            client.update_playlist_tracks("token", "bad-id", ["987"])
+        with self.assertRaises(TransferError):
+            client.update_playlist_tracks("token", "555", ["https://evil.example/track"])
+
+
     def test_soundcloud_authorization_uses_pkce_s256(self):
         client = SoundCloudClient("client-id", "client-secret", "https://example.test/soundcloud/callback/")
         url = client.authorization_url("state-value", "a-secure-verifier")
