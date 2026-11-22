@@ -43,7 +43,7 @@ jobs:
               fi
             done
             if [[ "$all_passed" == "true" ]]; then
-              gh pr merge --auto --squash "$PR_URL"
+              gh pr merge --squash "$PR_URL"
               exit 0
             fi
             sleep 10
