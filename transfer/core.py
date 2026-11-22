@@ -2,6 +2,7 @@ import base64
 import hashlib
 import re
 import secrets
+import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from urllib.parse import urlencode, urlparse
@@ -11,6 +12,10 @@ import requests
 
 class TransferError(Exception):
     """Expected, user-safe transfer error."""
+
+
+class ReauthorizationRequired(TransferError):
+    """The stored provider authorization can no longer be refreshed."""
 
 
 @dataclass(frozen=True)
@@ -201,11 +206,26 @@ class SpotifyClient:
 
     def token_request(self, data):
         credentials = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+        response = None
         try:
-            response = self.http.post(f"{self.ACCOUNTS}/api/token", data=data,
-                headers={"Authorization": f"Basic {credentials}"}, timeout=(5, 20))
+            response = self.http.post(
+                f"{self.ACCOUNTS}/api/token",
+                data=data,
+                headers={"Authorization": f"Basic {credentials}"},
+                timeout=(5, 20),
+            )
             response.raise_for_status()
             return response.json()
+        except requests.HTTPError as exc:
+            try:
+                error = response.json().get("error")
+            except (AttributeError, ValueError):
+                error = None
+            if error == "invalid_grant":
+                raise ReauthorizationRequired(
+                    "Срок действия или разрешение Spotify истекло. Подключи Spotify повторно."
+                ) from exc
+            raise TransferError("Не удалось получить OAuth-токен Spotify.") from exc
         except (requests.RequestException, ValueError) as exc:
             raise TransferError("Не удалось получить OAuth-токен Spotify.") from exc
 
@@ -216,17 +236,46 @@ class SpotifyClient:
         return self.token_request({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
     def api(self, method, path, token, *, params=None, body=None):
-        try:
-            response = self.http.request(method, f"{self.API}{path}", params=params, json=body,
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}, timeout=(5, 30))
-            if response.status_code == 429:
-                raise TransferError("Spotify ограничил частоту запросов. Повтори перенос позже.")
-            response.raise_for_status()
-            return response.json() if response.content else {}
-        except TransferError:
-            raise
-        except (requests.RequestException, ValueError) as exc:
-            raise TransferError("Spotify API вернул ошибку. Проверь доступ и разрешения аккаунта.") from exc
+        safe_method = method.upper() == "GET"
+        for attempt in range(3 if safe_method else 1):
+            try:
+                response = self.http.request(
+                    method,
+                    f"{self.API}{path}",
+                    params=params,
+                    json=body,
+                    headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                    timeout=(5, 30),
+                )
+                if response.status_code == 429:
+                    try:
+                        error = response.json().get("error", {})
+                    except ValueError:
+                        error = {}
+                    if error.get("reason") == "QUOTA_EXCEEDED":
+                        raise TransferError(
+                            "Исчерпана квота Spotify Development Mode. Повтори попытку позже."
+                        )
+                    retry_after = response.headers.get("Retry-After", "1")
+                    try:
+                        delay = max(1, int(float(retry_after)))
+                    except (TypeError, ValueError):
+                        delay = 1
+                    if safe_method and attempt < 2 and delay <= 20:
+                        time.sleep(delay)
+                        continue
+                    raise TransferError(
+                        "Spotify ограничил частоту запросов. Повтори перенос позже."
+                    )
+                response.raise_for_status()
+                return response.json() if response.content else {}
+            except TransferError:
+                raise
+            except (requests.RequestException, ValueError) as exc:
+                raise TransferError(
+                    "Spotify API вернул ошибку. Проверь доступ и разрешения аккаунта."
+                ) from exc
+        raise TransferError("Spotify временно ограничил частоту запросов. Повтори перенос позже.")
 
     def search(self, token, artist, title):
         data = self.api("GET", "/search", token, params={
