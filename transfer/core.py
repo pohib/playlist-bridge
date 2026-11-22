@@ -1,4 +1,5 @@
 import base64
+import secrets
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -48,6 +49,71 @@ def score_candidate(source, candidate):
     duration = candidate.get("duration_ms")
     duration_score = max(0.0, 1 - abs(duration - source.duration * 1000) / 15000) if isinstance(duration, int) else 0.0
     return title_score * .58 + artist_score * .32 + duration_score * .10
+
+
+class VKIDClient:
+    AUTHORIZE_URL = "https://id.vk.ru/authorize"
+    TOKEN_URL = "https://id.vk.ru/oauth2/auth"
+
+    def __init__(self, client_id, redirect_uri, service_token=""):
+        self.client_id = str(client_id)
+        self.redirect_uri = redirect_uri
+        self.service_token = service_token
+        self.http = requests.Session()
+
+    def authorization_url(self, state, code_verifier):
+        challenge = base64.urlsafe_b64encode(
+            __import__("hashlib").sha256(code_verifier.encode()).digest()
+        ).rstrip(b"=").decode()
+        return f"{self.AUTHORIZE_URL}?{urlencode({
+            'response_type': 'code',
+            'client_id': self.client_id,
+            'redirect_uri': self.redirect_uri,
+            'state': state,
+            'code_challenge': challenge,
+            'code_challenge_method': 's256',
+            'scope': 'vkid.personal_info',
+        })}"
+
+    def _token_request(self, params, body):
+        if self.service_token:
+            params["service_token"] = self.service_token
+        try:
+            response = self.http.post(
+                self.TOKEN_URL,
+                params=params,
+                data=body,
+                headers={"Accept": "application/json"},
+                timeout=(5, 20),
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise TransferError("Не удалось получить OAuth-токен VK ID.") from exc
+        if payload.get("error") or not payload.get("access_token"):
+            raise TransferError("VK ID отклонил авторизацию. Проверь приложение и разрешения.")
+        return payload
+
+    def exchange_code(self, code, device_id, state, code_verifier):
+        params = {
+            "grant_type": "authorization_code",
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "code_verifier": code_verifier,
+            "device_id": device_id,
+            "state": state,
+        }
+        return self._token_request(params, {"code": code})
+
+    def refresh_token(self, refresh_token, device_id):
+        params = {
+            "grant_type": "refresh_token",
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "device_id": device_id,
+            "state": secrets.token_urlsafe(24),
+        }
+        return self._token_request(params, {"refresh_token": refresh_token})
 
 
 class VKClient:
