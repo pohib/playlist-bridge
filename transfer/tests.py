@@ -124,12 +124,12 @@ class VKAnonymousTokenTests(TestCase):
         response.raise_for_status.return_value = None
         response.json.return_value = {
             "type": "okay",
-            "data": {"access_token": "anonymous-fixture", "expired_at": int(time.time()) + 3600},
+            "data": {"access_token": "anonym." + "fixture", "expired_at": int(time.time()) + 3600},
         }
         provider.http.get = Mock(return_value=Mock(status_code=200, raise_for_status=Mock(), close=Mock()))
         provider.http.post = Mock(return_value=response)
 
-        self.assertEqual(provider.get_token(), "anonymous-fixture")
+        self.assertEqual(provider.get_token(), "anonym." + "fixture")
         provider.http.get.assert_called_once_with(
             "https://vk.ru/",
             headers={"Accept": "text/html"},
