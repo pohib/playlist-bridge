@@ -1,6 +1,10 @@
 import base64
 import hashlib
 from urllib.parse import parse_qs, urlparse
+from unittest.mock import patch
+
+from django.conf import settings
+from django.db import IntegrityError, transaction
 
 from cryptography.fernet import Fernet
 from django.test import TestCase, override_settings
@@ -8,7 +12,7 @@ from django.urls import reverse
 
 from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
 from .credentials import decrypt_payload, store_credential
-from .models import OAuthCredential
+from .models import OAuthCredential, TransferJob
 
 
 class InputValidationTests(TestCase):
@@ -112,3 +116,99 @@ class OAuthSecurityTests(TestCase):
     def test_provider_disconnect_requires_post(self):
         self.assertEqual(self.client.get(reverse("disconnect_spotify")).status_code, 405)
         self.assertEqual(self.client.get(reverse("disconnect_vk")).status_code, 405)
+
+
+
+class SessionIsolationTests(TestCase):
+    @staticmethod
+    def fingerprint(client):
+        client.get(reverse("home"))
+        session_key = client.cookies[settings.SESSION_COOKIE_NAME].value
+        return hashlib.sha256(
+            (settings.SECRET_KEY + session_key).encode()
+        ).hexdigest() if False else __import__("hmac").new(
+            settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
+        ).hexdigest()
+
+    def test_user_cannot_read_another_sessions_transfer_or_report(self):
+        owner = self.client
+        attacker = self.client_class()
+        owner_fingerprint = self.fingerprint(owner)
+        self.fingerprint(attacker)
+
+        job = TransferJob.objects.create(
+            session_fingerprint=owner_fingerprint,
+            source_url="https://vk.ru/music/playlist/241688629_5",
+            status=TransferJob.Status.SUCCEEDED,
+            result={"report": [{"title": "private track"}]},
+        )
+
+        own_response = owner.get(reverse("api_transfer_detail", kwargs={"job_id": job.pk}))
+        self.assertEqual(own_response.status_code, 200)
+
+        foreign_detail = attacker.get(reverse("api_transfer_detail", kwargs={"job_id": job.pk}))
+        foreign_report = attacker.get(reverse("api_transfer_report", kwargs={"job_id": job.pk}))
+        self.assertEqual(foreign_detail.status_code, 404)
+        self.assertEqual(foreign_report.status_code, 404)
+        self.assertNotIn(b"private track", foreign_report.content)
+
+
+class TransferConcurrencyTests(TestCase):
+    def setUp(self):
+        self.fingerprint = "f" * 64
+
+    def create_job(self):
+        return TransferJob.objects.create(
+            session_fingerprint=self.fingerprint,
+            source_url="https://vk.ru/music/playlist/241688629_5",
+        )
+
+    def test_database_rejects_second_active_job_for_same_session(self):
+        self.create_job()
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                self.create_job()
+
+    @patch("transfer.tasks.get_access_token", return_value=("test-token", {}))
+    @patch("transfer.tasks.execute_transfer")
+    def test_duplicate_celery_delivery_executes_transfer_once(self, execute, _get_token):
+        from .tasks import run_transfer
+
+        job = self.create_job()
+        execute.return_value = {
+            "total": 1,
+            "matched": 1,
+            "not_found": 0,
+            "ambiguous": 0,
+            "report": [],
+            "target_playlist_id": "spotify-playlist-id",
+        }
+
+        run_transfer(str(job.pk))
+        run_transfer(str(job.pk))
+
+        self.assertEqual(execute.call_count, 1)
+        job.refresh_from_db()
+        self.assertEqual(job.status, TransferJob.Status.SUCCEEDED)
+
+
+class OAuthCallbackNegativeTests(TestCase):
+    @patch("transfer.views.SpotifyClient.exchange_code")
+    def test_spotify_callback_rejects_missing_or_invalid_state(self, exchange_code):
+        response = self.client.get(
+            reverse("spotify_callback"),
+            {"code": "attacker-controlled-code", "state": "wrong-state"},
+        )
+        self.assertEqual(response.status_code, 302)
+        exchange_code.assert_not_called()
+
+
+class ApiInputNegativeTests(TestCase):
+    def test_malformed_json_is_rejected(self):
+        response = self.client.post(
+            reverse("api_create_transfer"),
+            data="{",
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
