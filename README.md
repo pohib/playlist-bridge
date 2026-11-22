@@ -82,7 +82,7 @@ API использует ту же браузерную сессию и CSRF:
 ## Безопасность и CI
 
 - pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
-- Bandit и Semgrep с порогом ошибок и SARIF публикацией в GitHub Code Scanning;
+- Bandit, Semgrep и CodeQL (security-extended) с SARIF публикацией в GitHub Code Scanning;
 - pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
 - OWASP ZAP baseline DAST против запущенного приложения;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
