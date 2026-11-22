@@ -8,7 +8,7 @@ from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import SoundCloudClient, SpotifyClient, TransferError, VKClient, VKIDClient, parse_vk_playlist_url, parse_vk_track_url, score_candidate
+from .core import (\n    SoundCloudClient,\n    SpotifyClient,\n    TransferError,\n    VKClient,\n    VKIDClient,\n    parse_vk_playlist_url,\n    parse_vk_track_url,\n    score_candidate,\n)
 from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
@@ -259,7 +259,7 @@ def import_soundcloud_playlist(request):
             raise TransferError("Ссылка ведёт не на плейлист SoundCloud.")
         resource_id = resource.get("id")
         tracks = client.playlist_tracks(token, resource_id) if resource_id else resource.get("tracks", [])
-        playlist, count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
+        playlist, _count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("home")
@@ -403,7 +403,7 @@ def transfer_library_playlist(request, playlist_id):
                 raise TransferError("Не удалось подобрать композиции в SoundCloud.")
             result = client.create_playlist(token, playlist.title, matched_ids)
             target_id = str(result["id"])
-            target_url = result.get("permalink_url") or f"https://soundcloud.com"
+            target_url = result.get("permalink_url") or "https://soundcloud.com"
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("home")
@@ -536,7 +536,7 @@ def import_spotify_playlist(request):
         client, token = _spotify_access(request)
         resource = client.api("playlist_details", token, playlist_id=playlist_id)
         entries = client.get_playlist_items(token, playlist_id)
-        playlist, count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
+        playlist, _count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("home")
