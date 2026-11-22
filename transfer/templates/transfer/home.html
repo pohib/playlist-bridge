@@ -126,6 +126,10 @@
           {% csrf_token %}<label for="vk-import-url">ВКонтакте · плейлист по ссылке</label>
           <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected %}disabled{% endif %}>Импортировать</button></div>
         </form>
+        <form method="post" action="{% url "library_import_vk_track" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="vk-track-url">ВКонтакте · отдельная аудиозапись</label>
+          <div class="form-inline"><input id="vk-track-url" name="source_url" type="url" placeholder="https://vk.com/audio-123_456" required><button class="primary-button compact-button" type="submit" {% if not vk_connected %}disabled{% endif %}>Добавить</button></div>
+        </form>
         <form method="post" action="{% url "library_import_spotify_library" %}" class="create-playlist-form">
           {% csrf_token %}<label>Spotify · мои плейлисты</label><button class="primary-button compact-button" type="submit" {% if not connected %}disabled{% endif %}>Загрузить мои плейлисты</button>
         </form>
