@@ -58,7 +58,7 @@
         <div class="stats-row">
           <div><strong>{{ library_playlist_count }}</strong><span>плейлистов</span></div>
           <div><strong>{{ library_track_count }}</strong><span>композиций</span></div>
-          <div><strong>2</strong><span>провайдера OAuth</span></div>
+          <div><strong>3</strong><span>провайдера OAuth</span></div>
         </div>
         <p class="field-hint">Сейчас профиль привязан к текущей браузерной сессии. Регистрация и синхронизация между устройствами — отдельный следующий этап.</p>
       </article>
@@ -120,7 +120,24 @@
         <div><span class="step">03 / COLLECTION</span><h2>Моя музыкальная библиотека</h2></div>
         <span class="status-pill is-off">{{ library_playlist_count }} коллекций</span>
       </div>
-      <p class="section-description">Импортируй плейлисты VK напрямую через подключённый аккаунт или собирай коллекции вручную. Композиции сохраняются с исходным порядком и идентификаторами VK.</p>
+      <p class="section-description">Собирай плейлисты и треки из подключённых сервисов в единой библиотеке. Исходные ID, ссылки и порядок композиций сохраняются.</p>
+      <div class="import-provider-grid">
+        <form method="post" action="{% url "library_import_vk" %}" class="create-playlist-form import-vk-form">
+          {% csrf_token %}<label for="vk-import-url">ВКонтакте · импорт плейлиста</label>
+          <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" maxlength="2048" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected or not encryption_key_configured %}disabled{% endif %}>Импортировать</button></div>
+        </form>
+        <form method="post" action="{% url "library_import_soundcloud_library" %}" class="create-playlist-form">
+          {% csrf_token %}<label>SoundCloud · вся библиотека</label><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Загрузить мои плейлисты</button>
+        </form>
+        <form method="post" action="{% url "library_import_soundcloud_playlist" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="sc-playlist-url">SoundCloud · плейлист по ссылке</label>
+          <div class="form-inline"><input id="sc-playlist-url" name="source_url" type="url" placeholder="https://soundcloud.com/..." required><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Импортировать</button></div>
+        </form>
+        <form method="post" action="{% url "library_import_soundcloud_track" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="sc-track-url">SoundCloud · отдельный трек</label>
+          <div class="form-inline"><input id="sc-track-url" name="source_url" type="url" placeholder="https://soundcloud.com/artist/track" required><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Добавить</button></div>
+        </form>
+      </div>
       <form method="post" action="{% url 'library_import_vk' %}" class="create-playlist-form import-vk-form">
         {% csrf_token %}
         <label for="vk-import-url">Импортировать плейлист из ВКонтакте</label>
@@ -132,7 +149,7 @@
         <div class="field-grid">
           <div><label for="playlist-title">Название плейлиста</label><input id="playlist-title" name="title" maxlength="120" placeholder="Например, Night Drive" required></div>
           <div><label for="playlist-provider">Источник</label><select id="playlist-provider" name="provider">
-            <option value="manual">Локальная коллекция</option><option value="vk">ВКонтакте</option><option value="spotify">Spotify</option><option value="youtube_music">YouTube Music</option><option value="apple_music">Apple Music</option>
+            <option value="manual">Локальная коллекция</option><option value="vk">ВКонтакте</option><option value="spotify">Spotify</option><option value="soundcloud">SoundCloud</option><option value="youtube_music">YouTube Music</option><option value="apple_music">Apple Music</option>
           </select></div>
           <div class="field-wide"><label for="playlist-url">Ссылка на оригинал <span class="optional">необязательно</span></label><input id="playlist-url" name="external_url" type="url" maxlength="2048" placeholder="https://..."></div>
           <div class="field-wide"><label for="playlist-description">Описание <span class="optional">необязательно</span></label><input id="playlist-description" name="description" maxlength="240" placeholder="Настроение, жанр или заметка"></div>
@@ -145,7 +162,7 @@
           {% for playlist in library_playlists %}
             <article class="playlist-card">
               <div class="playlist-card-top">
-                <div class="playlist-art art-{{ playlist.provider }}"><span>{% if playlist.provider == 'vk' %}vk{% elif playlist.provider == 'spotify' %}♫{% elif playlist.provider == 'youtube_music' %}▶{% elif playlist.provider == 'apple_music' %}♪{% else %}PB{% endif %}</span></div>
+                <div class="playlist-art art-{{ playlist.provider }}"><span>{% if playlist.provider == 'vk' %}vk{% elif playlist.provider == 'spotify' %}♫{% elif playlist.provider == 'soundcloud' %}SC{% elif playlist.provider == 'youtube_music' %}▶{% elif playlist.provider == 'apple_music' %}♪{% else %}PB{% endif %}</span></div>
                 <div class="playlist-meta"><span class="provider-label">{{ playlist.get_provider_display }}</span><h3>{{ playlist.title }}</h3><span>{{ playlist.tracks.count }} трек(ов)</span></div>
                 <form method="post" action="{% url 'library_delete_playlist' playlist.id %}" onsubmit="return confirm('Удалить плейлист и все его записи из библиотеки?');">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Удалить плейлист">×</button></form>
               </div>
