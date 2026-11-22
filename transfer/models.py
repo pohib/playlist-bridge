@@ -130,7 +130,7 @@ class LibraryTransfer(models.Model):
     source_playlist = models.ForeignKey(LibraryPlaylist, on_delete=models.CASCADE, related_name="transfers")
     target_provider = models.CharField(max_length=24, choices=LibraryPlaylist.Provider.choices)
     target_playlist = models.ForeignKey(LibraryPlaylist, null=True, blank=True, on_delete=models.SET_NULL, related_name="source_transfers")
-    target_playlist_id = models.CharField(max_length=128)
+    provider_playlist_id = models.CharField(max_length=128)
     target_url = models.URLField(max_length=2048, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.REVIEW)
     total = models.PositiveIntegerField(default=0)
