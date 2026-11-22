@@ -6,7 +6,7 @@ from django.views.decorators.http import require_GET
 
 from .credentials import get_session_fingerprint
 from .library_views import _profile
-from .models import LibraryPlaylist, TransferJob
+from .models import LibraryPlaylist, LibraryTransfer, TransferJob
 
 
 @never_cache
@@ -70,6 +70,7 @@ def transfers(request):
             session_fingerprint=get_session_fingerprint(request)
         )[:50],
         "playlists": LibraryPlaylist.objects.filter(profile=_profile(request)),
+        "library_transfers": LibraryTransfer.objects.filter(profile=_profile(request)).select_related("source_playlist", "target_playlist")[:50],
     })
 
 
