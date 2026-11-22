@@ -507,6 +507,16 @@ class SoundCloudClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.HTTPError as exc:
+            try:
+                error = response.json().get("error")
+            except (AttributeError, ValueError):
+                error = None
+            if error == "invalid_grant":
+                raise ReauthorizationRequired(
+                    "Разрешение SoundCloud истекло. Подключи SoundCloud повторно."
+                ) from exc
+            raise TransferError("Не удалось получить OAuth-токен SoundCloud.") from exc
         except (requests.RequestException, ValueError) as exc:
             raise TransferError("Не удалось получить OAuth-токен SoundCloud.") from exc
 
@@ -612,6 +622,7 @@ class SoundCloudClient:
                     "track[title]": title[:100],
                     "track[artist]": artist[:100],
                     "track[description]": description[:4000],
+                    "track[sharing]": "private",
                 },
                 files={"track[asset_data]": (
                     uploaded_file.name,
