@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -212,10 +213,11 @@ class OAuthSecurityTests(TestCase):
 class SessionIsolationTests(TestCase):
     @staticmethod
     def fingerprint(client):
-        client.get(reverse("home"))
-        session_key = client.cookies[settings.SESSION_COOKIE_NAME].value
+        session = SessionStore()
+        session.create()
+        client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
         return hmac.new(
-            settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
+            settings.SECRET_KEY.encode(), session.session_key.encode(), hashlib.sha256
         ).hexdigest()
 
     def test_user_cannot_read_another_sessions_transfer_or_report(self):
@@ -316,10 +318,11 @@ class ApiSessionSecurityTests(TestCase):
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
-        self.client.get(reverse("home"))
-        session_key = self.client.session.session_key
+        session = SessionStore()
+        session.create()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
         fingerprint = hmac.new(
-            settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
+            settings.SECRET_KEY.encode(), session.session_key.encode(), hashlib.sha256
         ).hexdigest()
         store_credential(fingerprint, "spotify", {"access_token": Fernet.generate_key().decode()})
         store_credential(fingerprint, "vk", {"access_token": Fernet.generate_key().decode()})
