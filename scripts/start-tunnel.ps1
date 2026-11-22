@@ -103,7 +103,7 @@ try {
         Start-Sleep -Seconds 1
         $logLine = $null
         while ($tunnelOutput.TryDequeue([ref]$logLine)) {
-            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\\.trycloudflare\\.com")
+            $match = [regex]::Match($logLine, "https://[a-z0-9-]+\.trycloudflare\.com")
             if ($match.Success) {
                 $publicUrl = $match.Value
                 break
