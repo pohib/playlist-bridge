@@ -1,6 +1,4 @@
 import csv
-import hashlib
-import hmac
 import io
 import json
 import logging
@@ -11,14 +9,19 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import SpotifyClient, TransferError, execute_transfer, parse_vk_playlist_url
-from .models import TransferJob
+from .core import SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
+from .credentials import (
+    delete_credential,
+    get_access_token,
+    get_session_fingerprint,
+    store_credential,
+)
+from .models import OAuthCredential, TransferJob
 
 logger = logging.getLogger(__name__)
 
@@ -31,123 +34,148 @@ def encryption_key_is_valid():
         return False
 
 
-def csv_safe_cell(value):
-    """Prevent spreadsheet formula execution in exported untrusted metadata."""
-    if isinstance(value, str) and value.lstrip()[:1] in {"=", "+", "-", "@"}:
-        return "'" + value
-    return value
-
 def spotify_client():
     if not settings.SPOTIFY_CLIENT_ID or not settings.SPOTIFY_CLIENT_SECRET:
-        raise TransferError("Не заданы SPOTIFY_CLIENT_ID и/или SPOTIFY_CLIENT_SECRET. Заполни их в .env из Spotify Developer Dashboard и перезапусти контейнеры.")
-    return SpotifyClient(settings.SPOTIFY_CLIENT_ID, settings.SPOTIFY_CLIENT_SECRET, settings.SPOTIFY_REDIRECT_URI)
+        raise TransferError("Spotify OAuth не настроен на сервере.")
+    return SpotifyClient(
+        settings.SPOTIFY_CLIENT_ID,
+        settings.SPOTIFY_CLIENT_SECRET,
+        settings.SPOTIFY_REDIRECT_URI,
+    )
+
+
+def vk_client():
+    if not settings.VK_ID_CLIENT_ID:
+        raise TransferError("VK ID OAuth не настроен на сервере.")
+    return VKIDClient(
+        settings.VK_ID_CLIENT_ID,
+        settings.VK_ID_REDIRECT_URI,
+        settings.VK_ID_SERVICE_TOKEN,
+    )
+
+
+def connected_providers(request):
+    fingerprint = get_session_fingerprint(request)
+    providers = set(
+        OAuthCredential.objects.filter(session_fingerprint=fingerprint)
+        .values_list("provider", flat=True)
+    )
+    return "spotify" in providers, "vk" in providers
+
 
 @require_GET
 def home(request):
-    return render(request, "transfer/home.html", {"connected": bool(request.session.get("spotify_token")), "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "vk_configured": bool(settings.VK_API_TOKEN), "encryption_key_configured": encryption_key_is_valid(), "result": request.session.pop("transfer_result", None)})
+    spotify_connected, vk_connected = connected_providers(request)
+    return render(request, "transfer/home.html", {
+        "connected": spotify_connected,
+        "vk_connected": vk_connected,
+        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
+        "encryption_key_configured": encryption_key_is_valid(),
+        "result": request.session.pop("transfer_result", None),
+    })
+
 
 @require_GET
 def healthz(request):
     return JsonResponse({"status": "ok"})
 
+
 @require_GET
 def spotify_login(request):
     try:
-        request.session.cycle_key()
         state = secrets.token_urlsafe(32)
         request.session["spotify_oauth_state"] = state
         return redirect(spotify_client().authorization_url(state))
     except TransferError as exc:
-        messages.error(request, str(exc))
+        request.session["oauth_error"] = str(exc)
         return redirect("home")
+
 
 @require_GET
 def spotify_callback(request):
     expected = request.session.pop("spotify_oauth_state", None)
     received = request.GET.get("state", "")
     if request.GET.get("error") or not expected or not secrets.compare_digest(expected, received):
-        messages.error(request, "Авторизация Spotify отменена или OAuth state недействителен.")
+        request.session["oauth_error"] = "Авторизация Spotify отменена или OAuth state недействителен."
         return redirect("home")
     code = request.GET.get("code", "")
     if not code:
-        messages.error(request, "Spotify не вернул код авторизации.")
+        request.session["oauth_error"] = "Spotify не вернул код авторизации."
         return redirect("home")
     try:
-        token = spotify_client().exchange_code(code)
+        client = spotify_client()
+        token = client.exchange_code(code)
         token["obtained_at"] = time.time()
-        request.session["spotify_token"] = token
-        messages.success(request, "Spotify успешно подключён.")
-    except TransferError:
-        logger.exception("Spotify OAuth callback failed")
-        messages.error(request, "Не удалось завершить авторизацию Spotify.")
+        profile = client.current_user(token["access_token"])
+        store_credential(get_session_fingerprint(request), "spotify", token, profile.get("id", ""))
+        request.session["oauth_success"] = "Spotify успешно подключён. Токены сохранены в зашифрованном виде."
+    except TransferError as exc:
+        logger.warning("Spotify OAuth callback failed: %s", exc)
+        request.session["oauth_error"] = "Не удалось завершить авторизацию Spotify."
     return redirect("home")
 
-def get_access_token(request):
-    token = request.session.get("spotify_token")
-    if not token:
-        raise TransferError("Сначала подключи Spotify.")
-    if time.time() >= token.get("obtained_at", 0) + token.get("expires_in", 3600) - 60:
-        refresh = token.get("refresh_token")
-        if not refresh:
-            request.session.pop("spotify_token", None)
-            raise TransferError("Сессия Spotify истекла. Подключи аккаунт повторно.")
-        renewed = spotify_client().refresh_token(refresh)
-        renewed["refresh_token"] = renewed.get("refresh_token", refresh)
-        renewed["obtained_at"] = time.time()
-        request.session["spotify_token"] = renewed
-        token = renewed
-    return token["access_token"]
+
+@require_GET
+def vk_login(request):
+    try:
+        state = secrets.token_urlsafe(32)
+        verifier = secrets.token_urlsafe(64)
+        request.session["vk_oauth_state"] = state
+        request.session["vk_code_verifier"] = verifier
+        return redirect(vk_client().authorization_url(state, verifier))
+    except TransferError as exc:
+        request.session["oauth_error"] = str(exc)
+        return redirect("home")
+
+
+@require_GET
+def vk_callback(request):
+    expected = request.session.pop("vk_oauth_state", None)
+    verifier = request.session.pop("vk_code_verifier", None)
+    received = request.GET.get("state", "")
+    if request.GET.get("error") or not expected or not verifier or not secrets.compare_digest(expected, received):
+        request.session["oauth_error"] = "Авторизация VK отменена или OAuth state недействителен."
+        return redirect("home")
+    code = request.GET.get("code", "")
+    device_id = request.GET.get("device_id", "")
+    if not code or not device_id:
+        request.session["oauth_error"] = "VK ID не вернул code или device_id."
+        return redirect("home")
+    try:
+        token = vk_client().exchange_code(code, device_id, expected, verifier)
+        token["device_id"] = device_id
+        token["obtained_at"] = time.time()
+        store_credential(get_session_fingerprint(request), "vk", token)
+        request.session["oauth_success"] = "VK успешно подключён. Токены сохранены в зашифрованном виде."
+    except TransferError as exc:
+        logger.warning("VK OAuth callback failed: %s", exc)
+        request.session["oauth_error"] = "Не удалось завершить авторизацию VK ID."
+    return redirect("home")
+
+
+@require_POST
+def disconnect_spotify(request):
+    delete_credential(get_session_fingerprint(request), "spotify")
+    request.session["oauth_success"] = "Spotify отключён."
+    return redirect("home")
+
+
+@require_POST
+def disconnect_vk(request):
+    delete_credential(get_session_fingerprint(request), "vk")
+    request.session["oauth_success"] = "VK отключён."
+    return redirect("home")
+
 
 @require_POST
 def transfer_playlist(request):
-    try:
-        if not settings.VK_API_TOKEN:
-            raise TransferError("VK_API_TOKEN не задан в .env.")
-        source = request.POST.get("source_url", "").strip()
-        target = request.POST.get("target_playlist", "").strip()
-        result = execute_transfer(
-            vk_token=settings.VK_API_TOKEN,
-            vk_version=settings.VK_API_VERSION,
-            vk_client_id=settings.VK_CLIENT_ID,
-            spotify=spotify_client(),
-            spotify_token=get_access_token(request),
-            source_url=source,
-            target_playlist=target or None,
-        )
-        request.session["transfer_result"] = result
-        messages.success(request, f"Перенесено {result['matched']} из {result['total']} треков.")
-    except TransferError as exc:
-        messages.error(request, str(exc))
-    except Exception:
-        logger.exception("Unexpected playlist transfer failure")
-        messages.error(request, "Перенос не выполнен. Подробности сохранены в серверном журнале.")
-    return redirect("home")
+    return JsonResponse({"error": "Используй POST /api/v1/transfers/."}, status=410)
+
 
 @require_GET
 def download_report(request):
-    rows = request.session.get("transfer_result", {}).get("report", [])
-    if not rows:
-        return HttpResponse("Отчёт отсутствует.", status=404)
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=list(rows[0]))
-    writer.writeheader()
-    for row in rows:
-        writer.writerow({key: csv_safe_cell(value) for key, value in row.items()})
-    response = HttpResponse("\ufeff" + output.getvalue(), content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = 'attachment; filename="transfer-report.csv"'
-    response["X-Content-Type-Options"] = "nosniff"
-    return response
-
-
-
-def session_fingerprint(request):
-    if not request.session.session_key:
-        request.session.save()
-    return hmac.new(
-        settings.SECRET_KEY.encode(),
-        request.session.session_key.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return HttpResponse("Отчёт доступен через API задачи.", status=410)
 
 
 def api_error(message, status=400):
@@ -173,11 +201,13 @@ def serialize_job(job):
 
 @require_GET
 def api_status(request):
+    spotify_connected, vk_connected = connected_providers(request)
     return JsonResponse({
         "api_version": "1",
-        "spotify_connected": bool(request.session.get("spotify_token")),
+        "spotify_connected": spotify_connected,
+        "vk_connected": vk_connected,
         "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "vk_configured": bool(settings.VK_API_TOKEN),
+        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
         "encryption_key_configured": encryption_key_is_valid(),
     })
 
@@ -203,24 +233,19 @@ def api_create_transfer(request):
         parse_vk_playlist_url(source_url)
     except (ValidationError, ValueError):
         return api_error("Укажи корректную ссылку на плейлист VK.")
-    if not settings.VK_API_TOKEN:
-        return api_error("VK_API_TOKEN не настроен на сервере.", 503)
-    if not settings.SPOTIFY_CLIENT_ID or not settings.SPOTIFY_CLIENT_SECRET:
-        return api_error("Spotify OAuth не настроен: проверь SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET.", 503)
-    if not settings.TOKEN_ENCRYPTION_KEY:
-        return api_error("TOKEN_ENCRYPTION_KEY не настроен на сервере.", 503)
-    token_data = request.session.get("spotify_token")
-    if not token_data:
-        return api_error("Сначала подключи Spotify.", 401)
-    try:
-        Fernet(settings.TOKEN_ENCRYPTION_KEY.encode())
-        get_access_token(request)
-        token_bundle = json.dumps(request.session.get("spotify_token", {}), separators=(",", ":"))
-        encrypted = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).encrypt(token_bundle.encode()).decode()
-    except (ValueError, TransferError) as exc:
-        return api_error(str(exc), 503)
+    if not encryption_key_is_valid():
+        return api_error("Шифрование OAuth-токенов не настроено на сервере.", 503)
 
-    fingerprint = session_fingerprint(request)
+    fingerprint = get_session_fingerprint(request)
+    connected = set(
+        OAuthCredential.objects.filter(session_fingerprint=fingerprint)
+        .values_list("provider", flat=True)
+    )
+    if "spotify" not in connected:
+        return api_error("Сначала подключи Spotify.", 401)
+    if "vk" not in connected:
+        return api_error("Сначала подключи VK.", 401)
+
     active = TransferJob.objects.filter(
         session_fingerprint=fingerprint,
         status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
@@ -232,7 +257,6 @@ def api_create_transfer(request):
         session_fingerprint=fingerprint,
         source_url=source_url,
         target_playlist=(target or "").strip(),
-        encrypted_spotify_token=encrypted,
     )
     try:
         from .tasks import run_transfer
@@ -242,15 +266,17 @@ def api_create_transfer(request):
         job.status = TransferJob.Status.FAILED
         job.error = "Очередь задач недоступна. Проверь Redis и Celery worker."
         job.finished_at = timezone.now()
-        job.encrypted_spotify_token = ""
-        job.save(update_fields=["status", "error", "finished_at", "encrypted_spotify_token"])
+        job.save(update_fields=["status", "error", "finished_at"])
         return api_error(job.error, 503)
     return JsonResponse({"job": serialize_job(job)}, status=202)
 
 
 @require_GET
 def api_transfer_detail(request, job_id):
-    job = TransferJob.objects.filter(pk=job_id, session_fingerprint=session_fingerprint(request)).first()
+    job = TransferJob.objects.filter(
+        pk=job_id,
+        session_fingerprint=get_session_fingerprint(request),
+    ).first()
     if not job:
         return api_error("Задача не найдена.", 404)
     return JsonResponse({"job": serialize_job(job)})
@@ -258,7 +284,10 @@ def api_transfer_detail(request, job_id):
 
 @require_GET
 def api_transfer_report(request, job_id):
-    job = TransferJob.objects.filter(pk=job_id, session_fingerprint=session_fingerprint(request)).first()
+    job = TransferJob.objects.filter(
+        pk=job_id,
+        session_fingerprint=get_session_fingerprint(request),
+    ).first()
     if not job:
         return api_error("Задача не найдена.", 404)
     if job.status != TransferJob.Status.SUCCEEDED:
@@ -270,13 +299,13 @@ def api_transfer_report(request, job_id):
 def api_openapi(request):
     schema = {
         "openapi": "3.1.0",
-        "info": {"title": "VK to Spotify API", "version": "1.0.0"},
+        "info": {"title": "VK to Spotify API", "version": "1.1.0"},
         "servers": [{"url": "/api/v1"}],
         "paths": {
             "/status/": {"get": {"summary": "Состояние подключений", "responses": {"200": {"description": "Connection state"}}}},
             "/transfers/": {"post": {
                 "summary": "Запустить перенос",
-                "description": "Требует браузерную сессию и CSRF-токен.",
+                "description": "Требует браузерную сессию, подключения обоих провайдеров и CSRF-токен.",
                 "requestBody": {"required": True, "content": {"application/json": {"schema": {
                     "type": "object", "required": ["source_url"], "properties": {
                         "source_url": {"type": "string", "format": "uri"},
