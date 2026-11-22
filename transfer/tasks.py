@@ -4,7 +4,7 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from .core import SpotifyClient, TransferError, VKIDClient, execute_transfer
+from .services import SpotifyClient, TransferError, VKIDClient, execute_transfer
 from .credentials import get_access_token
 from .models import TransferJob
 

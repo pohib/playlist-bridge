@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import SoundCloudClient, SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
+from .services import SoundCloudClient, SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
 from .credentials import (
     delete_credential,
     get_access_token,
