@@ -1,12 +1,72 @@
+{% load static %}
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VK → Spotify</title>
-<style>:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101114;color:#f5f5f5}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}main{width:min(680px,100%);box-sizing:border-box;padding:32px;background:#1b1c22;border:1px solid #383943;border-radius:18px}p,small{color:#a1a1aa}label{display:block;margin:20px 0 8px;font-weight:600}input{box-sizing:border-box;width:100%;padding:13px;border-radius:9px;border:1px solid #444;background:#111217;color:white;font:inherit}button,.button{display:inline-block;margin-top:20px;padding:12px 18px;border:0;border-radius:9px;background:#1ed760;color:#07140b;font-weight:700;text-decoration:none;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.notice{padding:12px;margin:12px 0;border-radius:9px;background:#30313a}</style></head>
-<body><main><h1>VK <span style="color:#1ed760">→</span> Spotify</h1><p>Перенос композиций с сохранением порядка. Неоднозначные совпадения пропускаются.</p>
-{% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
-{% if connected %}<div class="notice">Spotify подключён ✓</div>{% else %}<a class="button" href="{% url 'spotify_login' %}">Подключить Spotify</a>{% endif %}
-<form method="post" action="{% url 'transfer_playlist' %}">{% csrf_token %}
-<label for="source_url">Ссылка на плейлист VK</label><input id="source_url" name="source_url" type="url" maxlength="2048" required placeholder="https://vk.ru/music/playlist/...">
-<label for="target_playlist">Ссылка или ID существующего плейлиста Spotify (необязательно)</label><input id="target_playlist" name="target_playlist" maxlength="2048" placeholder="Пусто — создать новый приватный плейлист">
-<small>Для существующего плейлиста проверяется владелец.</small><br><button type="submit" {% if not connected %}disabled{% endif %}>Начать перенос</button></form>
-{% if result %}<h2>{{ result.playlist_name }}</h2><p>Перенесено: {{ result.matched }} / {{ result.total }} · Не найдено: {{ result.not_found }} · Неоднозначно: {{ result.ambiguous }}</p><a class="button" href="{% url 'download_report' %}">Скачать CSV-отчёт</a>{% endif %}
-</main></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101014">
+  <title>VK → Spotify — перенос плейлистов</title>
+  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}">
+  <script defer src="{% static 'transfer/js/app.js' %}"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="{% url 'home' %}" aria-label="VK to Spotify">
+        <span class="brand-mark">V<span>→</span>S</span><span>playlist bridge</span>
+      </a>
+      <span class="version">BETA · API v1</span>
+    </header>
+    <section class="hero">
+      <div class="eyebrow"><span class="pulse"></span> MUSIC TRANSFER TOOL</div>
+      <h1>Твоя музыка.<br><span>На новой платформе.</span></h1>
+      <p class="lead">Переноси плейлисты из VK в Spotify, сохраняя порядок композиций. Совпадения проверяются по названию, исполнителю и длительности.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-heading">
+        <div><span class="step">01 / ACCOUNT</span><h2>Подключения</h2></div>
+        <span class="status-pill {% if connected %}is-ok{% elif spotify_configured %}is-warn{% else %}is-off{% endif %}"><i></i>{% if connected %}Spotify подключён{% elif spotify_configured %}Ожидает подключения{% else %}Нужна настройка{% endif %}</span>
+      </div>
+      <div class="connection-row">
+        <div class="service-icon vk-icon">vk</div>
+        <div class="service-copy"><strong>ВКонтакте</strong><span>{% if vk_configured %}API доступ настроен{% else %}Не задан VK_API_TOKEN{% endif %}</span></div>
+        <span class="connection-state {% if vk_configured %}good{% else %}bad{% endif %}">{% if vk_configured %}Готово{% else %}Настроить{% endif %}</span>
+      </div>
+      <div class="connection-row">
+        <div class="service-icon spotify-icon">●</div>
+        <div class="service-copy"><strong>Spotify</strong><span>{% if connected %}Аккаунт авторизован{% elif spotify_configured %}Требуется OAuth авторизация{% else %}Не заданы OAuth credentials{% endif %}</span></div>
+        {% if connected %}<span class="connection-state good">Готово</span>{% else %}<a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true" title="Заполни SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET в .env"{% endif %}>Подключить <span>↗</span></a>{% endif %}
+      </div>
+      {% if not spotify_configured %}
+      <div class="inline-help"><strong>Spotify OAuth ещё не настроен.</strong> Создай приложение в Spotify Developer Dashboard, добавь Redirect URI <code>{{ request.scheme }}://{{ request.get_host }}{% url 'spotify_callback' %}</code>, затем заполни <code>SPOTIFY_CLIENT_ID</code> и <code>SPOTIFY_CLIENT_SECRET</code> в файле <code>.env</code>. После этого перезапусти контейнеры.</div>
+      {% endif %}
+      {% if not vk_configured %}<div class="inline-help warning"><strong>VK API token отсутствует.</strong> Укажи <code>VK_API_TOKEN</code> в .env.</div>{% endif %}
+    </section>
+    <section class="panel transfer-panel">
+      <div class="panel-heading">
+        <div><span class="step">02 / TRANSFER</span><h2>Перенос плейлиста</h2></div>
+        <span class="private-label"><span>●</span> Приватный плейлист</span>
+      </div>
+      <form id="transfer-form">
+        {% csrf_token %}
+        <label for="source_url">Ссылка на плейлист VK</label>
+        <div class="input-wrap"><span class="input-prefix">VK</span><input id="source_url" name="source_url" type="url" maxlength="2048" required placeholder="https://vk.ru/music/playlist/..." autocomplete="url"></div>
+        <label for="target_playlist">Целевой плейлист Spotify <span class="optional">необязательно</span></label>
+        <input id="target_playlist" name="target_playlist" maxlength="2048" placeholder="Вставь ссылку или ID — либо оставь пустым">
+        <p class="field-hint">Если поле пустое, будет создан новый приватный плейлист. Для существующего проверяется владелец.</p>
+        <button class="primary-button" type="submit" {% if not connected or not vk_configured %}disabled{% endif %}><span>Начать перенос</span><span class="button-arrow">→</span></button>
+      </form>
+      <div id="transfer-status" class="transfer-status" hidden aria-live="polite">
+        <div class="progress-top"><strong id="job-title">Перенос запущен</strong><span id="progress-value">0%</span></div>
+        <div class="progress-track"><div id="progress-bar"></div></div>
+        <p id="progress-caption">Задача добавлена в очередь…</p>
+        <div id="job-result" class="job-result"></div>
+      </div>
+      {% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
+      {% if result %}<div class="notice">Перенесено {{ result.matched }} из {{ result.total }} треков. Не найдено: {{ result.not_found }}, неоднозначных: {{ result.ambiguous }}.</div>{% endif %}
+    </section>
+    <footer><span>VK → Spotify</span><span>Треки ищутся в каталоге Spotify · Неоднозначные совпадения пропускаются</span></footer>
+  </main>
+</body>
+</html>
