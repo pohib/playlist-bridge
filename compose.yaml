@@ -1,0 +1,38 @@
+services:
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://vktospotify:${POSTGRES_PASSWORD}@db:5432/vktospotify
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,web
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:8000
+      DJANGO_DEBUG: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 180"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vktospotify
+      POSTGRES_USER: vktospotify
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U vktospotify -d vktospotify"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  postgres_data:
