@@ -1,0 +1,8 @@
+{% extends "transfer/base.html" %}
+{% block title %}Профиль — Playlist Bridge{% endblock %}
+{% block content %}
+<section class="page-heading"><div><span class="section-kicker">ACCOUNT SETTINGS</span><h1>Твой <span>профиль.</span></h1><p>Учётная запись и личное пространство Playlist Bridge.</p></div></section>
+<section class="content-panel profile-settings"><div class="profile-avatar large-avatar">{{ user.username|first|upper }}</div><div><span class="section-kicker">USERNAME</span><h2>{{ user.username }}</h2><p>{{ user.email|default:"Электронная почта не указана" }}</p><span class="muted-copy">Аккаунт создан {{ user.date_joined|date:"d.m.Y" }}</span></div></section>
+<section class="content-panel"><h2>Имя музыкального профиля</h2><form method="post" action="{% url 'library_update_profile' %}" class="create-inline">{% csrf_token %}<input name="display_name" maxlength="60" value="{{ library_profile.display_name }}" required><button class="secondary-button" type="submit">Сохранить имя</button></form></section>
+<section class="content-panel"><h2>Безопасность аккаунта</h2><p class="muted-copy">Пароль хранится с использованием встроенного механизма хеширования Django. OAuth-токены музыкальных сервисов хранятся отдельно в зашифрованном виде.</p><a class="secondary-button" href="{% url 'password_change' %}">Изменить пароль</a></section>
+{% endblock %}

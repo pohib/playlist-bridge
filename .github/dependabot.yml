@@ -1,0 +1,49 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10
+    groups:
+      python-runtime:
+        patterns:
+          - Django
+          - celery
+          - cryptography
+          - requests
+          - gunicorn
+          - psycopg*
+          - whitenoise
+          - dj-database-url
+          - python-dotenv
+      python-development:
+        dependency-type: development
+        patterns:
+          - pytest*
+          - ruff
+          - bandit
+          - pip-audit
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 10

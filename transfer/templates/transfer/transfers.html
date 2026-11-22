@@ -1,0 +1,9 @@
+{% extends "transfer/base.html" %}
+{% block title %}Переносы — Playlist Bridge{% endblock %}
+{% block content %}
+<section class="page-heading"><div><span class="section-kicker">TRANSFER CENTER</span><h1>История <span>переносов.</span></h1><p>Здесь будут статусы задач, результаты сопоставления и отчёты.</p></div></section>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">TRANSFER HISTORY</span><h2>Последние задачи</h2></div></div>
+{% if library_transfers %}<div class="review-history">{% for transfer in library_transfers %}<a class="review-history-row" href="{% url 'transfer_review' transfer.id %}"><span class="review-history-icon">{% if transfer.status == 'completed' %}✓{% else %}…{% endif %}</span><span><strong>{{ transfer.source_playlist.title }} → {{ transfer.target_provider|title }}</strong><small>{{ transfer.created_at|date:"d.m.Y H:i" }} · найдено {{ transfer.matched }}/{{ transfer.total }} · пропущено {{ transfer.skipped }}</small></span><b>{% if transfer.status == 'review' %}Проверить →{% else %}Открыть →{% endif %}</b></a>{% endfor %}</div>{% else %}<div class="empty-state"><span>⇄</span><strong>Переносов пока нет</strong><p>Открой библиотеку и выбери коллекцию, которую хочешь перенести.</p><a href="{% url 'library' %}">Перейти в библиотеку →</a></div>{% endif %}
+{% if jobs %}<h3 class="history-subtitle">Фоновые задачи</h3><div class="job-list">{% for job in jobs %}<div class="job-row"><span class="job-dot status-{{ job.status }}"></span><span><strong>{{ job.get_status_display }}</strong><small>{{ job.created_at|date:"d.m.Y H:i" }} · найдено {{ job.matched }} из {{ job.total }} · не найдено {{ job.not_found }} · неоднозначно {{ job.ambiguous }}</small></span><b>{{ job.progress }}%</b></div>{% endfor %}</div>{% endif %}
+</section>
+{% endblock %}
