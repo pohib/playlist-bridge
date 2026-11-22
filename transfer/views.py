@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.cache import never_cache
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -68,6 +69,7 @@ def connected_providers(request):
     return "spotify" in providers, "vk" in providers
 
 
+@never_cache
 @require_GET
 def home(request):
     spotify_connected, vk_connected = connected_providers(request)
@@ -83,11 +85,13 @@ def home(request):
     })
 
 
+@never_cache
 @require_GET
 def healthz(request):
     return JsonResponse({"status": "ok"})
 
 
+@never_cache
 @require_GET
 def spotify_login(request):
     try:
@@ -99,6 +103,7 @@ def spotify_login(request):
         return redirect("home")
 
 
+@never_cache
 @require_GET
 def spotify_callback(request):
     expected = request.session.pop("spotify_oauth_state", None)
@@ -124,6 +129,7 @@ def spotify_callback(request):
     return redirect("home")
 
 
+@never_cache
 @require_GET
 def vk_login(request):
     try:
@@ -137,6 +143,7 @@ def vk_login(request):
         return redirect("home")
 
 
+@never_cache
 @require_GET
 def vk_callback(request):
     expected = request.session.pop("vk_oauth_state", None)
@@ -210,6 +217,7 @@ def serialize_job(job):
     }
 
 
+@never_cache
 @require_GET
 def api_status(request):
     spotify_connected, vk_connected = connected_providers(request)
@@ -282,6 +290,7 @@ def api_create_transfer(request):
     return JsonResponse({"job": serialize_job(job)}, status=202)
 
 
+@never_cache
 @require_GET
 def api_transfer_detail(request, job_id):
     job = TransferJob.objects.filter(
@@ -293,6 +302,7 @@ def api_transfer_detail(request, job_id):
     return JsonResponse({"job": serialize_job(job)})
 
 
+@never_cache
 @require_GET
 def api_transfer_report(request, job_id):
     job = TransferJob.objects.filter(
@@ -306,6 +316,7 @@ def api_transfer_report(request, job_id):
     return JsonResponse({"report": job.result.get("report", [])})
 
 
+@never_cache
 @require_GET
 def api_openapi(request):
     schema = {
