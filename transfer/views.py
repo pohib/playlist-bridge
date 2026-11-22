@@ -299,6 +299,8 @@ def api_create_transfer(request):
         return api_error("Укажи корректную ссылку на плейлист VK.")
     if not encryption_key_is_valid():
         return api_error("Шифрование OAuth-токенов не настроено на сервере.", 503)
+    if not settings.VK_ID_CLIENT_ID or not settings.VK_ANON_CLIENT_SECRET:
+        return api_error("Анонимный доступ VK не настроен на сервере.", 503)
 
     fingerprint = get_session_fingerprint(request)
     connected = set(
