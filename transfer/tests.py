@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from requests import HTTPError
 
-from .core import ReauthorizationRequired, SpotifyClient, VKIDClient, normalize_track_text, parse_vk_playlist_url
+from .core import ReauthorizationRequired, SpotifyClient, TransferError, VKClient, VKIDClient, normalize_track_text, parse_vk_playlist_url
 from .credentials import decrypt_payload, get_access_token, store_credential
 from .models import OAuthCredential, TransferJob
 
@@ -35,6 +35,64 @@ class InputValidationTests(TestCase):
     def test_normalization(self):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
 
+
+class VKPlaylistBatchTests(TestCase):
+    def test_fetch_playlist_processes_all_ids_in_order_across_batches(self):
+        client = VKClient("test-access", "5.289", "vk-app")
+        audio_ids = [f"42_{index}" for index in range(1, 46)]
+        batch_response = {
+            "response": {
+                "responses": [
+                    {"id": "13", "body": {"response": {"title": "Test playlist"}}},
+                    {
+                        "id": "14",
+                        "body": {"response": {"audios": [{"audio_id": value} for value in audio_ids]}},
+                    },
+                ]
+            }
+        }
+        audio_responses = []
+        for offset in range(0, len(audio_ids), 20):
+            audio_responses.append({
+                "response": [
+                    {
+                        "owner_id": 42,
+                        "id": int(value.split("_")[1]),
+                        "artist": "Artist",
+                        "title": f"Track {value.split('_')[1]}",
+                        "duration": 180,
+                    }
+                    for value in reversed(audio_ids[offset:offset + 20])
+                ]
+            })
+
+        with patch.object(client, "post", side_effect=[batch_response, *audio_responses]) as post:
+            name, tracks = client.fetch_playlist(
+                "https://vk.ru/music/playlist/42_9_testkey"
+            )
+
+        self.assertEqual(name, "Test playlist")
+        self.assertEqual(len(tracks), 45)
+        self.assertEqual([track.track_id for track in tracks], list(range(1, 46)))
+        self.assertEqual(post.call_count, 4)
+        self.assertEqual(
+            [len(call.kwargs["data"]["audios"].split(",")) for call in post.call_args_list[1:]],
+            [20, 20, 5],
+        )
+
+    def test_fetch_playlist_rejects_empty_id_response(self):
+        client = VKClient("test-access", "5.289", "vk-app")
+        response = {
+            "response": {
+                "responses": [
+                    {"id": "13", "body": {"response": {"title": "Empty"}}},
+                    {"id": "14", "body": {"response": {"audios": []}}},
+                ]
+            }
+        }
+        with patch.object(client, "post", return_value=response):
+            with self.assertRaises(TransferError):
+                client.fetch_playlist("https://vk.ru/music/playlist/42_9")
 
 class HttpSurfaceTests(TestCase):
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
