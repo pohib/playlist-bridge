@@ -1,0 +1,45 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="Playlist Bridge — собирай музыкальную библиотеку и переноси плейлисты между сервисами.">
+  <link rel="icon" type="image/svg+xml" href="{% static 'transfer/images/brand.svg' %}">
+  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}">
+  <title>{% block title %}Playlist Bridge{% endblock %}</title>
+  {% block head %}{% endblock %}
+</head>
+<body class="app-body">
+  <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="{% url 'home' %}"><img class="brand-mark" src="{% static 'transfer/images/brand.svg' %}" alt=""><span>playlist bridge</span></a>
+      <nav class="main-nav" aria-label="Основная навигация">
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Обзор</a>
+          <a href="{% url 'library' %}" class="{% if request.resolver_match.url_name == 'library' or request.resolver_match.url_name == 'playlist_detail' %}active{% endif %}">Библиотека</a>
+          <a href="{% url 'connections' %}" class="{% if request.resolver_match.url_name == 'connections' %}active{% endif %}">Сервисы</a>
+          <a href="{% url 'transfers' %}" class="{% if request.resolver_match.url_name == 'transfers' %}active{% endif %}">Переносы</a>
+        {% endif %}
+      </nav>
+      <div class="header-account">
+        {% if user.is_authenticated %}
+          <a class="account-chip" href="{% url 'profile' %}"><span class="account-avatar">{{ user.username|first|upper }}</span><span>{{ user.username }}</span></a>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="nav-logout" type="submit">Выйти</button></form>
+        {% else %}
+          <a class="nav-login" href="{% url 'login' %}">Войти</a><a class="nav-register" href="{% url 'register' %}">Создать аккаунт</a>
+        {% endif %}
+      </div>
+    </header>
+    {% if messages %}
+      <div class="global-messages" aria-live="polite">
+        {% for message in messages %}<div class="global-message {% if message.tags == 'error' %}is-error{% elif message.tags == 'success' %}is-success{% endif %}">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    <main class="page-content">{% block content %}{% endblock %}</main>
+    <footer class="site-footer"><span>PLAYLIST BRIDGE</span><span>Твоя музыка. Твои сервисы. Твоя библиотека.</span><span>© 2026</span></footer>
+  </div>
+</body>
+</html>
