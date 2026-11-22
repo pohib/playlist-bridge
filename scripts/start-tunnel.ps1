@@ -126,7 +126,7 @@ try {
         }
     }
 
-    [System.IO.File]::WriteAllLines($envPath, $envLines, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
     Write-Host "[4/4] Перезапуск web и worker с HTTPS..."
     docker compose up -d --force-recreate web worker
