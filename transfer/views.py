@@ -122,50 +122,6 @@ def spotify_callback(request):
 
 @never_cache
 @require_GET
-def vk_login(request):
-    try:
-        state = secrets.token_urlsafe(32)
-        verifier = secrets.token_urlsafe(64)
-        request.session["vk_oauth_state"] = state
-        request.session["vk_code_verifier"] = verifier
-        return redirect(vk_client().authorization_url(state, verifier))
-    except TransferError as exc:
-        request.session["oauth_error"] = str(exc)
-        return redirect("connections" if request.user.is_authenticated else "home")
-
-
-@never_cache
-@require_GET
-def vk_callback(request):
-    expected = request.session.pop("vk_oauth_state", None)
-    verifier = request.session.pop("vk_code_verifier", None)
-    received = request.GET.get("state", "")
-    if request.GET.get("error") or not expected or not verifier or not secrets.compare_digest(expected, received):
-        request.session["oauth_error"] = "Авторизация VK отменена или OAuth state недействителен."
-        return redirect("connections" if request.user.is_authenticated else "home")
-    code = request.GET.get("code", "")
-    device_id = request.GET.get("device_id", "")
-    if not code or not device_id:
-        request.session["oauth_error"] = "VK ID не вернул code или device_id."
-        return redirect("connections" if request.user.is_authenticated else "home")
-    try:
-        token = vk_client().exchange_code(code, device_id, expected, verifier)
-        if token.get("state") != expected:
-            raise TransferError("VK ID вернул некорректный OAuth state.")
-        token["device_id"] = device_id
-        rotate_session_binding(request)
-        token["obtained_at"] = time.time()
-        store_credential(get_session_fingerprint(request), "vk", token)
-        request.session["oauth_success"] = "VK успешно подключён. Токены сохранены в зашифрованном виде."
-    except TransferError as exc:
-        logger.warning("VK OAuth callback failed: %s", exc)
-        request.session["oauth_error"] = "Не удалось завершить авторизацию VK ID."
-    return redirect("connections" if request.user.is_authenticated else "home")
-
-
-
-@never_cache
-@require_GET
 def soundcloud_login(request):
     try:
         state = secrets.token_urlsafe(32)
