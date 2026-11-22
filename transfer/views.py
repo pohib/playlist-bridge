@@ -77,7 +77,7 @@ def connected_providers(request):
         OAuthCredential.objects.filter(session_fingerprint=fingerprint)
         .values_list("provider", flat=True)
     )
-    return "spotify" in providers, "vk" in providers, "soundcloud" in providers
+    return "spotify" in providers, False, "soundcloud" in providers
 
 
 @never_cache
