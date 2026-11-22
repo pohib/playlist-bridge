@@ -710,6 +710,7 @@ def select_transfer_candidate(request, transfer_id, item_id):
         review.status = LibraryTransfer.Status.COMPLETED
         review.completed_at = timezone.now()
     review.save(update_fields=["matched", "status", "completed_at"])
+    logger.info("Manual track match selected transfer_id=%s item_id=%s provider=%s", review.pk, item.pk, review.target_provider)
     messages.success(request, f"«{candidate.get('title') or item.source_track.title}» добавлен в целевой плейлист.")
     return redirect("transfer_review", transfer_id=review.pk)
 
@@ -740,6 +741,7 @@ def skip_transfer_item(request, transfer_id, item_id):
         review.status = LibraryTransfer.Status.COMPLETED
         review.completed_at = timezone.now()
     review.save(update_fields=["skipped", "status", "completed_at"])
+    logger.info("Manual track skipped transfer_id=%s item_id=%s", review.pk, item.pk)
     messages.info(request, f"«{item.source_track.title}» пропущен.")
     return redirect("transfer_review", transfer_id=review.pk)
 
