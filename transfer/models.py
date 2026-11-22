@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
@@ -62,9 +63,10 @@ class TransferJob(models.Model):
 
 
 class LibraryProfile(models.Model):
-    """Session-scoped workspace profile; can later be linked to an authenticated user."""
+    """A persistent account workspace, with legacy anonymous-session support."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session_fingerprint = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="library_profile")
     display_name = models.CharField(max_length=60, default="Моя музыкальная библиотека")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
