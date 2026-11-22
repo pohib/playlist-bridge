@@ -26,7 +26,7 @@ Django-приложение для переноса VK-плейлистов в S
 
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-Создай приложения в Spotify Developer Dashboard и VK ID Developer Dashboard. Для Spotify в Users Management добавь Spotify-аккаунты тестировщиков (в Development Mode лимит — 5 пользователей). В обоих приложениях зарегистрируй точные callback URL:
+Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), а приложение VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go). В кабинете VK ID открой «Добавить приложение», выбери платформу Web, затем укажи базовый домен и доверенный Redirect URL. После создания скопируй ID приложения в `VK_ID_CLIENT_ID`. Для локальной разработки используй callback `http://127.0.0.1:8000/vk/callback/`; если VK ID не принимает loopback HTTP-адрес, используй HTTPS-туннель и зарегистрируй его точный URL. Не путай ID приложения с защищённым/сервисным ключом: `VK_ID_SERVICE_TOKEN` нужен только если его требует выбранная конфигурация VK ID. Для Spotify в Users Management добавь Spotify-аккаунты тестировщиков (в Development Mode лимит — 5 пользователей). В обоих приложениях зарегистрируй точные callback URL:
 - http://127.0.0.1:8000/spotify/callback/
 - http://127.0.0.1:8000/vk/callback/
 
@@ -34,8 +34,9 @@ Django-приложение для переноса VK-плейлистов в S
 
 ## Запуск через Docker Compose
 
-1. Скопируй .env.example в .env.
-2. Заполни секреты приложения, инфраструктуры и developer OAuth app credentials.
+1. Скопируй `.env.example` в `.env` (PowerShell: `Copy-Item .env.example .env`). Если `.env` уже существует, добавь недостающие параметры, не перезаписывая действующие секреты.
+2. Заполни все переменные, перечисленные в шаблоне. В частности, `POSTGRES_PASSWORD` должен быть одинаковым для подключения Django и первичной инициализации PostgreSQL. Compose сам формирует `DATABASE_URL`; не задавай его вручную в `.env`.
+3. Для локального HTTP оставь `SESSION_COOKIE_SECURE=false`, `CSRF_COOKIE_SECURE=false`, `SECURE_SSL_REDIRECT=false`; Compose принудительно включает `DJANGO_DEBUG=false` для самого приложения.
 3. Сгенерируй TOKEN_ENCRYPTION_KEY.
 4. Убедись, что для локального HTTP в `.env` стоят `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false`. В production за HTTPS обе настройки должны быть `true`.
 5. Запусти:
