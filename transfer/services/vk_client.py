@@ -198,7 +198,7 @@ class VKClient:
         try:
             return VKTrack(
                 int(item["owner_id"]),
-                int(item.get("id", item.get("audio_id", "").split("_")[1])),
+                int(item["id"] if item.get("id") is not None else item["audio_id"].split("_")[1]),
                 str(item.get("artist") or "").strip(),
                 str(item.get("title") or "").strip(),
                 max(0, int(item.get("duration") or 0)),
