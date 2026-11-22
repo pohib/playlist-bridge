@@ -420,7 +420,7 @@ def transfer_library_playlist(request, playlist_id):
                     key=lambda pair: pair[0],
                     reverse=True,
                 )
-                if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("uri"):
+                if ranked and ranked[0][0] >= 0.82 and re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", str(ranked[0][1].get("uri") or "")):
                     item = ranked[0][1]
                     matched[track.pk] = {
                         "id": str(item.get("id") or ""),
@@ -437,7 +437,7 @@ def transfer_library_playlist(request, playlist_id):
                             "duration_ms": int(item.get("duration_ms") or 0),
                             "url": _safe_candidate_url((item.get("external_urls") or {}).get("spotify", ""), "spotify"),
                         }
-                        for score, item in ranked[:5] if score >= 0.45 and item.get("id") and item.get("uri")
+                        for score, item in ranked[:5] if score >= 0.45 and item.get("id") and re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", str(item.get("uri") or ""))
                     ]))
             uris = [
                 matched[track.pk]["uri"]
@@ -473,7 +473,7 @@ def transfer_library_playlist(request, playlist_id):
                     }
                     ranked.append((score_candidate(source, normalized), candidate))
                 ranked.sort(key=lambda pair: pair[0], reverse=True)
-                if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("id"):
+                if ranked and ranked[0][0] >= 0.82 and re.fullmatch(r"[0-9]+", str(ranked[0][1].get("id") or "")):
                     candidate = ranked[0][1]
                     matched[track.pk] = {
                         "id": str(candidate["id"]),
@@ -489,7 +489,7 @@ def transfer_library_playlist(request, playlist_id):
                             "duration_ms": int(candidate.get("duration") or 0),
                             "url": str(candidate.get("permalink_url") or ""),
                         }
-                        for score, candidate in ranked[:5] if score >= 0.45 and candidate.get("id")
+                        for score, candidate in ranked[:5] if score >= 0.45 and re.fullmatch(r"[0-9]+", str(candidate.get("id") or ""))
                     ]))
             target_ids = [matched[track.pk]["id"] for track in tracks if track.pk in matched]
             if target_ids:
