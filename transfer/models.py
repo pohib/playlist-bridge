@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.db.models import Q
 
 
 class OAuthCredential(models.Model):
@@ -50,3 +51,10 @@ class TransferJob(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("session_fingerprint",),
+                condition=Q(status__in=("queued", "running")),
+                name="one_active_transfer_per_session",
+            ),
+        ]
