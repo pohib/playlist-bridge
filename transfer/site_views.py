@@ -56,7 +56,6 @@ def playlist_detail(request, playlist_id):
 def connections(request):
     return render(request, "transfer/connections.html", {
         "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
         "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
     })
 
