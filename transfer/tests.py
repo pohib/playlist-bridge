@@ -1,4 +1,4 @@
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from .core import parse_vk_playlist_url, normalize_track_text
 
