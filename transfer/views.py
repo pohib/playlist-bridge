@@ -121,3 +121,165 @@ def download_report(request):
     response["Content-Disposition"] = 'attachment; filename="transfer-report.csv"'
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+import hashlib
+import hmac
+import json
+
+from cryptography.fernet import Fernet
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
+
+from .models import TransferJob
+
+
+def session_fingerprint(request):
+    if not request.session.session_key:
+        request.session.save()
+    return hmac.new(
+        settings.SECRET_KEY.encode(),
+        request.session.session_key.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def api_error(message, status=400):
+    return JsonResponse({"error": {"message": message}}, status=status)
+
+
+def serialize_job(job):
+    return {
+        "id": str(job.pk),
+        "status": job.status,
+        "progress": job.progress,
+        "total": job.total,
+        "matched": job.matched,
+        "not_found": job.not_found,
+        "ambiguous": job.ambiguous,
+        "error": job.error or None,
+        "created_at": job.created_at.isoformat(),
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "target_playlist_id": job.result.get("target_playlist_id") if job.status == TransferJob.Status.SUCCEEDED else None,
+    }
+
+
+@require_GET
+def api_status(request):
+    return JsonResponse({
+        "api_version": "1",
+        "spotify_connected": bool(request.session.get("spotify_token")),
+        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        "vk_configured": bool(settings.VK_API_TOKEN),
+    })
+
+
+@require_POST
+def api_create_transfer(request):
+    if not request.content_type or "application/json" not in request.content_type:
+        return api_error("Используй Content-Type: application/json.", 415)
+    try:
+        payload = json.loads(request.body or b"{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return api_error("Тело запроса содержит некорректный JSON.")
+    if not isinstance(payload, dict):
+        return api_error("Ожидается JSON-объект.")
+    source_url = payload.get("source_url", "")
+    target = payload.get("target_playlist", "")
+    if not isinstance(source_url, str) or len(source_url) > 2048:
+        return api_error("Поле source_url обязательно и должно быть строкой длиной до 2048 символов.")
+    if target is not None and (not isinstance(target, str) or len(target) > 2048):
+        return api_error("Поле target_playlist должно быть строкой длиной до 2048 символов.")
+    try:
+        URLValidator(schemes=["http", "https"])(source_url)
+        from .core import parse_vk_playlist_url
+        parse_vk_playlist_url(source_url)
+    except (ValidationError, ValueError):
+        return api_error("Укажи корректную ссылку на плейлист VK.")
+    if not settings.VK_API_TOKEN:
+        return api_error("VK_API_TOKEN не настроен на сервере.", 503)
+    if not settings.SPOTIFY_CLIENT_ID or not settings.SPOTIFY_CLIENT_SECRET:
+        return api_error("Spotify OAuth не настроен: проверь SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET.", 503)
+    if not settings.TOKEN_ENCRYPTION_KEY:
+        return api_error("TOKEN_ENCRYPTION_KEY не настроен на сервере.", 503)
+    token_data = request.session.get("spotify_token")
+    if not token_data:
+        return api_error("Сначала подключи Spotify.", 401)
+    try:
+        Fernet(settings.TOKEN_ENCRYPTION_KEY.encode())
+        access_token = get_access_token(request)
+        encrypted = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).encrypt(access_token.encode()).decode()
+    except (ValueError, TransferError) as exc:
+        return api_error(str(exc), 503)
+
+    fingerprint = session_fingerprint(request)
+    active = TransferJob.objects.filter(
+        session_fingerprint=fingerprint,
+        status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
+    ).first()
+    if active:
+        return JsonResponse({"job": serialize_job(active)}, status=202)
+
+    job = TransferJob.objects.create(
+        session_fingerprint=fingerprint,
+        source_url=source_url,
+        target_playlist=(target or "").strip(),
+        encrypted_spotify_token=encrypted,
+    )
+    try:
+        from .tasks import run_transfer
+        run_transfer.delay(str(job.pk))
+    except Exception:
+        logger.exception("Could not enqueue transfer job %s", job.pk)
+        job.status = TransferJob.Status.FAILED
+        job.error = "Очередь задач недоступна. Проверь Redis и Celery worker."
+        job.finished_at = timezone.now()
+        job.encrypted_spotify_token = ""
+        job.save(update_fields=["status", "error", "finished_at", "encrypted_spotify_token"])
+        return api_error(job.error, 503)
+    return JsonResponse({"job": serialize_job(job)}, status=202)
+
+
+@require_GET
+def api_transfer_detail(request, job_id):
+    job = TransferJob.objects.filter(pk=job_id, session_fingerprint=session_fingerprint(request)).first()
+    if not job:
+        return api_error("Задача не найдена.", 404)
+    return JsonResponse({"job": serialize_job(job)})
+
+
+@require_GET
+def api_transfer_report(request, job_id):
+    job = TransferJob.objects.filter(pk=job_id, session_fingerprint=session_fingerprint(request)).first()
+    if not job:
+        return api_error("Задача не найдена.", 404)
+    if job.status != TransferJob.Status.SUCCEEDED:
+        return api_error("Отчёт появится после завершения переноса.", 409)
+    return JsonResponse({"report": job.result.get("report", [])})
+
+
+@require_GET
+def api_openapi(request):
+    schema = {
+        "openapi": "3.1.0",
+        "info": {"title": "VK to Spotify API", "version": "1.0.0"},
+        "servers": [{"url": "/api/v1"}],
+        "paths": {
+            "/status/": {"get": {"summary": "Состояние подключений", "responses": {"200": {"description": "Connection state"}}}},
+            "/transfers/": {"post": {
+                "summary": "Запустить перенос",
+                "description": "Требует браузерную сессию и CSRF-токен.",
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {
+                    "type": "object", "required": ["source_url"], "properties": {
+                        "source_url": {"type": "string", "format": "uri"},
+                        "target_playlist": {"type": "string"},
+                    },
+                }}}},
+                "responses": {"202": {"description": "Задача поставлена в очередь"}, "400": {"description": "Ошибка запроса"}},
+            }},
+            "/transfers/{job_id}/": {"get": {"summary": "Получить прогресс задачи", "parameters": [{"name": "job_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}], "responses": {"200": {"description": "Состояние задачи"}}}},
+            "/transfers/{job_id}/report/": {"get": {"summary": "Получить отчёт", "responses": {"200": {"description": "Отчёт в JSON"}}}},
+        },
+    }
+    return JsonResponse(schema)
