@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VK → Spotify</title>
+<style>:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#101114;color:#f5f5f5}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}main{width:min(680px,100%);box-sizing:border-box;padding:32px;background:#1b1c22;border:1px solid #383943;border-radius:18px}p,small{color:#a1a1aa}label{display:block;margin:20px 0 8px;font-weight:600}input{box-sizing:border-box;width:100%;padding:13px;border-radius:9px;border:1px solid #444;background:#111217;color:white;font:inherit}button,.button{display:inline-block;margin-top:20px;padding:12px 18px;border:0;border-radius:9px;background:#1ed760;color:#07140b;font-weight:700;text-decoration:none;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.notice{padding:12px;margin:12px 0;border-radius:9px;background:#30313a}</style></head>
+<body><main><h1>VK <span style="color:#1ed760">→</span> Spotify</h1><p>Перенос композиций с сохранением порядка. Неоднозначные совпадения пропускаются.</p>
+{% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
+{% if connected %}<div class="notice">Spotify подключён ✓</div>{% else %}<a class="button" href="{% url 'spotify_login' %}">Подключить Spotify</a>{% endif %}
+<form method="post" action="{% url 'transfer_playlist' %}">{% csrf_token %}
+<label for="source_url">Ссылка на плейлист VK</label><input id="source_url" name="source_url" type="url" maxlength="2048" required placeholder="https://vk.ru/music/playlist/...">
+<label for="target_playlist">Ссылка или ID существующего плейлиста Spotify (необязательно)</label><input id="target_playlist" name="target_playlist" maxlength="2048" placeholder="Пусто — создать новый приватный плейлист">
+<small>Для существующего плейлиста проверяется владелец.</small><br><button type="submit" {% if not connected %}disabled{% endif %}>Начать перенос</button></form>
+{% if result %}<h2>{{ result.playlist_name }}</h2><p>Перенесено: {{ result.matched }} / {{ result.total }} · Не найдено: {{ result.not_found }} · Неоднозначно: {{ result.ambiguous }}</p><a class="button" href="{% url 'download_report' %}">Скачать CSV-отчёт</a>{% endif %}
+</main></body></html>
