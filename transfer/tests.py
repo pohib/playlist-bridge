@@ -14,9 +14,6 @@ from django.urls import reverse
 from django.utils.crypto import get_random_string
 from requests import HTTPError
 
-TEST_PASSWORD = get_random_string(32)
-
-
 from .core import (
     ReauthorizationRequired,
     SoundCloudClient,
@@ -31,6 +28,9 @@ from .core import (
 )
 from .credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
 from .models import OAuthCredential, TransferJob
+
+
+TEST_PASSWORD = get_random_string(32)
 
 
 class InputValidationTests(TestCase):
