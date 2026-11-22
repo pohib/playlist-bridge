@@ -12,7 +12,15 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from requests import HTTPError
 
-from .core import ReauthorizationRequired, SpotifyClient, TransferError, VKClient, VKIDClient, normalize_track_text, parse_vk_playlist_url
+from .core import (
+    ReauthorizationRequired,
+    SpotifyClient,
+    TransferError,
+    VKClient,
+    VKIDClient,
+    normalize_track_text,
+    parse_vk_playlist_url,
+)
 from .credentials import decrypt_payload, get_access_token, store_credential
 from .models import OAuthCredential, TransferJob
 
@@ -90,9 +98,8 @@ class VKPlaylistBatchTests(TestCase):
                 ]
             }
         }
-        with patch.object(client, "post", return_value=response):
-            with self.assertRaises(TransferError):
-                client.fetch_playlist("https://vk.ru/music/playlist/42_9")
+        with patch.object(client, "post", return_value=response), self.assertRaises(TransferError):
+            client.fetch_playlist("https://vk.ru/music/playlist/42_9")
 
 class HttpSurfaceTests(TestCase):
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
