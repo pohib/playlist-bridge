@@ -5,7 +5,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from urllib.parse import urlencode, urlparse, urlsplit
+from urllib.parse import urlencode, urlparse
 
 import requests
 
