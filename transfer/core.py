@@ -1,6 +1,5 @@
 import base64
 import re
-import time
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from urllib.parse import urlencode, urlparse
@@ -22,7 +21,9 @@ class VKTrack:
 
 
 def parse_vk_playlist_url(value):
-    parsed = urlparse((value or "").strip())
+    if not isinstance(value, str) or len(value) > 2048:
+        raise ValueError("Ссылка на плейлист VK слишком длинная или некорректная.")
+    parsed = urlparse(value.strip())
     if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"vk.ru", "vk.com", "www.vk.com", "m.vk.com"}:
         raise ValueError("Укажи ссылку на плейлист VK.")
     match = re.fullmatch(r"/music/playlist/(-?\d+)_(\d+)(?:_([A-Za-z0-9]+))?/?", parsed.path)
@@ -102,12 +103,8 @@ class VKClient:
                 response = response.get("items", response.get("audios", []))
             for item in response:
                 try:
-                    track = VKTrack(
-                        int(item["owner_id"]), int(item["id"]),
-                        str(item.get("artist") or "").strip(),
-                        str(item.get("title") or "").strip(),
-                        int(item.get("duration") or 0),
-                    )
+                    track = VKTrack(int(item["owner_id"]), int(item["id"]), str(item.get("artist") or "").strip(),
+                                    str(item.get("title") or "").strip(), int(item.get("duration") or 0))
                     tracks[f"{track.owner_id}_{track.track_id}"] = track
                 except (KeyError, TypeError, ValueError):
                     continue
@@ -115,14 +112,13 @@ class VKClient:
                    if "_".join(audio_id.split("_")[:2]) in tracks]
         if not ordered:
             raise TransferError("VK не вернул метаданные композиций.")
-        name = metadata.get("title") or metadata.get("name") or "VK playlist"
-        return name, ordered
+        return metadata.get("title") or metadata.get("name") or "VK playlist", ordered
 
 
 class SpotifyClient:
     API = "https://api.spotify.com/v1"
     ACCOUNTS = "https://accounts.spotify.com"
-    SCOPES = "playlist-modify-private playlist-modify-public"
+    SCOPES = "user-read-private playlist-modify-private playlist-modify-public"
 
     def __init__(self, client_id, client_secret, redirect_uri):
         self.client_id, self.client_secret, self.redirect_uri = client_id, client_secret, redirect_uri
@@ -136,11 +132,8 @@ class SpotifyClient:
     def token_request(self, data):
         credentials = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
         try:
-            response = self.http.post(
-                f"{self.ACCOUNTS}/api/token", data=data,
-                headers={"Authorization": f"Basic {credentials}"},
-                timeout=(5, 20),
-            )
+            response = self.http.post(f"{self.ACCOUNTS}/api/token", data=data,
+                headers={"Authorization": f"Basic {credentials}"}, timeout=(5, 20))
             response.raise_for_status()
             return response.json()
         except (requests.RequestException, ValueError) as exc:
@@ -154,11 +147,8 @@ class SpotifyClient:
 
     def api(self, method, path, token, *, params=None, body=None):
         try:
-            response = self.http.request(
-                method, f"{self.API}{path}", params=params, json=body,
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-                timeout=(5, 30),
-            )
+            response = self.http.request(method, f"{self.API}{path}", params=params, json=body,
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}, timeout=(5, 30))
             if response.status_code == 429:
                 raise TransferError("Spotify ограничил частоту запросов. Повтори перенос позже.")
             response.raise_for_status()
@@ -170,7 +160,7 @@ class SpotifyClient:
 
     def search(self, token, artist, title):
         data = self.api("GET", "/search", token, params={
-            "q": f'track:"{title}" artist:"{artist}"', "type": "track", "limit": 10,
+            "q": f'track:"{title[:100]}" artist:"{artist[:100]}"', "type": "track", "limit": 10,
         })
         return data.get("tracks", {}).get("items", [])
 
@@ -187,15 +177,13 @@ class SpotifyClient:
 
     def verify_playlist_access(self, token, playlist_id, user_id):
         playlist = self.api("GET", f"/playlists/{playlist_id}", token)
-        owner_id = (playlist.get("owner") or {}).get("id")
-        if owner_id != user_id:
-            raise TransferError("Можно добавлять композиции только в плейлист, владельцем которого является подключённый аккаунт.")
+        if (playlist.get("owner") or {}).get("id") != user_id:
+            raise TransferError("Можно добавлять композиции только в плейлист владельца подключённого аккаунта.")
         return playlist
 
     def add_items(self, token, playlist_id, uris):
         for offset in range(0, len(uris), 100):
-            self.api("POST", f"/playlists/{playlist_id}/items", token,
-                     body={"uris": uris[offset:offset + 100]})
+            self.api("POST", f"/playlists/{playlist_id}/items", token, body={"uris": uris[offset:offset + 100]})
 
 
 def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_token, source_url, target_playlist=None):
@@ -213,11 +201,10 @@ def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_tok
         spotify.verify_playlist_access(spotify_token, target_playlist, user.get("id"))
     else:
         target_playlist = spotify.create_playlist(spotify_token, playlist_name)
-
     uris, report = [], []
     for index, track in enumerate(tracks, 1):
-        candidates = spotify.search(spotify_token, track.artist, track.title)
-        ranked = sorted(((score_candidate(track, item), item) for item in candidates), key=lambda x: x[0], reverse=True)
+        ranked = sorted(((score_candidate(track, item), item) for item in spotify.search(spotify_token, track.artist, track.title)),
+                        key=lambda pair: pair[0], reverse=True)
         if not ranked or ranked[0][0] < .82:
             status, selected, score = "not_found", None, ranked[0][0] if ranked else 0.0
         elif len(ranked) > 1 and ranked[0][0] - ranked[1][0] < .045:
@@ -227,16 +214,9 @@ def execute_transfer(*, vk_token, vk_version, vk_client_id, spotify, spotify_tok
             status = "matched" if selected.get("uri") else "not_found"
         if status == "matched":
             uris.append(selected["uri"])
-        report.append({
-            "index": index, "artist": track.artist, "title": track.title, "status": status,
-            "spotify_name": selected.get("name", "") if selected else "",
-            "score": round(score, 3),
-        })
+        report.append({"index": index, "artist": track.artist, "title": track.title, "status": status,
+                       "spotify_name": selected.get("name", "") if selected else "", "score": round(score, 3)})
     spotify.add_items(spotify_token, target_playlist, uris)
-    return {
-        "playlist_name": playlist_name, "target_playlist_id": target_playlist,
-        "total": len(tracks), "matched": len(uris),
-        "not_found": sum(row["status"] == "not_found" for row in report),
-        "ambiguous": sum(row["status"] == "ambiguous" for row in report),
-        "report": report,
-    }
+    return {"playlist_name": playlist_name, "target_playlist_id": target_playlist, "total": len(tracks),
+            "matched": len(uris), "not_found": sum(x["status"] == "not_found" for x in report),
+            "ambiguous": sum(x["status"] == "ambiguous" for x in report), "report": report}
