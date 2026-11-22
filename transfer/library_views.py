@@ -163,7 +163,7 @@ def import_vk_playlist(request):
             artist=track.artist[:180],
             duration_ms=max(track.duration, 0) * 1000,
             external_id=f"{track.owner_id}_{track.track_id}",
-            external_url="",
+            external_url=f"https://vk.com/audio{track.owner_id}_{track.track_id}",
             position=index,
         )
         for index, track in enumerate(tracks)
