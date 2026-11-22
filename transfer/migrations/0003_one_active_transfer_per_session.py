@@ -10,7 +10,7 @@ def close_duplicate_active_jobs(apps, schema_editor):
         .values_list("session_fingerprint", flat=True)
         .distinct()
     )
-    for fingerprint in fingerprints.iterator():
+    for fingerprint in fingerprints:
         active = list(
             TransferJob.objects.filter(
                 session_fingerprint=fingerprint,
