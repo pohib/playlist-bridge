@@ -96,7 +96,7 @@ SARIF загружается на push/workflow_dispatch; GitHub Code Scanning �
 ## Ограничения
 
 - Доступность методов VK Audio зависит от разрешений и типа VK ID приложения; реальную выдачу прав на audio.getPlaylistById необходимо проверить на подключённом аккаунте.
-- Spotify rate limits могут замедлять перенос.
+- Spotify access token обновляется через refresh token; refresh token Spotify истекает через 6 месяцев после исходной авторизации, после чего пользователь должен подключить аккаунт заново.\n- Spotify rate limits и отдельная Development Mode quota могут замедлять или временно блокировать перенос.
 - DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
 - В Spotify Development Mode владелец приложения должен иметь Premium; максимум 5 авторизованных пользователей, каждый тестировщик должен быть добавлен в Users Management allowlist. Для публичного сервиса действует отдельная процедура Extended Quota Mode.
 - Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включи обе.
