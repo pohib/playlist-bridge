@@ -33,6 +33,13 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /
     schedule:
