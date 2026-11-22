@@ -70,7 +70,7 @@ jobs:
         run: semgrep scan --config p/security-audit --config p/owasp-top-ten --error
       - name: Python dependency audit
         if: always()
-        run: pip-audit -r requirements.txt
+        run: pip-audit -r requirements-dev.txt
       - name: Gitleaks full Git history scan
         if: always()
         run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git --redact --exit-code 1 /repo
