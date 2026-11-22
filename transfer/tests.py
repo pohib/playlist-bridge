@@ -9,12 +9,14 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
 from django.db import IntegrityError, transaction
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from requests import HTTPError
 
 from .core import (
     ReauthorizationRequired,
+    SoundCloudClient,
     SpotifyClient,
     TransferError,
     VKClient,
@@ -540,3 +542,107 @@ class VKLibraryImportTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("home"))
+
+
+class SoundCloudIntegrationTests(TestCase):
+    def test_soundcloud_authorization_uses_pkce_s256(self):
+        client = SoundCloudClient("client-id", "client-secret", "https://example.test/soundcloud/callback/")
+        url = client.authorization_url("state-value", "a-secure-verifier")
+        query = parse_qs(urlparse(url).query)
+        expected = base64.urlsafe_b64encode(
+            hashlib.sha256(b"a-secure-verifier").digest()
+        ).rstrip(b"=").decode()
+        self.assertEqual(query["code_challenge"], [expected])
+        self.assertEqual(query["code_challenge_method"], ["S256"])
+        self.assertEqual(query["state"], ["state-value"])
+
+    @patch("transfer.library_views._soundcloud_access")
+    def test_import_soundcloud_playlist_preserves_track_metadata(self, access):
+        client = Mock()
+        client.resolve.return_value = {"kind": "playlist", "id": 123, "title": "SC Mix"}
+        client.playlist_tracks.return_value = [{
+            "id": 987,
+            "title": "Track One",
+            "duration": 185000,
+            "metadata_artist": "Artist One",
+            "permalink_url": "https://soundcloud.com/artist-one/track-one",
+        }]
+        access.return_value = (client, "sc-token")
+        response = self.client.post(
+            reverse("library_import_soundcloud_playlist"),
+            {"source_url": "https://soundcloud.com/artist/mix"},
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryPlaylist, LibraryTrack
+        playlist = LibraryPlaylist.objects.get(title="SC Mix", provider="soundcloud")
+        track = LibraryTrack.objects.get(playlist=playlist)
+        self.assertEqual(track.external_id, "987")
+        self.assertEqual(track.duration_ms, 185000)
+        self.assertEqual(track.artist, "Artist One")
+        client.playlist_tracks.assert_called_once_with("sc-token", 123)
+
+    @patch("transfer.library_views._soundcloud_access")
+    def test_import_soundcloud_track_creates_single_track_collection(self, access):
+        client = Mock()
+        client.resolve.return_value = {
+            "kind": "track",
+            "id": 456,
+            "title": "Single",
+            "duration": 90000,
+            "metadata_artist": "Artist",
+            "permalink_url": "https://soundcloud.com/artist/single",
+        }
+        access.return_value = (client, "sc-token")
+        response = self.client.post(
+            reverse("library_import_soundcloud_track"),
+            {"source_url": "https://soundcloud.com/artist/single"},
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryTrack
+        track = LibraryTrack.objects.get(external_id="456")
+        self.assertEqual(track.title, "Single")
+        self.assertEqual(track.duration_ms, 90000)
+
+    @patch("transfer.library_views._soundcloud_access")
+    def test_upload_owned_audio_file_to_soundcloud(self, access):
+        client = Mock()
+        client.upload_track.return_value = {
+            "id": 321,
+            "duration": 125000,
+            "permalink_url": "https://soundcloud.com/me/uploaded-track",
+        }
+        access.return_value = (client, "sc-token")
+        audio = SimpleUploadedFile("demo.mp3", b"audio-bytes", content_type="audio/mpeg")
+        response = self.client.post(
+            reverse("library_upload_soundcloud_track"),
+            {"title": "Demo", "artist": "Me", "audio_file": audio},
+        )
+        self.assertEqual(response.status_code, 302)
+        client.upload_track.assert_called_once()
+        from .models import LibraryTrack
+        track = LibraryTrack.objects.get(external_id="321")
+        self.assertEqual(track.title, "Demo")
+
+    @patch("transfer.library_views._spotify_access")
+    def test_import_spotify_track_uses_official_track_endpoint(self, access):
+        client = Mock()
+        client.track_details.return_value = {
+            "id": "1234567890123456789012",
+            "type": "track",
+            "name": "Spotify Track",
+            "duration_ms": 180000,
+            "artists": [{"name": "Artist"}],
+            "external_urls": {"spotify": "https://open.spotify.com/track/1234567890123456789012"},
+            "album": {"name": "Album"},
+        }
+        access.return_value = (client, "spotify-token")
+        response = self.client.post(
+            reverse("library_import_spotify_track"),
+            {"source_url": "https://open.spotify.com/track/1234567890123456789012"},
+        )
+        self.assertEqual(response.status_code, 302)
+        client.track_details.assert_called_once_with("spotify-token", "1234567890123456789012")
+        from .models import LibraryTrack
+        track = LibraryTrack.objects.get(external_id="1234567890123456789012")
+        self.assertEqual(track.artist, "Artist")
+        self.assertEqual(track.album, "Album")
