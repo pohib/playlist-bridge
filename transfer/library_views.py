@@ -24,6 +24,18 @@ from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
 def _profile(request):
     fingerprint = get_session_fingerprint(request)
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        profile = LibraryProfile.objects.filter(session_fingerprint=fingerprint).first()
+        if profile:
+            if profile.user_id != request.user.pk:
+                profile.user = request.user
+                profile.save(update_fields=["user"])
+            return profile
+        profile, _ = LibraryProfile.objects.get_or_create(
+            user=request.user,
+            defaults={"session_fingerprint": fingerprint},
+        )
+        return profile
     profile, _ = LibraryProfile.objects.get_or_create(session_fingerprint=fingerprint)
     return profile
 
