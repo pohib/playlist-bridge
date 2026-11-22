@@ -56,19 +56,19 @@ def create_playlist(request):
         external_url = _safe_optional_url(request.POST.get("external_url"))
     except ValidationError:
         messages.error(request, "Ссылка должна быть корректным HTTP(S)-адресом.")
-        return redirect("home")
+        return redirect("library")
     if not title or len(title) > 120 or len(description) > 240:
         messages.error(request, "Укажи название плейлиста (до 120 символов).")
-        return redirect("home")
+        return redirect("library")
     if provider not in LibraryPlaylist.Provider.values:
         messages.error(request, "Неизвестный музыкальный сервис.")
-        return redirect("home")
+        return redirect("library")
     LibraryPlaylist.objects.create(
         profile=_profile(request), title=title, provider=provider,
         description=description, external_url=external_url,
     )
     messages.success(request, "Плейлист добавлен в библиотеку.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -85,16 +85,16 @@ def add_track(request, playlist_id):
         duration_ms = int(float(raw_duration) * 1000) if raw_duration else None
     except (ValidationError, ValueError, OverflowError):
         messages.error(request, "Проверь ссылку и длительность композиции.")
-        return redirect("home")
+        return redirect("library")
     if not title or not artist or len(title) > 180 or len(artist) > 180 or len(album) > 180:
         messages.error(request, "Название и исполнитель обязательны (до 180 символов).")
-        return redirect("home")
+        return redirect("library")
     if duration_ms is not None and not 0 < duration_ms <= 86_400_000:
         messages.error(request, "Длительность должна быть от 1 секунды до 24 часов.")
-        return redirect("home")
+        return redirect("library")
     if len(external_id) > 200:
         messages.error(request, "Внешний ID слишком длинный.")
-        return redirect("home")
+        return redirect("library")
     LibraryTrack.objects.create(
         playlist=playlist, title=title, artist=artist, album=album,
         duration_ms=duration_ms, external_id=external_id,
@@ -102,7 +102,7 @@ def add_track(request, playlist_id):
     )
     playlist.save(update_fields=["updated_at"])
     messages.success(request, "Композиция добавлена.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -113,7 +113,7 @@ def delete_track(request, track_id):
     )
     track.delete()
     messages.success(request, "Композиция удалена.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -123,7 +123,7 @@ def delete_playlist(request, playlist_id):
     )
     playlist.delete()
     messages.success(request, "Плейлист и его локальные записи удалены.")
-    return redirect("home")
+    return redirect("library")
 
 
 
@@ -137,7 +137,7 @@ def update_profile(request):
         profile.display_name = display_name
         profile.save(update_fields=["display_name", "updated_at"])
         messages.success(request, "Профиль обновлён.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -155,10 +155,10 @@ def import_vk_playlist(request):
         title, tracks = api.fetch_playlist(source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc) if isinstance(exc, TransferError) else "Укажи корректную ссылку на плейлист VK.")
-        return redirect("home")
+        return redirect("library")
     if not tracks:
         messages.error(request, "VK не вернул композиции для импорта.")
-        return redirect("home")
+        return redirect("library")
 
     profile = _profile(request)
     playlist = LibraryPlaylist.objects.create(
@@ -181,7 +181,7 @@ def import_vk_playlist(request):
         for index, track in enumerate(tracks)
     ])
     messages.success(request, f"Импортировано «{playlist.title}»: {len(tracks)} композиций.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_GET
@@ -202,7 +202,7 @@ def open_playlist_source(request, playlist_id):
     }
     parsed = urlparse(playlist.external_url)
     if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(playlist.provider, set()):
-        return redirect("home")
+        return redirect("library")
     return HttpResponseRedirect(playlist.external_url)
 
 
@@ -227,7 +227,7 @@ def open_track_source(request, track_id):
     }
     parsed = urlparse(track.external_url)
     if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(provider, set()):
-        return redirect("home")
+        return redirect("library")
     return HttpResponseRedirect(track.external_url)
 
 
@@ -296,9 +296,9 @@ def import_soundcloud_playlist(request):
         playlist, count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Импортирован плейлист «{playlist.title}»: {count} композиций.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -319,9 +319,9 @@ def import_soundcloud_track(request):
         )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Композиция добавлена в библиотеку: {playlist.title}.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -344,9 +344,9 @@ def import_soundcloud_library(request):
                 track_count += len(tracks)
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Импортировано плейлистов: {imported}; композиций: {track_count}.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -361,14 +361,14 @@ def transfer_library_playlist(request, playlist_id):
     target = request.POST.get("target_provider", "").strip()
     if target not in {"spotify", "soundcloud"}:
         messages.error(request, "Выбери поддерживаемый целевой сервис.")
-        return redirect("home")
+        return redirect("library")
     tracks = list(playlist.tracks.all())
     if not tracks:
         messages.error(request, "В плейлисте нет композиций для переноса.")
-        return redirect("home")
+        return redirect("library")
     if len(tracks) > 100:
         messages.error(request, "Пока можно переносить не более 100 композиций за один запуск.")
-        return redirect("home")
+        return redirect("library")
 
     fingerprint = get_session_fingerprint(request)
     matched_ids = []
@@ -440,7 +440,7 @@ def transfer_library_playlist(request, playlist_id):
             target_url = result.get("permalink_url") or "https://soundcloud.com"
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
 
     target_playlist = LibraryPlaylist.objects.create(
         profile=playlist.profile,
@@ -467,7 +467,7 @@ def transfer_library_playlist(request, playlist_id):
         f"Создан плейлист {target.title()}: найдено {len(matched_ids)} из {len(tracks)} треков. "
         f"Не найдено: {not_found}. {target_url}",
     )
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -479,16 +479,16 @@ def upload_track_to_soundcloud(request):
     allowed_extensions = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".ogg", ".aac", ".amr", ".wma", ".mp2"}
     if not uploaded or not title or not artist or len(title) > 100 or len(artist) > 100:
         messages.error(request, "Выбери аудиофайл и укажи название и исполнителя.")
-        return redirect("home")
+        return redirect("library")
     if Path(uploaded.name).suffix.lower() not in allowed_extensions or uploaded.size > 100 * 1024 * 1024:
         messages.error(request, "Поддерживаются аудиофайлы до 100 МБ в форматах MP3, WAV, FLAC, AIFF, OGG, AAC, AMR, WMA и MP2.")
-        return redirect("home")
+        return redirect("library")
     try:
         client, token = _soundcloud_access(request)
         result = client.upload_track(token, uploaded, title, artist, description)
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
 
     profile = _profile(request)
     permalink = str(result.get("permalink_url") or "")
@@ -502,7 +502,7 @@ def upload_track_to_soundcloud(request):
         external_id=str(result["id"]), external_url=permalink, position=0,
     )
     messages.success(request, f"Трек «{title}» загружен в SoundCloud и добавлен в библиотеку.")
-    return redirect("home")
+    return redirect("library")
 
 
 def _spotify_access(request):
@@ -573,9 +573,9 @@ def import_spotify_playlist(request):
         playlist, count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Импортирован Spotify-плейлист «{playlist.title}»: {count} композиций.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -591,9 +591,9 @@ def import_spotify_track(request):
         )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Трек добавлен в библиотеку: {playlist.title}.")
-    return redirect("home")
+    return redirect("library")
 
 
 @require_POST
@@ -625,12 +625,12 @@ def import_spotify_library(request):
                 skipped += 1
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(
         request,
         f"Spotify: импортировано плейлистов {imported}, композиций {track_count}; пропущено недоступных плейлистов: {skipped}.",
     )
-    return redirect("home")
+    return redirect("library")
 
 
 
@@ -660,6 +660,6 @@ def import_vk_track(request):
         )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
-        return redirect("home")
+        return redirect("library")
     messages.success(request, f"Трек «{track.title}» добавлен в библиотеку.")
-    return redirect("home")
+    return redirect("library")
