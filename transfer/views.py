@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .services import SoundCloudClient, SpotifyClient, TransferError, VKIDClient, parse_vk_playlist_url
+from .services import SoundCloudClient, SpotifyClient, TransferError, parse_vk_playlist_url
 from .credentials import (
     delete_credential,
     get_access_token,
@@ -50,16 +50,6 @@ def soundcloud_client():
     if not settings.SOUNDCLOUD_CLIENT_ID or not settings.SOUNDCLOUD_CLIENT_SECRET:
         raise TransferError("SoundCloud OAuth не настроен на сервере.")
     return SoundCloudClient(settings.SOUNDCLOUD_CLIENT_ID, settings.SOUNDCLOUD_CLIENT_SECRET, settings.SOUNDCLOUD_REDIRECT_URI)
-
-
-def vk_client():
-    if not settings.VK_ID_CLIENT_ID:
-        raise TransferError("VK ID OAuth не настроен на сервере.")
-    return VKIDClient(
-        settings.VK_ID_CLIENT_ID,
-        settings.VK_ID_REDIRECT_URI,
-        settings.VK_ID_SERVICE_TOKEN,
-    )
 
 
 def rotate_session_binding(request):
@@ -233,13 +223,6 @@ def disconnect_soundcloud(request):
 def disconnect_spotify(request):
     delete_credential(get_session_fingerprint(request), "spotify")
     request.session["oauth_success"] = "Spotify отключён."
-    return redirect("connections" if request.user.is_authenticated else "home")
-
-
-@require_POST
-def disconnect_vk(request):
-    delete_credential(get_session_fingerprint(request), "vk")
-    request.session["oauth_success"] = "VK отключён."
     return redirect("connections" if request.user.is_authenticated else "home")
 
 
