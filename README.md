@@ -1,93 +1,93 @@
 # VK → Spotify
 
-Django-приложение для переноса плейлистов VK в Spotify с фоновой обработкой больших списков.
+Django-приложение для переноса VK-плейлистов в Spotify с OAuth-подключением аккаунтов и фоновой обработкой.
 
-## Возможности
-- Получение ID композиций VK через batch.call и метаданных через audio.getById.
-- Сохранение исходного порядка композиций.
-- Spotify OAuth Authorization Code с проверкой state и обновлением access token.
-- Сопоставление по названию, исполнителю и длительности; неоднозначные совпадения пропускаются.
-- Создание приватного плейлиста или добавление в существующий плейлист подключённого владельца.
-- Фоновая очередь Celery + Redis, прогресс выполнения и JSON-отчёт.
-- Версионированный JSON API и OpenAPI schema.
-- CSV-экспорт в legacy UI path для старого синхронного маршрута.
+## Пользовательская авторизация
 
-## Настройка интеграций
+Пользователь подключает оба сервиса кнопками на главной странице:
+- Spotify — OAuth Authorization Code.
+- VK — VK ID OAuth 2.1 Authorization Code с PKCE, state и device_id.
 
-1. Скопируйте .env.example в .env.
-2. Создайте приложение в Spotify Developer Dashboard.
-3. В настройках Spotify app добавьте Redirect URI, который в точности совпадает со значением SPOTIFY_REDIRECT_URI, по умолчанию: http://127.0.0.1:8000/spotify/callback/
-4. Заполните SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET.
-5. Заполните VK_API_TOKEN. Используйте отдельный токен с минимально необходимыми разрешениями; не используйте браузерные Cookie.
-6. Сгенерируйте TOKEN_ENCRYPTION_KEY командой:
+Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.
 
-   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+При отключении провайдера соответствующая запись токенов удаляется. Сессионные cookie HttpOnly и SameSite=Lax.
 
-7. Сгенерируйте уникальные DJANGO_SECRET_KEY и POSTGRES_PASSWORD. Не используйте тестовые значения в рабочем окружении.
+## Что хранится в .env
 
-Все секреты хранятся только в .env и не должны попадать в Git, логи или сообщения.
+В .env хранятся только конфигурация приложения, секреты разработчика и инфраструктуры:
+- DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEY, пароль PostgreSQL;
+- Spotify Developer App: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, Redirect URI;
+- VK ID Developer App: VK_ID_CLIENT_ID, Redirect URI и, если требуется типом приложения, серверный VK_ID_SERVICE_TOKEN;
+- версия VK API и адрес Redis.
+
+Не помещай пользовательские VK/Spotify access token или refresh token в .env.
+
+Сгенерировать Fernet key:
+
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+Создай приложения в Spotify Developer Dashboard и VK ID Developer Dashboard. В обоих приложениях зарегистрируй точные callback URL:
+- http://127.0.0.1:8000/spotify/callback/
+- http://127.0.0.1:8000/vk/callback/
+
+Для публичного развёртывания используй HTTPS и соответствующие публичные redirect URI.
 
 ## Запуск через Docker Compose
 
+1. Скопируй .env.example в .env.
+2. Заполни секреты приложения, инфраструктуры и developer OAuth app credentials.
+3. Сгенерируй TOKEN_ENCRYPTION_KEY.
+4. Запусти:
+
     docker compose up --build -d
 
-Откройте http://127.0.0.1:8000. Compose поднимает Django/Gunicorn, PostgreSQL, Redis и отдельный Celery worker. Порт приложения привязан к loopback-интерфейсу. Worker и Redis не публикуют порты наружу.
+Открой http://127.0.0.1:8000, подключи VK и Spotify и запускай перенос.
 
-Для просмотра логов:
+Логи:
 
     docker compose logs -f web worker
 
-Для остановки:
+Остановка:
 
     docker compose down
 
-Не удаляйте volume postgres_data, если хотите сохранить данные приложения.
+Не удаляй volume postgres_data, если нужно сохранить OAuth-подключения и историю задач. Потеря TOKEN_ENCRYPTION_KEY сделает зашифрованные токены невосстановимыми — храни ключ в менеджере секретов и делай защищённую резервную копию.
 
 ## API v1
 
-Все API-маршруты используют ту же браузерную Django-сессию. POST-запросы защищены CSRF; для них передавай CSRF-токен в заголовке X-CSRFToken. Идентификаторы задач привязаны к HMAC-отпечатку сессии, поэтому другая сессия не может получить чужую задачу.
-
-- GET /api/v1/status/ — состояние конфигурации и подключений.
+API использует ту же браузерную сессию и CSRF:
+- GET /api/v1/status/ — подключения и конфигурация.
 - POST /api/v1/transfers/ — поставить перенос в очередь.
-- GET /api/v1/transfers/{job_id}/ — состояние и прогресс.
-- GET /api/v1/transfers/{job_id}/report/ — JSON-отчёт после завершения.
-- GET /api/v1/openapi.json — OpenAPI 3.1 schema.
-- GET /healthz/ — health check для оркестратора.
+- GET /api/v1/transfers/{job_id}/ — прогресс.
+- GET /api/v1/transfers/{job_id}/report/ — JSON-отчёт.
+- GET /api/v1/openapi.json — OpenAPI 3.1.
+- GET /healthz/ — health check.
 
-Пример POST body:
+Пример тела запроса:
 
     {
       "source_url": "https://vk.ru/music/playlist/241688629_5_b8781ccec850436700",
       "target_playlist": ""
     }
 
-Пустой target_playlist означает создание нового приватного плейлиста. API возвращает HTTP 202 и объект job; клиент опрашивает endpoint задачи до статуса succeeded или failed.
+Пустой target_playlist создаёт новый приватный плейлист.
 
-## Локальная разработка
+## Безопасность и CI
 
-Установите зависимости и запустите миграции:
+- pytest, Ruff, Django checks;
+- Bandit и Semgrep с SARIF публикацией в GitHub Code Scanning;
+- pip-audit, Gitleaks, Trivy filesystem/image, Hadolint;
+- OWASP ZAP baseline DAST против запущенного приложения;
+- Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
+- Dependabot patch/minor PR проходят проверки перед auto-merge. Major обновления остаются на ручное рассмотрение.
 
-    pip install -r requirements.txt -r requirements-dev.txt
-    python manage.py migrate
-    python manage.py runserver 127.0.0.1:8000
+Для auto-merge включи Allow auto-merge в Settings → General. В Settings → Branches настрой защиту main и обязательные checks tests, sast-sca-secrets, container, dast: без обязательных checks GitHub не сможет гарантировать, что merge ждёт завершения всех проверок.
 
-Для фоновой обработки отдельно запустите Redis и Celery worker:
+SARIF загружается на push/workflow_dispatch; GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверь доступность этой функции на текущем плане.
 
-    celery -A config worker --loglevel=INFO
+## Ограничения
 
-## Проверки безопасности в CI
-
-- pytest и Django system checks;
-- Ruff;
-- Bandit и Semgrep (SAST);
-- pip-audit (SCA);
-- Gitleaks (поиск секретов);
-- Trivy filesystem и container image scan;
-- Hadolint;
-- OWASP ZAP baseline DAST на поднятом приложении.
-
-CI — это набор автоматизированных проверок, а не доказательство отсутствия уязвимостей. DAST выполняется без авторизации и не покрывает все пользовательские сценарии.
-
-## Важные ограничения
-
-VK audio API может меняться, так как для получения содержимого плейлиста используется API веб-клиента. Spotify rate limits могут влиять на скорость больших переносов. Фоновая задача не повторяет автоматически неидемпотентную операцию добавления треков, чтобы избежать дублирования при неизвестном результате сетевого запроса.
+- Доступность методов VK Audio зависит от разрешений и типа VK ID приложения; реальную выдачу прав на audio.getPlaylistById необходимо проверить на подключённом аккаунте.
+- Spotify rate limits могут замедлять перенос.
+- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
+- Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
