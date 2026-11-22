@@ -211,3 +211,41 @@ class ApiInputNegativeTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
+
+
+
+class ApiSessionSecurityTests(TestCase):
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
+    def test_api_requires_csrf_for_cookie_authenticated_post(self):
+        client = self.client_class(enforce_csrf_checks=True)
+        response = client.post(
+            reverse("api_create_transfer"),
+            data='{"source_url":"https://vk.ru/music/playlist/241688629_5"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
+    @patch("transfer.tasks.run_transfer.delay")
+    def test_repeated_transfer_request_reuses_active_job(self, enqueue):
+        self.client.get(reverse("home"))
+        session_key = self.client.session.session_key
+        fingerprint = hmac.new(
+            settings.SECRET_KEY.encode(), session_key.encode(), hashlib.sha256
+        ).hexdigest()
+        store_credential(fingerprint, "spotify", {"access_token": "spotify-test"})
+        store_credential(fingerprint, "vk", {"access_token": "vk-test"})
+
+        payload = '{"source_url":"https://vk.ru/music/playlist/241688629_5"}'
+        first = self.client.post(
+            reverse("api_create_transfer"), data=payload, content_type="application/json"
+        )
+        second = self.client.post(
+            reverse("api_create_transfer"), data=payload, content_type="application/json"
+        )
+
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(second.status_code, 202)
+        self.assertEqual(first.json()["job"]["id"], second.json()["job"]["id"])
+        self.assertEqual(TransferJob.objects.filter(session_fingerprint=fingerprint).count(), 1)
+        enqueue.assert_called_once()
