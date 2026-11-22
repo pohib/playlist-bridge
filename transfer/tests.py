@@ -885,6 +885,44 @@ class AccountWorkspaceTests(TestCase):
         self.assertEqual(LibraryProfile.objects.filter(user=first).count(), 1)
         self.assertEqual(LibraryProfile.objects.filter(user=second).count(), 1)
 
+    def test_all_authenticated_pages_and_transfer_review_render(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+
+        user = get_user_model().objects.create_user(
+            username="page_tester",
+            password="Safe-Test-Password-2026!",
+        )
+        self.client.force_login(user)
+        for route_name in ("dashboard", "library", "connections", "transfers", "profile"):
+            with self.subTest(page=route_name):
+                self.assertEqual(self.client.get(reverse(route_name)).status_code, 200)
+
+        profile = LibraryProfile.objects.get(user=user)
+        playlist = LibraryPlaylist.objects.create(profile=profile, title="Template test", provider="manual")
+        track = LibraryTrack.objects.create(playlist=playlist, title="Review track", artist="Review artist")
+        self.assertEqual(
+            self.client.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk})).status_code,
+            200,
+        )
+        transfer = LibraryTransfer.objects.create(
+            profile=profile,
+            source_playlist=playlist,
+            target_provider="spotify",
+            target_playlist_id="",
+            total=1,
+        )
+        LibraryTransferItem.objects.create(
+            transfer=transfer,
+            source_track=track,
+            position=0,
+            candidates=[{"id": "123", "uri": "spotify:track:123", "title": "Candidate", "artist": "Artist", "url": ""}],
+        )
+        self.assertEqual(
+            self.client.get(reverse("transfer_review", kwargs={"transfer_id": transfer.pk})).status_code,
+            200,
+        )
+
     def test_login_redirect_rejects_external_destination(self):
         from django.contrib.auth import get_user_model
 
