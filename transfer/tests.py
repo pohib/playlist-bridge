@@ -489,7 +489,7 @@ class LibraryWorkspaceTests(TestCase):
 
 
 class VKLibraryImportTests(TestCase):
-    @patch("transfer.credentials.get_access_token", return_value=("vk-access", {}))
+    @patch("transfer.library_views.get_access_token", return_value=("vk-access", {}))
     @patch("transfer.core.VKClient.fetch_playlist", return_value=(
         "VK imported playlist",
         [
@@ -497,7 +497,7 @@ class VKLibraryImportTests(TestCase):
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @patch("transfer.views.vk_client")
+    @patch("transfer.library_views.VKIDClient")
     @override_settings(VK_ID_CLIENT_ID="vk-client", VK_API_VERSION="5.289")
     def test_import_saves_playlist_tracks_in_original_order(
         self, oauth_client, fetch_playlist, _get_access_token
