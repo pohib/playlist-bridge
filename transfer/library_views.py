@@ -435,7 +435,7 @@ def transfer_library_playlist(request, playlist_id):
                             "title": str(item.get("name") or "")[:180],
                             "artist": ", ".join(str(artist.get("name") or "") for artist in item.get("artists", []))[:180],
                             "duration_ms": int(item.get("duration_ms") or 0),
-                            "url": str((item.get("external_urls") or {}).get("spotify", "")),
+                            "url": _safe_candidate_url((item.get("external_urls") or {}).get("spotify", ""), "spotify"),
                         }
                         for score, item in ranked[:5] if score >= 0.45 and item.get("id") and item.get("uri")
                     ]))
@@ -502,7 +502,7 @@ def transfer_library_playlist(request, playlist_id):
 
     target_playlist = LibraryPlaylist.objects.create(
         profile=playlist.profile,
-        title=f"{playlist.title} · {target.title()}",
+        title=f"{playlist.title} · {target.title()}"[:120],
         provider=target,
         external_url=target_url,
         description=f"Перенос из библиотеки · найдено {len(matched)} из {len(tracks)}",
@@ -704,9 +704,12 @@ def select_transfer_candidate(request, transfer_id, item_id):
 def skip_transfer_item(request, transfer_id, item_id):
     from django.utils import timezone
 
-    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
+    review = get_object_or_404(
+        LibraryTransfer.objects.select_for_update(),
+        pk=transfer_id, profile=_profile(request),
+    )
     item = get_object_or_404(
-        LibraryTransferItem,
+        LibraryTransferItem.objects.select_for_update(),
         pk=item_id, transfer=review, status=LibraryTransferItem.Status.PENDING,
     )
     if review.items.filter(
