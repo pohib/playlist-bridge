@@ -101,6 +101,16 @@ class VKAnonymousTokenProvider:
         if self._token and time.time() < self._expires_at - 60:
             return self._token
         try:
+            # Bootstrap an anonymous VK web session; this does not log in a user.
+            bootstrap = self.http.get(
+                "https://vk.ru/",
+                headers={"Accept": "text/html"},
+                timeout=(5, 15),
+                allow_redirects=True,
+                stream=True,
+            )
+            bootstrap.raise_for_status()
+            bootstrap.close()
             response = self.http.post(
                 self.TOKEN_ENDPOINT,
                 params={"act": "get_anonym_token"},
@@ -125,7 +135,9 @@ class VKAnonymousTokenProvider:
             payload = response.json()
         except (requests.RequestException, ValueError) as exc:
             raise TransferError("Не удалось получить анонимный токен VK.") from exc
-        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(payload, dict):
+            raise TransferError("VK вернул некорректный ответ при выдаче анонимного токена.")
+        data = payload.get("data")
         token = data.get("access_token") if isinstance(data, dict) else None
         expires_at = data.get("expired_at", data.get("expires")) if isinstance(data, dict) else None
         if payload.get("type") != "okay" or not isinstance(token, str) or not token.startswith("anonym."):
