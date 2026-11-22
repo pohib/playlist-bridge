@@ -617,7 +617,11 @@ def select_transfer_candidate(request, transfer_id, item_id):
             client, token = _spotify_access(request)
             if not candidate.get("uri"):
                 raise TransferError("Spotify не вернул URI выбранной композиции.")
-            client.add_items(token, review.target_playlist_id, [candidate["uri"]], position=item.position)
+            insert_position = review.items.filter(
+                status=LibraryTransferItem.Status.MATCHED,
+                position__lt=item.position,
+            ).count()
+            client.add_items(token, review.target_playlist_id, [candidate["uri"]], position=insert_position)
         else:
             client, token = _soundcloud_access(request)
             existing = list(
