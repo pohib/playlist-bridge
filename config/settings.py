@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
     "transfer",
 ]
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "config.security.SecurityHeadersMiddleware",
@@ -27,7 +28,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 ROOT_URLCONF = "config.urls"
+
 TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
     "DIRS": [],
@@ -38,11 +41,14 @@ TEMPLATES = [{
         "django.contrib.messages.context_processors.messages",
     ]},
 }]
+
 WSGI_APPLICATION = "config.wsgi.application"
+
 DATABASES = {"default": {
     "ENGINE": "django.db.backends.postgresql" if os.getenv("DATABASE_URL") else "django.db.backends.sqlite3",
     **({"NAME": os.getenv("DATABASE_URL")} if os.getenv("DATABASE_URL") else {"NAME": BASE_DIR / "db.sqlite3"}),
 }}
+
 if os.getenv("DATABASE_URL"):
     import dj_database_url
     DATABASES["default"] = dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=60, ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "false").lower() == "true")
@@ -52,16 +58,19 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
 LANGUAGE_CODE = "ru"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
