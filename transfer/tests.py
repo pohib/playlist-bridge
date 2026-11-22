@@ -115,68 +115,92 @@ class SpotifyApiDestinationTests(TestCase):
         self.assertIs(self.client.http.request.call_args.kwargs["allow_redirects"], False)
 
 
+class VKAnonymousTokenTests(TestCase):
+    def test_anonymous_token_is_requested_without_user_cookie(self):
+        from .services.vk_client import VKAnonymousTokenProvider
+
+        provider = VKAnonymousTokenProvider("app-id", "app-secret")
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "type": "okay",
+            "data": {"access_token": "anonym.test-token", "expired_at": int(time.time()) + 3600},
+        }
+        provider.http.post = Mock(return_value=response)
+
+        self.assertEqual(provider.get_token(), "anonym.test-token")
+        call = provider.http.post.call_args
+        self.assertEqual(call.kwargs["data"]["client_id"], "app-id")
+        self.assertEqual(call.kwargs["data"]["client_secret"], "app-secret")
+        self.assertEqual(call.kwargs["data"]["scopes"], provider.SCOPES)
+        self.assertNotIn("cookies", call.kwargs)
+        self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
+
+    def test_anonymous_token_rejects_unexpected_response(self):
+        from .services.vk_client import VKAnonymousTokenProvider
+
+        provider = VKAnonymousTokenProvider("app-id", "app-secret")
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"type": "error", "data": {}}
+        provider.http.post = Mock(return_value=response)
+        with self.assertRaises(TransferError):
+            provider.get_token()
+
+
 class VKPlaylistBatchTests(TestCase):
-    def test_fetch_playlist_reads_audio_get_items_and_preserves_order(self):
-        client = VKClient("test-access", "5.289", "vk-app")
-        audio_items = [
-            {
-                "owner_id": 42,
-                "id": index,
-                "artist": "Artist",
-                "title": f"Track {index}",
-                "duration": 180,
-            }
+    def make_client(self):
+        client = VKClient("vk-app", "app-secret", "5.289")
+        client.token_provider.get_token = Mock(return_value="anonym.test")
+        return client
+
+    def test_fetch_playlist_uses_observed_ids_endpoint_and_preserves_order(self):
+        client = self.make_client()
+        audio_refs = [
+            {"audio_id": f"42_{index}_accesskey", "track_code": "fixture"}
             for index in range(1, 46)
         ]
-        metadata = {"response": {"title": "Test playlist"}}
-        audio_response = {"response": {"count": 45, "items": audio_items}}
+        audio_items = [
+            {"owner_id": 42, "id": index, "artist": "Artist", "title": f"Track {index}", "duration": 180}
+            for index in range(1, 46)
+        ]
+        with patch.object(client, "post", side_effect=[
+            {"response": {"audios": audio_refs}},
+            {"response": audio_items},
+        ]) as post:
+            name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9_testkey")
 
-        with patch.object(client, "post", side_effect=[metadata, audio_response]) as post:
-            name, tracks = client.fetch_playlist(
-                "https://vk.ru/music/playlist/42_9_testkey"
-            )
-
-        self.assertEqual(name, "Test playlist")
+        self.assertEqual(name, "VK playlist")
         self.assertEqual(len(tracks), 45)
         self.assertEqual([track.track_id for track in tracks], list(range(1, 46)))
-        self.assertEqual(post.call_count, 2)
-        self.assertEqual(
-            post.call_args_list[1].kwargs["data"],
-            {
-                "owner_id": 42,
-                "album_id": 9,
-                "count": 1000,
-                "offset": 0,
-                "access_key": "testkey",
-            },
-        )
+        self.assertEqual(post.call_args_list[0].args[0], "audio.getIdsBySource")
+        self.assertEqual(post.call_args_list[0].kwargs["data"], {
+            "source": "playlist", "entity_id": "42_9_testkey", "ref": "",
+        })
+        self.assertEqual(post.call_args_list[1].args[0], "audio.getById")
+        self.assertEqual(post.call_args_list[1].kwargs["data"]["audios"], ",".join(
+            item["audio_id"] for item in audio_refs
+        ))
 
-    def test_fetch_playlist_accepts_list_response_shape(self):
-        client = VKClient("test-access", "5.289", "vk-app")
-        with patch.object(
-            client,
-            "post",
-            side_effect=[
-                {"response": {"title": "List shape"}},
-                {"response": [
-                    {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Track", "duration": 120}
-                ]},
-            ],
-        ):
-            name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9")
-        self.assertEqual(name, "List shape")
-        self.assertEqual([track.track_id for track in tracks], [7])
+    def test_fetch_playlist_splits_metadata_requests_into_batches(self):
+        client = self.make_client()
+        audio_refs = [{"audio_id": f"42_{i}_key"} for i in range(1, 102)]
+        responses = [{"response": {"audios": audio_refs}}]
+        responses.extend(
+            {"response": [
+                {"owner_id": 42, "id": i, "artist": "Artist", "title": f"Track {i}", "duration": 120}
+                for i in range(start, min(start + 50, 102))
+            ]}
+            for start in (1, 51, 101)
+        )
+        with patch.object(client, "post", side_effect=responses) as post:
+            _name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9")
+        self.assertEqual(len(tracks), 101)
+        self.assertEqual(post.call_count, 4)
 
     def test_fetch_playlist_rejects_empty_playlist(self):
-        client = VKClient("test-access", "5.289", "vk-app")
-        with patch.object(
-            client,
-            "post",
-            side_effect=[
-                {"response": {"title": "Empty"}},
-                {"response": {"count": 0, "items": []}},
-            ],
-        ), self.assertRaises(TransferError):
+        client = self.make_client()
+        with patch.object(client, "post", return_value={"response": {"audios": []}}), self.assertRaises(TransferError):
             client.fetch_playlist("https://vk.ru/music/playlist/42_9")
 
 
@@ -425,7 +449,6 @@ class ApiSessionSecurityTests(TestCase):
         self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
         fingerprint = get_session_fingerprint(self.client)
         store_credential(fingerprint, "spotify", {"access_token": Fernet.generate_key().decode()})
-        store_credential(fingerprint, "vk", {"access_token": Fernet.generate_key().decode()})
 
         payload = '{"source_url":"https://vk.ru/music/playlist/241688629_5"}'
         first = self.client.post(
@@ -545,20 +568,15 @@ class LibraryWorkspaceTests(TestCase):
 
 
 class VKLibraryImportTests(TestCase):
-    @patch("transfer.library_views.get_access_token", return_value=("vk-access", {}))
-    @patch("transfer.core.VKClient.fetch_playlist", return_value=(
+    @patch("transfer.library_views.VKClient.fetch_playlist", return_value=(
         "VK imported playlist",
         [
             VKTrack(10, 101, "Artist A", "Track A", 185),
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @patch("transfer.library_views.VKIDClient")
-    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_API_VERSION="5.289")
-    def test_import_saves_playlist_tracks_in_original_order(
-        self, oauth_client, fetch_playlist, _get_access_token
-    ):
-        oauth_client.return_value = Mock()
+    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_ANON_CLIENT_SECRET="app-secret", VK_API_VERSION="5.289")
+    def test_import_saves_playlist_tracks_in_original_order(self, fetch_playlist):
         response = self.client.post(
             reverse("library_import_vk"),
             {"source_url": "https://vk.ru/music/playlist/10_5_key"},
