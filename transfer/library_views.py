@@ -112,3 +112,86 @@ def update_profile(request):
         profile.save(update_fields=["display_name", "updated_at"])
         messages.success(request, "Профиль обновлён.")
     return redirect("home")
+
+
+@require_POST
+def import_vk_playlist(request):
+    from django.conf import settings
+    from django.db import transaction
+
+    from .core import VKClient, TransferError
+    from .credentials import get_access_token
+    from .views import vk_client
+
+    source_url = (request.POST.get("source_url") or "").strip()
+    try:
+        from .core import parse_vk_playlist_url
+        parse_vk_playlist_url(source_url)
+        fingerprint = get_session_fingerprint(request)
+        oauth_client = vk_client()
+        access_token, _ = get_access_token(fingerprint, "vk", oauth_client)
+        api = VKClient(access_token, settings.VK_API_VERSION, settings.VK_ID_CLIENT_ID)
+        title, tracks = api.fetch_playlist(source_url)
+    except (ValueError, TransferError) as exc:
+        messages.error(request, str(exc) if isinstance(exc, TransferError) else "Укажи корректную ссылку на плейлист VK.")
+        return redirect("home")
+    if not tracks:
+        messages.error(request, "VK не вернул композиции для импорта.")
+        return redirect("home")
+
+    profile = _profile(request)
+    playlist = LibraryPlaylist.objects.create(
+        profile=profile,
+        title=title[:120] or "Импорт из VK",
+        provider=LibraryPlaylist.Provider.VK,
+        external_url=source_url,
+        description=f"Импортировано из VK · {len(tracks)} композиций",
+    )
+    LibraryTrack.objects.bulk_create([
+        LibraryTrack(
+            playlist=playlist,
+            title=track.title[:180],
+            artist=track.artist[:180],
+            duration_ms=max(track.duration, 0) * 1000,
+            external_id=f"{track.owner_id}_{track.track_id}",
+            external_url="",
+            position=index,
+        )
+        for index, track in enumerate(tracks)
+    ])
+    messages.success(request, f"Импортировано «{playlist.title}»: {len(tracks)} композиций.")
+    return redirect("home")
+
+
+@require_GET
+def open_playlist_source(request, playlist_id):
+    from django.core.exceptions import ValidationError
+    from django.core.validators import URLValidator
+    from django.http import HttpResponseRedirect
+
+    playlist = get_object_or_404(
+        LibraryPlaylist, pk=playlist_id, profile=_profile(request)
+    )
+    try:
+        URLValidator(schemes=["http", "https"])(playlist.external_url)
+    except ValidationError:
+        return redirect("home")
+    return HttpResponseRedirect(playlist.external_url)
+
+
+@require_GET
+def open_track_source(request, track_id):
+    from django.core.exceptions import ValidationError
+    from django.core.validators import URLValidator
+    from django.http import HttpResponseRedirect
+
+    track = get_object_or_404(
+        LibraryTrack.objects.select_related("playlist__profile"),
+        pk=track_id,
+        playlist__profile=_profile(request),
+    )
+    try:
+        URLValidator(schemes=["http", "https"])(track.external_url)
+    except ValidationError:
+        return redirect("home")
+    return HttpResponseRedirect(track.external_url)
