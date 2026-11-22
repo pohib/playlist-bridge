@@ -694,3 +694,71 @@ class UnifiedLibraryTransferTests(TestCase):
         self.assertEqual(parse_vk_track_url("https://vk.com/audio-123_456"), (-123, 456))
         with self.assertRaises(ValueError):
             parse_vk_track_url("https://attacker.example/audio-123_456")
+
+
+class AccountWorkspaceTests(TestCase):
+    def test_registration_attaches_existing_guest_library_to_account(self):
+        from .models import LibraryPlaylist, LibraryProfile
+
+        self.client.post(
+            reverse("library_create_playlist"),
+            {"title": "Guest collection", "provider": "manual"},
+        )
+        profile = LibraryProfile.objects.get()
+        self.assertIsNone(profile.user_id)
+
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "listener_one",
+                "email": "listener@example.test",
+                "password1": "Safe-Test-Password-2026!",
+                "password2": "Safe-Test-Password-2026!",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(self.client.session.get("_auth_user_id"))
+        profile.refresh_from_db()
+        self.assertEqual(profile.user.username, "listener_one")
+        self.assertEqual(profile.playlists.get().title, "Guest collection")
+
+    def test_account_libraries_are_isolated_between_users(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryPlaylist, LibraryProfile
+
+        user_model = get_user_model()
+        first = user_model.objects.create_user(
+            username="listener_a",
+            email="a@example.test",
+            password="Safe-Test-Password-2026!",
+        )
+        second = user_model.objects.create_user(
+            username="listener_b",
+            email="b@example.test",
+            password="Safe-Test-Password-2026!",
+        )
+        self.client.force_login(first)
+        self.client.post(
+            reverse("library_create_playlist"),
+            {"title": "Private collection", "provider": "manual"},
+        )
+        playlist = LibraryPlaylist.objects.get(title="Private collection")
+        self.client.logout()
+        self.client.force_login(second)
+        response = self.client.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk}))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(LibraryProfile.objects.filter(user=first).count(), 1)
+        self.assertEqual(LibraryProfile.objects.filter(user=second).count(), 1)
+
+    def test_login_redirect_rejects_external_destination(self):
+        from django.contrib.auth import get_user_model
+
+        get_user_model().objects.create_user(
+            username="listener_redirect",
+            password="Safe-Test-Password-2026!",
+        )
+        response = self.client.post(
+            reverse("login") + "?next=https://evil.example/",
+            {"username": "listener_redirect", "password": "Safe-Test-Password-2026!", "next": "https://evil.example/"},
+        )
+        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
