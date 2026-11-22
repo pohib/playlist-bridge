@@ -53,6 +53,14 @@ def vk_client():
     )
 
 
+def rotate_session_binding(request):
+    old_fingerprint = get_session_fingerprint(request)
+    request.session.cycle_key()
+    new_fingerprint = get_session_fingerprint(request)
+    OAuthCredential.objects.filter(session_fingerprint=old_fingerprint).update(session_fingerprint=new_fingerprint)
+    TransferJob.objects.filter(session_fingerprint=old_fingerprint).update(session_fingerprint=new_fingerprint)
+
+
 def connected_providers(request):
     fingerprint = get_session_fingerprint(request)
     providers = set(
@@ -109,6 +117,7 @@ def spotify_callback(request):
         token = client.exchange_code(code)
         token["obtained_at"] = time.time()
         profile = client.current_user(token["access_token"])
+        rotate_session_binding(request)
         store_credential(get_session_fingerprint(request), "spotify", token, profile.get("id", ""))
         request.session["oauth_success"] = "Spotify успешно подключён. Токены сохранены в зашифрованном виде."
     except TransferError as exc:
@@ -145,7 +154,10 @@ def vk_callback(request):
         return redirect("home")
     try:
         token = vk_client().exchange_code(code, device_id, expected, verifier)
+        if token.get("state") != expected:
+            raise TransferError("VK ID вернул некорректный OAuth state.")
         token["device_id"] = device_id
+        rotate_session_binding(request)
         token["obtained_at"] = time.time()
         store_credential(get_session_fingerprint(request), "vk", token)
         request.session["oauth_success"] = "VK успешно подключён. Токены сохранены в зашифрованном виде."
