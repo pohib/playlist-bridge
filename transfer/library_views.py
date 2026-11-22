@@ -1,10 +1,12 @@
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .credentials import get_session_fingerprint
+from .core import TransferError, VKClient, VKIDClient, SoundCloudClient, parse_vk_playlist_url
+from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
 
@@ -116,17 +118,14 @@ def update_profile(request):
 
 @require_POST
 def import_vk_playlist(request):
-    from django.conf import settings
-    from .core import TransferError, VKClient
-    from .credentials import get_access_token
-    from .views import vk_client
 
     source_url = (request.POST.get("source_url") or "").strip()
     try:
-        from .core import parse_vk_playlist_url
         parse_vk_playlist_url(source_url)
         fingerprint = get_session_fingerprint(request)
-        oauth_client = vk_client()
+        if not settings.VK_ID_CLIENT_ID:
+            raise TransferError("VK ID OAuth не настроен на сервере.")
+        oauth_client = VKIDClient(settings.VK_ID_CLIENT_ID, settings.VK_ID_REDIRECT_URI, settings.VK_ID_SERVICE_TOKEN)
         access_token, _ = get_access_token(fingerprint, "vk", oauth_client)
         api = VKClient(access_token, settings.VK_API_VERSION, settings.VK_ID_CLIENT_ID)
         title, tracks = api.fetch_playlist(source_url)
