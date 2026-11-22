@@ -1,0 +1,27 @@
+{% extends "transfer/base.html" %}
+{% block title %}Проверка переноса — Playlist Bridge{% endblock %}
+{% block content %}
+<section class="page-heading"><div><a class="back-link" href="{% url 'transfers' %}">← Все переносы</a><span class="section-kicker">MATCH REVIEW · {{ transfer.target_provider|upper }}</span><h1>Проверим <span>совпадения.</span></h1><p>{{ transfer.source_playlist.title }} → {{ transfer.target_provider|title }} · найдено {{ transfer.matched }} из {{ transfer.total }} · пропущено {{ transfer.skipped }}</p></div>{% if transfer.target_url %}<a class="primary-button" href="{{ transfer.target_url }}" target="_blank" rel="noopener noreferrer">Открыть плейлист <span>↗</span></a>{% endif %}</section>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">TRACK-BY-TRACK REVIEW</span><h2>{% if transfer.status == 'completed' %}Проверка завершена{% else %}Треки, требующие внимания{% endif %}</h2></div><span class="count-chip">{{ transfer.items.count }} треков</span></div>
+<div class="review-list">
+{% for item in items %}
+<article class="review-item {% if item.status == 'pending' and item.id == first_pending_id %}is-current{% endif %}">
+  <div class="review-track"><span class="track-position">{{ item.position|add:1|stringformat:"02d" }}</span><div><strong>{{ item.source_track.title }}</strong><small>{{ item.source_track.artist }}</small></div>
+  {% if item.status == 'matched' %}<span class="review-state state-matched">Добавлен</span>{% elif item.status == 'skipped' %}<span class="review-state state-skipped">Пропущен</span>{% else %}<span class="review-state state-pending">Не найден</span>{% endif %}</div>
+  {% if item.status == 'pending' %}
+    {% if item.id == first_pending_id %}
+      <form method="post" action="{% url 'search_transfer_item' transfer.id item.id %}" class="review-search-form">{% csrf_token %}<input name="query" maxlength="180" value="{{ item.source_track.artist }} {{ item.source_track.title }}" aria-label="Поисковый запрос"><button class="secondary-button" type="submit">Искать вручную</button></form>
+      {% if item.candidates %}
+        <div class="candidate-list"><span class="section-kicker">ВАРИАНТЫ ДЛЯ ВЫБОРА</span>
+        {% for candidate in item.candidates %}<div class="candidate-row"><div><strong>{{ candidate.title }}</strong><small>{{ candidate.artist }}</small></div><form method="post" action="{% url 'select_transfer_candidate' transfer.id item.id %}">{% csrf_token %}<input type="hidden" name="candidate_id" value="{{ candidate.id }}"><button class="secondary-button" type="submit">Выбрать</button></form>{% if candidate.url %}<a class="candidate-open" href="{{ candidate.url }}" target="_blank" rel="noopener noreferrer" aria-label="Открыть вариант">↗</a>{% endif %}</div>{% endfor %}
+        </div>
+      {% endif %}
+      <form method="post" action="{% url 'skip_transfer_item' transfer.id item.id %}" class="skip-form">{% csrf_token %}<button class="text-skip" type="submit">Пропустить этот трек</button></form>
+    {% else %}<p class="muted-copy">Сначала разберись с предыдущими треками — так сохраняется исходный порядок плейлиста.</p>{% endif %}
+  {% endif %}
+</article>
+{% endfor %}
+</div>
+{% if transfer.status == 'completed' %}<div class="review-complete"><span>✓</span><strong>Все треки обработаны</strong><p>Найденные композиции добавлены, остальные пропущены.</p></div>{% endif %}
+</section>
+{% endblock %}
