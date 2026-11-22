@@ -71,11 +71,11 @@ Compose автоматически ждёт PostgreSQL/Redis, выполняет
 
 В открывшейся консоли PostgreSQL задай пароль пользователя:
 
-    \\password vktospotify
+    \password vktospotify
 
 Введи значение `POSTGRES_PASSWORD` из `.env` дважды (ввод не отображается), затем:
 
-    \\q
+    \q
     docker compose up -d --force-recreate web worker
 
 После этого `web` должен пройти миграции автоматически. Команда `docker compose exec web ...` использует имя сервиса `web`, а не имя контейнера `vktospotify-web-1`. Например:
