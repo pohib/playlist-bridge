@@ -482,3 +482,60 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         from .models import LibraryProfile
         self.assertEqual(LibraryProfile.objects.get().display_name, "My Music")
+
+
+class VKLibraryImportTests(TestCase):
+    @patch("transfer.credentials.get_access_token", return_value=("vk-access", {}))
+    @patch("transfer.core.VKClient.fetch_playlist", return_value=(
+        "VK imported playlist",
+        [
+            __import__("transfer.core", fromlist=["VKTrack"]).VKTrack(10, 101, "Artist A", "Track A", 185),
+            __import__("transfer.core", fromlist=["VKTrack"]).VKTrack(10, 102, "Artist B", "Track B", 210),
+        ],
+    ))
+    @patch("transfer.views.vk_client")
+    @override_settings(VK_ID_CLIENT_ID="vk-client", VK_API_VERSION="5.289")
+    def test_import_saves_playlist_tracks_in_original_order(
+        self, oauth_client, fetch_playlist, _get_access_token
+    ):
+        oauth_client.return_value = Mock()
+        response = self.client.post(
+            reverse("library_import_vk"),
+            {"source_url": "https://vk.ru/music/playlist/10_5_key"},
+        )
+        self.assertEqual(response.status_code, 302)
+        from .models import LibraryPlaylist, LibraryTrack
+        playlist = LibraryPlaylist.objects.get(title="VK imported playlist")
+        tracks = list(playlist.tracks.all())
+        self.assertEqual([track.title for track in tracks], ["Track A", "Track B"])
+        self.assertEqual([track.position for track in tracks], [0, 1])
+        self.assertEqual([track.external_id for track in tracks], ["10_101", "10_102"])
+        self.assertEqual([track.duration_ms for track in tracks], [185000, 210000])
+        fetch_playlist.assert_called_once()
+
+    def test_import_rejects_invalid_vk_url_before_oauth(self):
+        with patch("transfer.credentials.get_access_token") as get_token:
+            response = self.client.post(
+                reverse("library_import_vk"),
+                {"source_url": "https://attacker.example/music/playlist/10_5"},
+            )
+        self.assertEqual(response.status_code, 302)
+        get_token.assert_not_called()
+
+    def test_source_redirect_rejects_unsafe_stored_url(self):
+        from .models import LibraryPlaylist, LibraryProfile
+        from .credentials import get_session_fingerprint
+        profile, _ = LibraryProfile.objects.get_or_create(
+            session_fingerprint=get_session_fingerprint(self.client),
+        )
+        playlist = LibraryPlaylist.objects.create(
+            profile=profile,
+            title="Unsafe legacy link",
+            provider="manual",
+            external_url="javascript:alert(1)",
+        )
+        response = self.client.get(
+            reverse("library_open_playlist_source", kwargs={"playlist_id": playlist.pk}),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("home"))
