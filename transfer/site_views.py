@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import never_cache
@@ -33,7 +34,7 @@ def dashboard(request):
 @require_GET
 def library(request):
     profile = _profile(request)
-    playlists = LibraryPlaylist.objects.filter(profile=profile).annotate().prefetch_related("tracks")
+    playlists = LibraryPlaylist.objects.filter(profile=profile).prefetch_related("tracks")
     return render(request, "transfer/library.html", {"playlists": playlists})
 
 
@@ -54,9 +55,9 @@ def playlist_detail(request, playlist_id):
 @require_GET
 def connections(request):
     return render(request, "transfer/connections.html", {
-        "spotify_configured": bool(__import__("django.conf").conf.settings.SPOTIFY_CLIENT_ID and __import__("django.conf").conf.settings.SPOTIFY_CLIENT_SECRET),
-        "vk_configured": bool(__import__("django.conf").conf.settings.VK_ID_CLIENT_ID),
-        "soundcloud_configured": bool(__import__("django.conf").conf.settings.SOUNDCLOUD_CLIENT_ID and __import__("django.conf").conf.settings.SOUNDCLOUD_CLIENT_SECRET),
+        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
+        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
     })
 
 
