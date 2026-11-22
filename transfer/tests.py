@@ -1,8 +1,13 @@
 from cryptography.fernet import Fernet
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from urllib.parse import parse_qs, urlparse
+import base64
+import hashlib
 
-from .core import normalize_track_text, parse_vk_playlist_url
+from .core import VKIDClient, normalize_track_text, parse_vk_playlist_url
+from .credentials import decrypt_payload, encrypt_payload, store_credential
+from .models import OAuthCredential
 from .views import csv_safe_cell
 
 
@@ -79,3 +84,29 @@ class VersionedApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["error"]["message"], "Сначала подключи Spotify.")
+
+
+
+class OAuthSecurityTests(TestCase):
+    def test_vk_oauth_authorization_uses_pkce_s256(self):
+        client = VKIDClient("vk-app-id", "https://example.test/vk/callback/")
+        verifier = "a" * 64
+        url = client.authorization_url("random-state", verifier)
+        params = parse_qs(urlparse(url).query)
+        expected = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        self.assertEqual(params["code_challenge"][0], expected)
+        self.assertEqual(params["code_challenge_method"][0], "s256")
+        self.assertEqual(params["state"][0], "random-state")
+
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
+    def test_oauth_tokens_are_encrypted_at_rest(self):
+        token = {"access_token": "user-access-secret", "refresh_token": "user-refresh-secret"}
+        credential = store_credential("a" * 64, "spotify", token, "spotify-user")
+        self.assertNotIn("user-access-secret", credential.encrypted_payload)
+        self.assertNotIn("user-refresh-secret", credential.encrypted_payload)
+        self.assertEqual(decrypt_payload(credential.encrypted_payload)["access_token"], "user-access-secret")
+        self.assertEqual(OAuthCredential.objects.count(), 1)
+
+    def test_provider_disconnect_requires_post(self):
+        self.assertEqual(self.client.get(reverse("disconnect_spotify")).status_code, 405)
+        self.assertEqual(self.client.get(reverse("disconnect_vk")).status_code, 405)
