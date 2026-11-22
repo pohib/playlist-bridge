@@ -5,7 +5,7 @@ from django.core.validators import URLValidator
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .core import TransferError, VKClient, VKIDClient, SoundCloudClient, parse_vk_playlist_url
+from .core import SoundCloudClient, SpotifyClient, TransferError, VKClient, VKIDClient, parse_vk_playlist_url, score_candidate
 from .credentials import get_access_token, get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
@@ -309,4 +309,123 @@ def import_soundcloud_library(request):
         messages.error(request, str(exc))
         return redirect("home")
     messages.success(request, f"Импортировано плейлистов: {imported}; композиций: {track_count}.")
+    return redirect("home")
+
+
+@require_POST
+def transfer_library_playlist(request, playlist_id):
+    from types import SimpleNamespace
+
+    playlist = get_object_or_404(
+        LibraryPlaylist.objects.prefetch_related("tracks"),
+        pk=playlist_id,
+        profile=_profile(request),
+    )
+    target = request.POST.get("target_provider", "").strip()
+    if target not in {"spotify", "soundcloud"}:
+        messages.error(request, "Выбери поддерживаемый целевой сервис.")
+        return redirect("home")
+    tracks = list(playlist.tracks.all())
+    if not tracks:
+        messages.error(request, "В плейлисте нет композиций для переноса.")
+        return redirect("home")
+    if len(tracks) > 100:
+        messages.error(request, "Пока можно переносить не более 100 композиций за один запуск.")
+        return redirect("home")
+
+    fingerprint = get_session_fingerprint(request)
+    matched_ids = []
+    not_found = 0
+    try:
+        if target == "spotify":
+            client = SpotifyClient(
+                settings.SPOTIFY_CLIENT_ID,
+                settings.SPOTIFY_CLIENT_SECRET,
+                settings.SPOTIFY_REDIRECT_URI,
+            )
+            token, _ = get_access_token(fingerprint, "spotify", client)
+            user = client.current_user(token)
+            for track in tracks:
+                source = SimpleNamespace(
+                    title=track.title,
+                    artist=track.artist,
+                    duration=(track.duration_ms or 0) // 1000,
+                )
+                ranked = sorted(
+                    ((score_candidate(source, item), item) for item in client.search(token, track.artist, track.title)),
+                    key=lambda pair: pair[0],
+                    reverse=True,
+                )
+                if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("uri"):
+                    matched_ids.append(ranked[0][1]["uri"])
+                else:
+                    not_found += 1
+            if not matched_ids:
+                raise TransferError("Не удалось подобрать композиции в Spotify.")
+            target_id = client.create_playlist(token, playlist.title)
+            client.add_items(token, target_id, matched_ids)
+            target_url = f"https://open.spotify.com/playlist/{target_id}"
+        else:
+            client = SoundCloudClient(
+                settings.SOUNDCLOUD_CLIENT_ID,
+                settings.SOUNDCLOUD_CLIENT_SECRET,
+                settings.SOUNDCLOUD_REDIRECT_URI,
+            )
+            token, _ = get_access_token(fingerprint, "soundcloud", client)
+            for track in tracks:
+                query = f"{track.artist} {track.title}"
+                candidates = client.search_tracks(token, query)
+                ranked = []
+                for candidate in candidates:
+                    user = candidate.get("user") or {}
+                    normalized = {
+                        "name": candidate.get("title", ""),
+                        "artists": [{"name": candidate.get("metadata_artist") or user.get("username", "")}],
+                        "duration_ms": candidate.get("duration"),
+                    }
+                    source = SimpleNamespace(
+                        title=track.title,
+                        artist=track.artist,
+                        duration=(track.duration_ms or 0) // 1000,
+                    )
+                    ranked.append((score_candidate(source, normalized), candidate))
+                ranked.sort(key=lambda pair: pair[0], reverse=True)
+                if ranked and ranked[0][0] >= 0.82 and ranked[0][1].get("id"):
+                    matched_ids.append(str(ranked[0][1]["id"]))
+                else:
+                    not_found += 1
+            if not matched_ids:
+                raise TransferError("Не удалось подобрать композиции в SoundCloud.")
+            result = client.create_playlist(token, playlist.title, matched_ids)
+            target_id = str(result["id"])
+            target_url = result.get("permalink_url") or f"https://soundcloud.com"
+    except TransferError as exc:
+        messages.error(request, str(exc))
+        return redirect("home")
+
+    target_playlist = LibraryPlaylist.objects.create(
+        profile=playlist.profile,
+        title=f"{playlist.title} · {target.title()}",
+        provider=target,
+        external_url=target_url,
+        description=f"Создано переносом из библиотеки · найдено {len(matched_ids)} из {len(tracks)}",
+    )
+    LibraryTrack.objects.bulk_create([
+        LibraryTrack(
+            playlist=target_playlist,
+            title=track.title,
+            artist=track.artist,
+            album=track.album,
+            duration_ms=track.duration_ms,
+            external_id="",
+            external_url="",
+            position=index,
+        )
+        for index, track in enumerate(tracks)
+    ])
+    messages.success(
+        request,
+        f"Создан плейлист {target.title()}: найдено {len(matched_ids)} из {len(tracks)} треков. "
+        f"Не найдено: {not_found}. {target_url}",
+    )
     return redirect("home")
