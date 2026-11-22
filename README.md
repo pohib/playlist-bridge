@@ -26,61 +26,141 @@ Django-приложение для переноса VK-плейлистов в S
 
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), а приложение VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go). В кабинете VK ID открой «Добавить приложение», выбери платформу Web, затем укажи базовый домен и доверенный Redirect URL. После создания скопируй ID приложения в `VK_ID_CLIENT_ID`. Для локальной разработки используй callback `http://127.0.0.1:8000/vk/callback/`; если VK ID не принимает loopback HTTP-адрес, используй HTTPS-туннель и зарегистрируй его точный URL. Не путай ID приложения с защищённым/сервисным ключом: `VK_ID_SERVICE_TOKEN` нужен только если его требует выбранная конфигурация VK ID. Для Spotify в Users Management добавь Spotify-аккаунты тестировщиков (в Development Mode лимит — 5 пользователей). В обоих приложениях зарегистрируй точные callback URL:
-- http://127.0.0.1:8000/spotify/callback/
-- http://127.0.0.1:8000/vk/callback/
+Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), а VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go). Для VK ID выбери платформу Web и зарегистрируй Redirect URL. Не используй локальный HTTP callback: VK требует публичный HTTPS-адрес. Точные callback URL появятся после запуска временного Cloudflare Tunnel по инструкции ниже. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
-Для публичного развёртывания используй HTTPS и соответствующие публичные redirect URI.
+## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
-## Запуск через Docker Compose
+Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах VK ID и Spotify.
 
-1. Скопируй `.env.example` в `.env` (PowerShell: `Copy-Item .env.example .env`). Если `.env` уже существует, добавь недостающие параметры, не перезаписывая действующие секреты.
-2. Заполни все переменные, перечисленные в шаблоне. В частности, `POSTGRES_PASSWORD` должен быть одинаковым для подключения Django и первичной инициализации PostgreSQL. Compose сам формирует `DATABASE_URL`; не задавай его вручную в `.env`.
-3. Для локального HTTP оставь `SESSION_COOKIE_SECURE=false`, `CSRF_COOKIE_SECURE=false`, `SECURE_SSL_REDIRECT=false`; Compose принудительно включает `DJANGO_DEBUG=false` для самого приложения.
-3. Сгенерируй TOKEN_ENCRYPTION_KEY.
-4. Убедись, что для локального HTTP в `.env` стоят `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false`. В production за HTTPS обе настройки должны быть `true`.
-5. Запусти:
+### 1. Подготовь проект и .env
 
-    docker compose up --build -d
+В PowerShell:
 
-Compose автоматически ждёт PostgreSQL/Redis, выполняет `collectstatic` и `migrate`, затем запускает Gunicorn. Повторно выполнять `migrate` вручную не требуется.
+    git clone https://github.com/pohib/vk-to-spotify.git
+    cd vk-to-spotify
+    Copy-Item .env.example .env
+    notepad .env
 
-Проверь сервисы:
+Если репозиторий уже скачан, вместо clone перейди в его каталог и выполни:
+
+    git switch main
+    git pull --ff-only origin main
+
+Сгенерируй три независимых значения командами ниже и вставь результаты в соответствующие строки .env:
+
+    python -c "import secrets; print(secrets.token_urlsafe(64))"
+    python -c "import secrets; print(secrets.token_urlsafe(48))"
+    python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+
+Результаты по порядку:
+- первая команда → DJANGO_SECRET_KEY;
+- вторая команда → POSTGRES_PASSWORD;
+- третья команда → TOKEN_ENCRYPTION_KEY (Fernet key).
+
+Не используй одно значение для нескольких параметров. Не публикуй .env и не отправляй его содержимое в чат.
+
+Заполни OAuth-переменные:
+- SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
+- VK_ID_CLIENT_ID — ID приложения из кабинета VK ID;
+- VK_ID_SERVICE_TOKEN — оставь пустым, если тип приложения и сценарий VK ID его не требуют.
+
+Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
+
+### 2. Установи Cloudflare Tunnel
+
+Установи Docker Desktop и дождись запуска Docker Engine. Затем установи cloudflared:
+
+    winget install --id Cloudflare.cloudflared -e
+
+Закрой и заново открой PowerShell, чтобы обновился PATH. Проверь:
+
+    cloudflared --version
+
+### 3. Запусти приложение и HTTPS-туннель
+
+Из корня проекта:
+
+    Set-ExecutionPolicy -Scope Process Bypass
+    .\scripts\start-tunnel.ps1
+
+Скрипт:
+1. Проверяет обязательные секреты в .env;
+2. собирает контейнеры и запускает Django, PostgreSQL и Redis;
+3. ждёт успешного ответа /healthz/;
+4. запускает Cloudflare Quick Tunnel;
+5. получает временный HTTPS URL;
+6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и оба OAuth callback URI;
+7. пересоздаёт web и worker с новыми настройками.
+
+После завершения скрипт покажет URL и точные callback URI. Не закрывай процесс cloudflared: туннель должен оставаться запущенным, пока используешь приложение. Чтобы остановить его, выполни команду с PID, который напечатал скрипт:
+
+    Stop-Process -Id <PID>
+
+### 4. Зарегистрируй OAuth callback URI
+
+Скопируй callback URL из вывода скрипта без изменений.
+
+В кабинете VK ID добавь в доверенные Redirect URL:
+
+    https://<текущий-домен>.trycloudflare.com/vk/callback/
+
+В Spotify Developer Dashboard добавь Redirect URI:
+
+    https://<текущий-домен>.trycloudflare.com/spotify/callback/
+
+Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш. После изменения Redirect URI перезапусти OAuth-подключение в браузере.
+
+### 5. Проверь приложение
+
+Открой HTTPS URL, который напечатал скрипт. Проверь health endpoint:
+
+    Invoke-WebRequest https://<текущий-домен>.trycloudflare.com/healthz/
+
+Проверь состояние контейнеров:
 
     docker compose ps
 
-Открой http://127.0.0.1:8000, подключи VK и Spotify и сначала перенеси небольшой тестовый плейлист.
-
-Логи:
+Логи приложения и фонового worker:
 
     docker compose logs -f web worker
 
-Остановка:
+Сначала подключи Spotify и VK, затем проверь перенос на небольшом плейлисте. Для добавления в существующий Spotify playlist используй ссылку на плейлист, принадлежащий подключённому аккаунту.
+
+### 6. Повторный запуск
+
+Quick Tunnel не гарантирует постоянный адрес. При новом запуске:
+1. Останови старый cloudflared процесс, если он ещё работает;
+2. Запусти scripts/start-tunnel.ps1 снова;
+3. Обнови оба callback URI в кабинетах VK ID и Spotify, если домен изменился;
+4. Переподключи OAuth, если провайдер использует новый Redirect URI.
+
+Не публикуй приложение с Quick Tunnel как постоянный production-сервис: это временный туннель для разработки и проверки OAuth.
+
+### Обычные команды Docker Compose
+
+Проверить контейнеры:
+
+    docker compose ps
+
+Посмотреть логи:
+
+    docker compose logs -f web worker
+
+Выполнить Django checks:
+
+    docker compose exec web python manage.py check
+
+Остановить контейнеры, сохранив базу:
 
     docker compose down
 
-Не удаляй volume postgres_data, если нужно сохранить OAuth-подключения и историю задач. Потеря TOKEN_ENCRYPTION_KEY сделает зашифрованные токены невосстановимыми — храни ключ в менеджере секретов и делай защищённую резервную копию.
+Удаление базы и OAuth-подключений — только если осознанно хочешь начать с чистого состояния:
 
-### Если PostgreSQL сообщает password authentication failed
+    docker compose down -v
 
-`POSTGRES_PASSWORD` из `.env` применяется только при первом создании пустого volume `postgres_data`. Если пароль в `.env` менялся после первого запуска, существующий пользователь PostgreSQL сохраняет старый пароль. Не удаляй volume ради исправления пароля.
+Команда down -v удаляет PostgreSQL volume, включая сохранённые OAuth credentials и историю переносов. Не выполняй её для обычной остановки.
 
-В PowerShell из каталога проекта выполни:
-
-    docker compose exec -u postgres db psql -U postgres -d postgres
-
-В открывшейся консоли PostgreSQL задай пароль пользователя:
-
-    \password vktospotify
-
-Введи значение `POSTGRES_PASSWORD` из `.env` дважды (ввод не отображается), затем:
-
-    \q
-    docker compose up -d --force-recreate web worker
-
-После этого `web` должен пройти миграции автоматически. Команда `docker compose exec web ...` использует имя сервиса `web`, а не имя контейнера `vktospotify-web-1`. Например:
-
-    docker compose exec web python manage.py check
+Не теряй TOKEN_ENCRYPTION_KEY: без него сохранённые зашифрованные токены восстановить нельзя. Храни ключ отдельно в менеджере секретов и делай защищённую резервную копию.
 
 ## API v1
 
