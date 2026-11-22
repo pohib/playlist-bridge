@@ -1,4 +1,3 @@
-# ruff: noqa: I001
 """VK ID OAuth and VK API client implementations."""
 import base64
 import hashlib
