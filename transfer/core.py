@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import secrets
 import re
 from dataclasses import dataclass
@@ -63,7 +64,7 @@ class VKIDClient:
 
     def authorization_url(self, state, code_verifier):
         challenge = base64.urlsafe_b64encode(
-            __import__("hashlib").sha256(code_verifier.encode()).digest()
+            hashlib.sha256(code_verifier.encode()).digest()
         ).rstrip(b"=").decode()
         return f"{self.AUTHORIZE_URL}?{urlencode({
             'response_type': 'code',
