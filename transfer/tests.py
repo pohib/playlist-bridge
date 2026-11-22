@@ -106,11 +106,13 @@ class OAuthSecurityTests(TestCase):
 
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     def test_oauth_tokens_are_encrypted_at_rest(self):
-        token = {"access_token": Fernet.generate_key().decode(), "refresh_token": Fernet.generate_key().decode()}
+        access_token = Fernet.generate_key().decode()
+        refresh_token = Fernet.generate_key().decode()
+        token = {"access_token": access_token, "refresh_token": refresh_token}
         credential = store_credential("a" * 64, "spotify", token, "spotify-user")
-        self.assertNotIn("user-access-secret", credential.encrypted_payload)
-        self.assertNotIn("user-refresh-secret", credential.encrypted_payload)
-        self.assertEqual(decrypt_payload(credential.encrypted_payload)["access_token"], "user-access-secret")
+        self.assertNotIn(access_token, credential.encrypted_payload)
+        self.assertNotIn(refresh_token, credential.encrypted_payload)
+        self.assertEqual(decrypt_payload(credential.encrypted_payload)["access_token"], access_token)
         self.assertEqual(OAuthCredential.objects.count(), 1)
 
     def test_provider_disconnect_requires_post(self):
