@@ -114,7 +114,10 @@ class VKIDClient:
             "device_id": device_id,
             "state": secrets.token_urlsafe(24),
         }
-        return self._token_request(params, {"refresh_token": refresh_token})
+        payload = self._token_request(params, {"refresh_token": refresh_token})
+        if payload.get("state") != params["state"]:
+            raise TransferError("VK ID вернул некорректный OAuth state при обновлении токена.")
+        return payload
 
 
 class VKClient:
@@ -122,7 +125,7 @@ class VKClient:
 
     def __init__(self, token, version, client_id):
         if not token:
-            raise TransferError("VK API token не настроен.")
+            raise TransferError("VK access token отсутствует. Подключи VK через OAuth.")
         self.token, self.version, self.client_id = token, version, client_id
         self.http = requests.Session()
 
