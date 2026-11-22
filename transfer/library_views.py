@@ -530,7 +530,7 @@ def transfer_library_playlist(request, playlist_id):
         source_playlist=playlist,
         target_provider=target,
         target_playlist=target_playlist,
-        target_playlist_id=str(target_id),
+        provider_playlist_id=str(target_id),
         target_url=target_url,
         status=LibraryTransfer.Status.REVIEW if unmatched else LibraryTransfer.Status.COMPLETED,
         total=len(tracks),
@@ -685,7 +685,7 @@ def select_transfer_candidate(request, transfer_id, item_id):
         if review.target_playlist:
             review.target_playlist.external_url = review.target_url
             review.target_playlist.save(update_fields=["external_url", "updated_at"])
-        review.save(update_fields=["target_playlist_id", "target_url"])
+        review.save(update_fields=["provider_playlist_id", "target_url"])
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("transfer_review", transfer_id=review.pk)
