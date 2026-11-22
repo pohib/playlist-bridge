@@ -170,44 +170,67 @@ def update_profile(request):
 
 @require_POST
 def import_vk_playlist(request):
-
     source_url = (request.POST.get("source_url") or "").strip()
     try:
-        parse_vk_playlist_url(source_url)
+        owner_id, playlist_id, access_key = parse_vk_playlist_url(source_url)
+        logger.info(
+            "VK playlist import started owner_id=%s playlist_id=%s has_access_key=%s",
+            owner_id, playlist_id, bool(access_key),
+        )
         fingerprint = get_session_fingerprint(request)
         if not settings.VK_ID_CLIENT_ID:
             raise TransferError("VK ID OAuth не настроен на сервере.")
-        oauth_client = VKIDClient(settings.VK_ID_CLIENT_ID, settings.VK_ID_REDIRECT_URI, settings.VK_ID_SERVICE_TOKEN)
+        oauth_client = VKIDClient(
+            settings.VK_ID_CLIENT_ID,
+            settings.VK_ID_REDIRECT_URI,
+            settings.VK_ID_SERVICE_TOKEN,
+        )
         access_token, _ = get_access_token(fingerprint, "vk", oauth_client)
+        logger.info("VK playlist import authorization resolved owner_id=%s playlist_id=%s", owner_id, playlist_id)
         api = VKClient(access_token, settings.VK_API_VERSION, settings.VK_ID_CLIENT_ID)
         title, tracks = api.fetch_playlist(source_url)
+        logger.info(
+            "VK playlist import fetched owner_id=%s playlist_id=%s track_count=%s",
+            owner_id, playlist_id, len(tracks),
+        )
+        if not tracks:
+            raise TransferError("VK не вернул композиции для импорта.")
+        profile = _profile(request)
+        playlist = LibraryPlaylist.objects.create(
+            profile=profile,
+            title=title[:120] or "Импорт из VK",
+            provider=LibraryPlaylist.Provider.VK,
+            external_url=source_url,
+            description=f"Импортировано из VK · {len(tracks)} композиций",
+        )
+        LibraryTrack.objects.bulk_create([
+            LibraryTrack(
+                playlist=playlist,
+                title=track.title[:180],
+                artist=track.artist[:180],
+                duration_ms=max(track.duration, 0) * 1000,
+                external_id=f"{track.owner_id}_{track.track_id}",
+                external_url=f"https://vk.com/audio{track.owner_id}_{track.track_id}",
+                position=index,
+            )
+            for index, track in enumerate(tracks)
+        ])
     except (ValueError, TransferError) as exc:
-        messages.error(request, str(exc) if isinstance(exc, TransferError) else "Укажи корректную ссылку на плейлист VK.")
+        logger.warning("VK playlist import rejected: %s", str(exc)[:240])
+        messages.error(
+            request,
+            str(exc) if isinstance(exc, TransferError) else "Укажи корректную ссылку на плейлист VK.",
+        )
         return redirect("library")
-    if not tracks:
-        messages.error(request, "VK не вернул композиции для импорта.")
+    except Exception:
+        logger.exception("Unexpected error during VK playlist import")
+        messages.error(request, "Не удалось импортировать плейлист VK из-за внутренней ошибки. Подробности записаны в журнал.")
         return redirect("library")
 
-    profile = _profile(request)
-    playlist = LibraryPlaylist.objects.create(
-        profile=profile,
-        title=title[:120] or "Импорт из VK",
-        provider=LibraryPlaylist.Provider.VK,
-        external_url=source_url,
-        description=f"Импортировано из VK · {len(tracks)} композиций",
+    logger.info(
+        "VK playlist import completed playlist_id=%s track_count=%s",
+        playlist.pk, len(tracks),
     )
-    LibraryTrack.objects.bulk_create([
-        LibraryTrack(
-            playlist=playlist,
-            title=track.title[:180],
-            artist=track.artist[:180],
-            duration_ms=max(track.duration, 0) * 1000,
-            external_id=f"{track.owner_id}_{track.track_id}",
-            external_url=f"https://vk.com/audio{track.owner_id}_{track.track_id}",
-            position=index,
-        )
-        for index, track in enumerate(tracks)
-    ])
     messages.success(request, f"Импортировано «{playlist.title}»: {len(tracks)} композиций.")
     return redirect("library")
 
