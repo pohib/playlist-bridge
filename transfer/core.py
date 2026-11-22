@@ -118,7 +118,7 @@ class VKClient:
 class SpotifyClient:
     API = "https://api.spotify.com/v1"
     ACCOUNTS = "https://accounts.spotify.com"
-    SCOPES = "user-read-private playlist-modify-private playlist-modify-public"
+    SCOPES = "user-read-private playlist-read-private playlist-modify-private playlist-modify-public"
 
     def __init__(self, client_id, client_secret, redirect_uri):
         self.client_id, self.client_secret, self.redirect_uri = client_id, client_secret, redirect_uri
