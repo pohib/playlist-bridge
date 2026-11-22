@@ -79,7 +79,8 @@ API использует ту же браузерную сессию и CSRF:
 - pip-audit, Gitleaks, Trivy filesystem/image, Hadolint;
 - OWASP ZAP baseline DAST против запущенного приложения;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
-- Dependabot patch/minor PR проходят проверки перед auto-merge. Major обновления остаются на ручное рассмотрение.
+- Dependabot PR автоматически сливаются после успешного завершения tests, SAST/SCA/secrets, container и DAST jobs; автоматизация охватывает patch/minor/major обновления.
+- Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
 
 Для auto-merge включи Allow auto-merge в Settings → General. В Settings → Branches настрой защиту main и обязательные checks tests, sast-sca-secrets, container, dast: без обязательных checks GitHub не сможет гарантировать, что merge ждёт завершения всех проверок.
 
