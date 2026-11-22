@@ -37,11 +37,18 @@ Django-приложение для переноса VK-плейлистов в S
 1. Скопируй .env.example в .env.
 2. Заполни секреты приложения, инфраструктуры и developer OAuth app credentials.
 3. Сгенерируй TOKEN_ENCRYPTION_KEY.
-4. Запусти:
+4. Убедись, что для локального HTTP в `.env` стоят `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false`. В production за HTTPS обе настройки должны быть `true`.
+5. Запусти:
 
     docker compose up --build -d
 
-Открой http://127.0.0.1:8000, подключи VK и Spotify и запускай перенос.
+Compose автоматически ждёт PostgreSQL/Redis, выполняет `collectstatic` и `migrate`, затем запускает Gunicorn. Повторно выполнять `migrate` вручную не требуется.
+
+Проверь сервисы:
+
+    docker compose ps
+
+Открой http://127.0.0.1:8000, подключи VK и Spotify и сначала перенеси небольшой тестовый плейлист.
 
 Логи:
 
@@ -74,9 +81,9 @@ API использует ту же браузерную сессию и CSRF:
 
 ## Безопасность и CI
 
-- pytest, Ruff, Django checks;
-- Bandit и Semgrep с SARIF публикацией в GitHub Code Scanning;
-- pip-audit, Gitleaks, Trivy filesystem/image, Hadolint;
+- pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
+- Bandit и Semgrep с порогом ошибок и SARIF публикацией в GitHub Code Scanning;
+- pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
 - OWASP ZAP baseline DAST против запущенного приложения;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
 - Dependabot PR автоматически сливаются после успешного завершения tests, SAST/SCA/secrets, container и DAST jobs; автоматизация охватывает patch/minor/major обновления.
@@ -90,5 +97,5 @@ SARIF загружается на push/workflow_dispatch; GitHub Code Scanning �
 
 - Доступность методов VK Audio зависит от разрешений и типа VK ID приложения; реальную выдачу прав на audio.getPlaylistById необходимо проверить на подключённом аккаунте.
 - Spotify rate limits могут замедлять перенос.
-- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
+- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.\n- В Development Mode Spotify действуют ограничения на количество пользователей; для публичного сервиса требуется отдельно пройти требования Spotify к расширенному доступу.\n- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включи обе.
 - Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
