@@ -170,7 +170,6 @@ try {
         "CSRF_COOKIE_SECURE" = "true"
         "SECURE_SSL_REDIRECT" = "true"
         "SPOTIFY_REDIRECT_URI" = "$origin/spotify/callback/"
-        "VK_ID_REDIRECT_URI" = "$origin/vk/callback/"
         "SOUNDCLOUD_REDIRECT_URI" = "$origin/soundcloud/callback/"
     }
 
@@ -234,7 +233,6 @@ try {
 
     Write-Host ""
     Write-Host "Application is available: $origin" -ForegroundColor Green
-    Write-Host "VK ID callback: $origin/vk/callback/"
     Write-Host "Spotify callback: $origin/spotify/callback/"
     Write-Host "SoundCloud callback: $origin/soundcloud/callback/"
     Write-Host "Tunnel PID: $($tunnel.Id)"
