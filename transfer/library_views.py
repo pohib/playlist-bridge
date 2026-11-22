@@ -432,3 +432,40 @@ def transfer_library_playlist(request, playlist_id):
         f"Не найдено: {not_found}. {target_url}",
     )
     return redirect("home")
+
+
+@require_POST
+def upload_track_to_soundcloud(request):
+    from pathlib import Path
+
+    uploaded = request.FILES.get("audio_file")
+    title = (request.POST.get("title") or "").strip()
+    artist = (request.POST.get("artist") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+    allowed_extensions = {".mp3", ".wav", ".flac", ".aiff", ".aif", ".ogg", ".aac", ".amr", ".wma", ".mp2"}
+    if not uploaded or not title or not artist or len(title) > 100 or len(artist) > 100:
+        messages.error(request, "Выбери аудиофайл и укажи название и исполнителя.")
+        return redirect("home")
+    if Path(uploaded.name).suffix.lower() not in allowed_extensions or uploaded.size > 100 * 1024 * 1024:
+        messages.error(request, "Поддерживаются аудиофайлы до 100 МБ в форматах MP3, WAV, FLAC, AIFF, OGG, AAC, AMR, WMA и MP2.")
+        return redirect("home")
+    try:
+        client, token = _soundcloud_access(request)
+        result = client.upload_track(token, uploaded, title, artist, description)
+    except TransferError as exc:
+        messages.error(request, str(exc))
+        return redirect("home")
+
+    profile = _profile(request)
+    permalink = str(result.get("permalink_url") or "")
+    playlist = LibraryPlaylist.objects.create(
+        profile=profile, title=title[:120], provider=LibraryPlaylist.Provider.SOUNDCLOUD,
+        external_url=permalink, description="Загружено в SoundCloud",
+    )
+    LibraryTrack.objects.create(
+        playlist=playlist, title=title[:180], artist=artist[:180],
+        duration_ms=max(0, int(result.get("duration") or 0)),
+        external_id=str(result["id"]), external_url=permalink, position=0,
+    )
+    messages.success(request, f"Трек «{title}» загружен в SoundCloud и добавлен в библиотеку.")
+    return redirect("home")
