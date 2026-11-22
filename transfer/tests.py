@@ -652,6 +652,92 @@ class SoundCloudIntegrationTests(TestCase):
 class UnifiedLibraryTransferTests(TestCase):
     @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
     @patch("transfer.library_views.SoundCloudClient")
+    def test_unmatched_track_can_be_searched_and_added_manually(self, soundcloud_class, _token):
+        from .credentials import get_session_fingerprint
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+
+        profile, _ = LibraryProfile.objects.get_or_create(
+            session_fingerprint=get_session_fingerprint(self.client),
+        )
+        source = LibraryPlaylist.objects.create(profile=profile, title="Unmatched", provider="vk")
+        LibraryTrack.objects.create(playlist=source, title="Unknown Track", artist="Unknown Artist", position=0)
+        client = Mock()
+        candidate = {
+            "id": 988,
+            "title": "Unknown Track",
+            "metadata_artist": "Unknown Artist",
+            "duration": 180000,
+            "permalink_url": "https://soundcloud.com/artist/unknown-track",
+        }
+        client.search_tracks.side_effect = [[], [candidate]]
+        client.create_playlist.return_value = {
+            "id": 555,
+            "permalink_url": "https://soundcloud.com/me/unmatched",
+        }
+        soundcloud_class.return_value = client
+
+        response = self.client.post(
+            reverse("library_transfer_playlist", kwargs={"playlist_id": source.pk}),
+            {"target_provider": "soundcloud"},
+        )
+        self.assertEqual(response.status_code, 302)
+        review = LibraryTransfer.objects.get(source_playlist=source)
+        item = LibraryTransferItem.objects.get(transfer=review)
+        self.assertEqual(item.status, LibraryTransferItem.Status.PENDING)
+
+        self.client.post(
+            reverse("search_transfer_item", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
+            {"query": "Unknown Artist Unknown Track"},
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.candidates[0]["id"], "988")
+
+        response = self.client.post(
+            reverse("select_transfer_candidate", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
+            {"candidate_id": "988"},
+        )
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        review.refresh_from_db()
+        self.assertEqual(item.status, LibraryTransferItem.Status.MATCHED)
+        self.assertEqual(review.status, LibraryTransfer.Status.COMPLETED)
+        client.update_playlist_tracks.assert_called_once_with("sc-token", "555", ["988"])
+        self.assertEqual(review.target_playlist.tracks.get().external_id, "988")
+
+    @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.library_views.SoundCloudClient")
+    def test_manual_candidate_id_not_in_server_results_is_rejected(self, soundcloud_class, _token):
+        from .credentials import get_session_fingerprint
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+
+        profile, _ = LibraryProfile.objects.get_or_create(
+            session_fingerprint=get_session_fingerprint(self.client),
+        )
+        source = LibraryPlaylist.objects.create(profile=profile, title="Private review", provider="vk")
+        track = LibraryTrack.objects.create(playlist=source, title="Track", artist="Artist")
+        review = LibraryTransfer.objects.create(
+            profile=profile, source_playlist=source, target_provider="soundcloud",
+            target_playlist_id="555", total=1,
+        )
+        item = LibraryTransferItem.objects.create(
+            transfer=review, source_track=track, position=0,
+            candidates=[{"id": "988", "title": "Safe result", "uri": "988", "url": ""}],
+        )
+        client = Mock()
+        soundcloud_class.return_value = client
+
+        response = self.client.post(
+            reverse("select_transfer_candidate", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
+            {"candidate_id": "attacker-controlled-id"},
+        )
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.status, LibraryTransferItem.Status.PENDING)
+        client.update_playlist_tracks.assert_not_called()
+
+
+    @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.library_views.SoundCloudClient")
     def test_transfer_library_playlist_to_soundcloud(self, soundcloud_class, _token):
         from .credentials import get_session_fingerprint
         from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
