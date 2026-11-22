@@ -49,26 +49,40 @@ class SpotifyApiDestinationTests(TestCase):
     def setUp(self):
         self.client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
 
-    def test_spotify_api_url_uses_fixed_https_origin(self):
+    def test_spotify_api_destinations_are_fixed_operations(self):
         self.assertEqual(
-            self.client._validated_api_url("/playlists/AbCdEf1234567890/items"),
-            "https://api.spotify.com/v1/playlists/AbCdEf1234567890/items",
+            self.client._api_destination("search"),
+            ("GET", "https://api.spotify.com/v1/search"),
+        )
+        playlist_id = "AbCdEf1234567890GhIjKl"
+        self.assertEqual(
+            self.client._api_destination("playlist_items", playlist_id),
+            ("POST", f"https://api.spotify.com/v1/playlists/{playlist_id}/items"),
         )
 
-    def test_spotify_api_rejects_absolute_and_scheme_relative_urls(self):
-        for path in (
-            "https://attacker.example/steal",
-            "//attacker.example/steal",
-            "/\\\\attacker.example/steal",
-            "/playlists/../../admin",
-            "/unknown/endpoint",
+    def test_spotify_api_rejects_unknown_operations_and_untrusted_ids(self):
+        for operation in ("https://attacker.example/steal", "//attacker.example", "admin"):
+            with self.subTest(operation=operation), self.assertRaises(TransferError):
+                self.client._api_destination(operation)
+        for playlist_id in (
+            "../../admin",
+            "//attacker.example",
+            "short",
+            "A" * 23,
+            "A" * 21 + "/",
+            None,
         ):
-            with self.subTest(path=path), self.assertRaises(TransferError):
-                self.client._validated_api_url(path)
+            with self.subTest(playlist_id=playlist_id), self.assertRaises(TransferError):
+                self.client._api_destination("playlist_details", playlist_id)
 
-    def test_spotify_api_rejects_unapproved_http_method(self):
+    def test_spotify_api_does_not_follow_redirects(self):
+        response = Mock()
+        response.status_code = 302
+        self.client.http.request = Mock(return_value=response)
         with self.assertRaises(TransferError):
-            self.client.api("TRACE", "/me", "test-token")
+            self.client.api("current_user", "test-token")
+        self.client.http.request.assert_called_once()
+        self.assertIs(self.client.http.request.call_args.kwargs["allow_redirects"], False)
 
 
 class VKPlaylistBatchTests(TestCase):
