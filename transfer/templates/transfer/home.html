@@ -137,8 +137,20 @@
           {% csrf_token %}<label for="sc-track-url">SoundCloud · отдельный трек</label>
           <div class="form-inline"><input id="sc-track-url" name="source_url" type="url" placeholder="https://soundcloud.com/artist/track" required><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Добавить</button></div>
         </form>
+        <form method="post" action="{% url "library_upload_soundcloud_track" %}" class="create-playlist-form soundcloud-upload-form" enctype="multipart/form-data">
+          {% csrf_token %}
+          <label for="sc-audio-file">SoundCloud · загрузить собственный аудиофайл</label>
+          <input id="sc-audio-file" name="audio_file" type="file" accept=".mp3,.wav,.flac,.aiff,.aif,.ogg,.aac,.amr,.wma,.mp2,audio/*" required>
+          <div class="field-grid">
+            <label>Название<input name="title" maxlength="100" required></label>
+            <label>Исполнитель<input name="artist" maxlength="100" required></label>
+          </div>
+          <label>Описание<input name="description" maxlength="4000"></label>
+          <p class="field-hint">До 100 МБ. Загружай только аудио, на которое у тебя есть права или разрешение.</p>
+          <button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Загрузить в SoundCloud</button>
+        </form>
       </div>
-      <form method="post" action="{% url 'library_import_vk' %}" class="create-playlist-form import-vk-form">
+      <form method="post" action="{% url "library_import_vk" %}" class="create-playlist-form import-vk-form">
         {% csrf_token %}
         <label for="vk-import-url">Импортировать плейлист из ВКонтакте</label>
         <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" maxlength="2048" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected or not encryption_key_configured %}disabled{% endif %}>↓ Импортировать VK</button></div>
