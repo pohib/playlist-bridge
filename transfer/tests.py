@@ -6,11 +6,11 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
-from requests import HTTPError
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from requests import HTTPError
 
 from .core import ReauthorizationRequired, SpotifyClient, VKIDClient, normalize_track_text, parse_vk_playlist_url
 from .credentials import decrypt_payload, get_access_token, store_credential
