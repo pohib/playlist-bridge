@@ -397,6 +397,7 @@ def transfer_library_playlist(request, playlist_id):
                     item = ranked[0][1]
                     matched[track.pk] = {
                         "id": str(item.get("id") or ""),
+                        "uri": str(item.get("uri") or ""),
                         "url": str((item.get("external_urls") or {}).get("spotify", "")),
                     }
                 else:
@@ -412,20 +413,11 @@ def transfer_library_playlist(request, playlist_id):
                         for score, item in ranked[:5] if score >= 0.45 and item.get("id") and item.get("uri")
                     ]))
             target_id = client.create_playlist(token, playlist.title)
-            uris = []
-            for track in tracks:
-                entry = matched.get(track.pk)
-                if entry:
-                    # The first version creates the target playlist in source order.
-                    item = next((candidate for score, candidate in sorted(
-                        ((score_candidate(SimpleNamespace(
-                            title=track.title, artist=track.artist,
-                            duration=(track.duration_ms or 0) // 1000,
-                        ), result), result) for result in client.search(token, track.artist, track.title)),
-                        key=lambda pair: pair[0], reverse=True
-                    ) if candidate.get("id") == entry["id"]), None)
-                    if item and item.get("uri"):
-                        uris.append(item["uri"])
+            uris = [
+                matched[track.pk]["uri"]
+                for track in tracks
+                if track.pk in matched and matched[track.pk].get("uri")
+            ]
             if uris:
                 client.add_items(token, target_id, uris)
             target_url = f"https://open.spotify.com/playlist/{target_id}"
@@ -506,6 +498,7 @@ def transfer_library_playlist(request, playlist_id):
         profile=playlist.profile,
         source_playlist=playlist,
         target_provider=target,
+        target_playlist=target_playlist,
         target_playlist_id=str(target_id),
         target_url=target_url,
         status=LibraryTransfer.Status.REVIEW if unmatched else LibraryTransfer.Status.COMPLETED,
@@ -647,6 +640,17 @@ def select_transfer_candidate(request, transfer_id, item_id):
     item.target_external_id = candidate_id
     item.target_url = candidate.get("url", "")
     item.save(update_fields=["status", "target_external_id", "target_url", "updated_at"])
+    if review.target_playlist_id and review.target_playlist:
+        LibraryTrack.objects.create(
+            playlist=review.target_playlist,
+            title=item.source_track.title,
+            artist=item.source_track.artist,
+            album=item.source_track.album,
+            duration_ms=item.source_track.duration_ms,
+            external_id=candidate_id,
+            external_url=candidate.get("url", ""),
+            position=item.position,
+        )
     review.matched += 1
     if not review.items.filter(status=LibraryTransferItem.Status.PENDING).exclude(pk=item.pk).exists():
         review.status = LibraryTransfer.Status.COMPLETED
