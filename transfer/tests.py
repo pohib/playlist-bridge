@@ -24,6 +24,7 @@ from .core import (
     VKTrack,
     normalize_track_text,
     parse_vk_playlist_url,
+    parse_vk_track_url,
 )
 from .credentials import decrypt_payload, get_access_token, store_credential
 from .models import OAuthCredential, TransferJob
@@ -646,3 +647,50 @@ class SoundCloudIntegrationTests(TestCase):
         track = LibraryTrack.objects.get(external_id="1234567890123456789012")
         self.assertEqual(track.artist, "Artist")
         self.assertEqual(track.album, "Album")
+
+
+class UnifiedLibraryTransferTests(TestCase):
+    @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.library_views.SoundCloudClient")
+    def test_transfer_library_playlist_to_soundcloud(self, soundcloud_class, _token):
+        from .credentials import get_session_fingerprint
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+
+        profile, _ = LibraryProfile.objects.get_or_create(
+            session_fingerprint=get_session_fingerprint(self.client),
+        )
+        source = LibraryPlaylist.objects.create(
+            profile=profile, title="Night Set", provider="vk",
+        )
+        LibraryTrack.objects.create(
+            playlist=source, title="Track", artist="Artist", duration_ms=100000,
+        )
+        client = Mock()
+        client.search_tracks.return_value = [{
+            "id": 987,
+            "title": "Track",
+            "metadata_artist": "Artist",
+            "duration": 100000,
+            "permalink_url": "https://soundcloud.com/artist/track",
+        }]
+        client.create_playlist.return_value = {
+            "id": 555,
+            "permalink_url": "https://soundcloud.com/me/night-set",
+        }
+        soundcloud_class.return_value = client
+
+        response = self.client.post(
+            reverse("library_transfer_playlist", kwargs={"playlist_id": source.pk}),
+            {"target_provider": "soundcloud"},
+        )
+        self.assertEqual(response.status_code, 302)
+        target = LibraryPlaylist.objects.get(provider="soundcloud", title="Night Set · Soundcloud")
+        transferred = LibraryTrack.objects.get(playlist=target)
+        self.assertEqual(transferred.external_id, "987")
+        self.assertEqual(transferred.external_url, "https://soundcloud.com/artist/track")
+        client.create_playlist.assert_called_once_with("sc-token", "Night Set", ["987"])
+
+    def test_vk_individual_track_url_parser(self):
+        self.assertEqual(parse_vk_track_url("https://vk.com/audio-123_456"), (-123, 456))
+        with self.assertRaises(ValueError):
+            parse_vk_track_url("https://attacker.example/audio-123_456")
