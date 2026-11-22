@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import secrets
 import time
 
@@ -248,6 +249,9 @@ def api_create_transfer(request):
         return api_error("Поле source_url обязательно и должно быть строкой длиной до 2048 символов.")
     if target is not None and (not isinstance(target, str) or len(target) > 2048):
         return api_error("Поле target_playlist должно быть строкой длиной до 2048 символов.")
+    normalized_target = (target or "").strip() if isinstance(target, str) or target is None else ""
+    if normalized_target and not re.fullmatch(r"[A-Za-z0-9]{22}", normalized_target):
+        return api_error("Поле target_playlist должно содержать корректный Spotify ID плейлиста.")
     try:
         URLValidator(schemes=["http", "https"])(source_url)
         parse_vk_playlist_url(source_url)
@@ -278,7 +282,7 @@ def api_create_transfer(request):
             job = TransferJob.objects.create(
                 session_fingerprint=fingerprint,
                 source_url=source_url,
-                target_playlist=(target or "").strip(),
+                target_playlist=normalized_target,
             )
     except IntegrityError:
         # The partial unique constraint closes the race between simultaneous POSTs.
