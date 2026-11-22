@@ -64,6 +64,16 @@ class SpotifyApiDestinationTests(TestCase):
             ("POST", f"https://api.spotify.com/v1/playlists/{playlist_id}/items"),
         )
 
+    def test_spotify_manual_search_uses_general_track_query(self):
+        client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
+        client.api = Mock(return_value={"tracks": {"items": []}})
+        self.assertEqual(client.search_tracks("token", "Artist - Track"), [])
+        client.api.assert_called_once_with(
+            "search",
+            "token",
+            params={"q": "Artist - Track", "type": "track", "limit": 10},
+        )
+
     def test_spotify_add_items_supports_original_position(self):
         client = SpotifyClient("client-id", "client-secret", "https://example.test/callback/")
         client.api = Mock()
