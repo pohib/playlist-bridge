@@ -1,4 +1,6 @@
+import json
 import logging
+import time
 
 from celery import shared_task
 from cryptography.fernet import Fernet, InvalidToken
@@ -15,8 +17,12 @@ def decrypt_token(value):
     if not settings.TOKEN_ENCRYPTION_KEY:
         raise TransferError("TOKEN_ENCRYPTION_KEY не настроен. Добавь ключ в .env.")
     try:
-        return Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).decrypt(value.encode()).decode()
-    except (InvalidToken, ValueError) as exc:
+        decoded = Fernet(settings.TOKEN_ENCRYPTION_KEY.encode()).decrypt(value.encode()).decode()
+        payload = json.loads(decoded)
+        if not isinstance(payload, dict) or not payload.get("access_token"):
+            raise ValueError("Invalid token payload")
+        return payload
+    except (InvalidToken, ValueError, json.JSONDecodeError) as exc:
         raise TransferError("Не удалось расшифровать токен Spotify. Переподключи аккаунт.") from exc
 
 
@@ -34,8 +40,20 @@ def run_transfer(self, job_id):
     job.started_at = timezone.now()
     job.save(update_fields=["status", "started_at"])
     try:
-        token = decrypt_token(job.encrypted_spotify_token)
+        token_bundle = decrypt_token(job.encrypted_spotify_token)
         spotify = SpotifyClient(settings.SPOTIFY_CLIENT_ID, settings.SPOTIFY_CLIENT_SECRET, settings.SPOTIFY_REDIRECT_URI)
+
+        def access_token():
+            expires_at = float(token_bundle.get("obtained_at", 0)) + int(token_bundle.get("expires_in", 3600))
+            if time.time() >= expires_at - 90:
+                refresh = token_bundle.get("refresh_token")
+                if not refresh:
+                    raise TransferError("Сессия Spotify истекла. Переподключи аккаунт.")
+                renewed = spotify.refresh_token(refresh)
+                renewed["refresh_token"] = renewed.get("refresh_token", refresh)
+                renewed["obtained_at"] = time.time()
+                token_bundle.update(renewed)
+            return token_bundle["access_token"]
 
         def update_progress(values):
             TransferJob.objects.filter(pk=job.pk, status=TransferJob.Status.RUNNING).update(**values)
@@ -45,7 +63,8 @@ def run_transfer(self, job_id):
             vk_version=settings.VK_API_VERSION,
             vk_client_id=settings.VK_CLIENT_ID,
             spotify=spotify,
-            spotify_token=token,
+            spotify_token=access_token(),
+            token_provider=access_token,
             source_url=job.source_url,
             target_playlist=job.target_playlist or None,
             progress_callback=update_progress,
