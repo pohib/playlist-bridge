@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.shortcuts import redirect, render
@@ -272,11 +273,22 @@ def api_create_transfer(request):
     if active:
         return JsonResponse({"job": serialize_job(active)}, status=202)
 
-    job = TransferJob.objects.create(
-        session_fingerprint=fingerprint,
-        source_url=source_url,
-        target_playlist=(target or "").strip(),
-    )
+    try:
+        with transaction.atomic():
+            job = TransferJob.objects.create(
+                session_fingerprint=fingerprint,
+                source_url=source_url,
+                target_playlist=(target or "").strip(),
+            )
+    except IntegrityError:
+        # The partial unique constraint closes the race between simultaneous POSTs.
+        active = TransferJob.objects.filter(
+            session_fingerprint=fingerprint,
+            status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
+        ).first()
+        if active:
+            return JsonResponse({"job": serialize_job(active)}, status=202)
+        raise
     try:
         from .tasks import run_transfer
         run_transfer.delay(str(job.pk))
