@@ -181,9 +181,17 @@ def open_playlist_source(request, playlist_id):
     playlist = get_object_or_404(
         LibraryPlaylist, pk=playlist_id, profile=_profile(request)
     )
-    try:
-        URLValidator(schemes=["http", "https"])(playlist.external_url)
-    except ValidationError:
+    from urllib.parse import urlparse
+
+    allowed_hosts = {
+        "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
+        "spotify": {"open.spotify.com", "www.open.spotify.com"},
+        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
+        "youtube_music": {"music.youtube.com", "www.youtube.com", "youtube.com"},
+        "apple_music": {"music.apple.com"},
+    }
+    parsed = urlparse(playlist.external_url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(playlist.provider, set()):
         return redirect("home")
     return HttpResponseRedirect(playlist.external_url)
 
@@ -199,9 +207,18 @@ def open_track_source(request, track_id):
         pk=track_id,
         playlist__profile=_profile(request),
     )
-    try:
-        URLValidator(schemes=["http", "https"])(track.external_url)
-    except ValidationError:
+    from urllib.parse import urlparse
+
+    provider = track.playlist.provider
+    allowed_hosts = {
+        "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
+        "spotify": {"open.spotify.com", "www.open.spotify.com"},
+        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
+        "youtube_music": {"music.youtube.com", "www.youtube.com", "youtube.com"},
+        "apple_music": {"music.apple.com"},
+    }
+    parsed = urlparse(track.external_url)
+    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(provider, set()):
         return redirect("home")
     return HttpResponseRedirect(track.external_url)
 
@@ -222,7 +239,7 @@ def _validate_soundcloud_permalink(value):
     parsed = urlparse((value or "").strip())
     if parsed.scheme != "https" or parsed.hostname not in {
         "soundcloud.com", "www.soundcloud.com", "m.soundcloud.com",
-    } or not parsed.path or parsed.username or parsed.password:
+    } or parsed.port not in (None, 443) or not parsed.path or parsed.username or parsed.password:
         raise ValueError("Укажи публичную HTTPS-ссылку на soundcloud.com.")
     return parsed.geturl()
 
