@@ -82,19 +82,7 @@ def connected_providers(request):
 @never_cache
 @require_GET
 def home(request):
-    spotify_connected, vk_connected, soundcloud_connected = connected_providers(request)
-    return render(request, "transfer/home.html", {
-        "connected": spotify_connected,
-        "vk_connected": vk_connected,
-        "soundcloud_connected": soundcloud_connected,
-        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
-        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
-        "encryption_key_configured": encryption_key_is_valid(),
-        "result": request.session.pop("transfer_result", None),
-        "oauth_success": request.session.pop("oauth_success", None),
-        "oauth_error": request.session.pop("oauth_error", None),
-    })
+    return render(request, "transfer/landing.html")
 
 
 @never_cache
