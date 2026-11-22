@@ -180,6 +180,18 @@
                   <div class="empty-tracks">Пока нет композиций. Добавь первую ниже.</div>
                 {% endfor %}
               </div>
+              <form method="post" action="{% url "library_transfer_playlist" playlist.id %}" class="playlist-transfer-form">
+                {% csrf_token %}
+                <label for="target-{{ playlist.id }}">Перенести коллекцию в</label>
+                <div class="form-inline">
+                  <select id="target-{{ playlist.id }}" name="target_provider">
+                    <option value="spotify" {% if not library_spotify_connected %}disabled{% endif %}>Spotify{% if not library_spotify_connected %} · не подключён{% endif %}</option>
+                    <option value="soundcloud" {% if not library_soundcloud_connected %}disabled{% endif %}>SoundCloud{% if not library_soundcloud_connected %} · не подключён{% endif %}</option>
+                  </select>
+                  <button class="secondary-button" type="submit" {% if not library_spotify_connected and not library_soundcloud_connected %}disabled{% endif %}>Перенести →</button>
+                </div>
+                <p class="field-hint">Сервис подберёт доступные совпадения по названию, исполнителю и длительности. Максимум 100 треков за запуск.</p>
+              </form>
               <details class="add-track-details">
                 <summary>＋ Добавить композицию</summary>
                 <form method="post" action="{% url 'library_add_track' playlist.id %}" class="add-track-form">
