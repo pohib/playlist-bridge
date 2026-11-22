@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .credentials import get_session_fingerprint
@@ -89,7 +90,11 @@ def sign_in(request):
             _attach_anonymous_workspace(request, previous_fingerprint)
             logger.info("User signed in: user_id=%s", user.pk)
             next_url = request.POST.get("next") or request.GET.get("next")
-            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
                 return redirect(next_url)
             return redirect("dashboard")
     else:
