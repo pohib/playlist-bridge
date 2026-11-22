@@ -285,7 +285,7 @@ def api_status(request):
         "soundcloud_connected": soundcloud_connected,
         "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
         "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "vk_configured": bool(settings.VK_ID_CLIENT_ID),
+        "vk_configured": bool(settings.VK_ID_CLIENT_ID and settings.VK_ANON_CLIENT_SECRET),
         "encryption_key_configured": encryption_key_is_valid(),
     })
 
@@ -324,9 +324,6 @@ def api_create_transfer(request):
     )
     if "spotify" not in connected:
         return api_error("Сначала подключи Spotify.", 401)
-    if "vk" not in connected:
-        return api_error("Сначала подключи VK.", 401)
-
     active = TransferJob.objects.filter(
         session_fingerprint=fingerprint,
         status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
