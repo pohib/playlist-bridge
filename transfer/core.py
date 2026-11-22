@@ -188,9 +188,11 @@ class SpotifyClient:
 
 def execute_transfer(
     *, vk_token, vk_version, vk_client_id, spotify, spotify_token,
-    source_url, target_playlist=None, progress_callback=None,
+    source_url, target_playlist=None, progress_callback=None, token_provider=None,
 ):
     playlist_name, tracks = VKClient(vk_token, vk_version, vk_client_id).fetch_playlist(source_url)
+    if token_provider:
+        spotify_token = token_provider()
     user = spotify.current_user(spotify_token)
     if target_playlist:
         parsed = urlparse(target_playlist) if "://" in target_playlist else None
@@ -206,6 +208,8 @@ def execute_transfer(
     uris, report = [], []
     total = len(tracks)
     for index, track in enumerate(tracks, 1):
+        if token_provider:
+            spotify_token = token_provider()
         ranked = sorted(
             ((score_candidate(track, item), item) for item in spotify.search(spotify_token, track.artist, track.title)),
             key=lambda pair: pair[0], reverse=True,
@@ -234,6 +238,8 @@ def execute_transfer(
 
     if not uris:
         raise TransferError("Не удалось подобрать ни одной композиции. Плейлист Spotify не создавался.")
+    if token_provider:
+        spotify_token = token_provider()
     if not target_playlist:
         target_playlist = spotify.create_playlist(spotify_token, playlist_name)
     spotify.add_items(spotify_token, target_playlist, uris)
