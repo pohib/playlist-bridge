@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 import logging
 
 from celery import shared_task

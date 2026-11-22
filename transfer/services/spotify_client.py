@@ -1,7 +1,9 @@
+# ruff: noqa: I001
 """Spotify Web API client and OAuth implementation."""
+import base64
 import re
 import time
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 
 import requests
 

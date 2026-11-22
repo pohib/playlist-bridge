@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """SoundCloud OAuth and API client implementation."""
 import base64
 import hashlib

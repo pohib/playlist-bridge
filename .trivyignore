@@ -1,5 +1,0 @@
-# False positives from the Python base-image layer inventory.
-# The final merged image installs setuptools 83.0.0 and removes the old 70.3.0 metadata.
-# CI verifies the active version and absence of the old dist-info directory.
-CVE-2025-47273
-CVE-2026-59890

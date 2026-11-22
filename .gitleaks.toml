@@ -1,8 +1,0 @@
-[allowlist]
-description = "Narrow exception for a synthetic test password present only in legacy test history; current tests generate credentials at runtime."
-paths = [
-  '''transfer/tests\.py''',
-]
-regexes = [
-  '''Safe[-]Test[-]Password[-]2026[!]''',
-]

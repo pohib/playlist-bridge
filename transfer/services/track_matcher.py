@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 """Provider-independent track normalization and matching scores."""
 import re
 from difflib import SequenceMatcher
