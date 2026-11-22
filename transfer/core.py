@@ -245,16 +245,17 @@ class SpotifyClient:
             "search": ("GET", f"{SpotifyClient.API}/search"),
             "current_user": ("GET", f"{SpotifyClient.API}/me"),
             "create_playlist": ("POST", f"{SpotifyClient.API}/me/playlists"),
+            "my_playlists": ("GET", f"{SpotifyClient.API}/me/playlists"),
         }
         if operation in fixed_destinations:
             if playlist_id is not None:
                 raise TransferError("ID плейлиста не ожидается для этой операции.")
             return fixed_destinations[operation]
 
-        if operation in {"playlist_details", "playlist_items"}:
+        if operation in {"playlist_details", "playlist_items", "get_playlist_items"}:
             if not isinstance(playlist_id, str) or not re.fullmatch(r"[A-Za-z0-9]{22}", playlist_id):
                 raise TransferError("ID плейлиста Spotify имеет неверный формат.")
-            suffix = "/items" if operation == "playlist_items" else ""
+            suffix = "/items" if operation in {"playlist_items", "get_playlist_items"} else ""
             method = "POST" if operation == "playlist_items" else "GET"
             # The host and route prefix are constants; the only variable segment
             # is restricted to Spotify's 22-character base62 playlist identifier.
@@ -334,6 +335,47 @@ class SpotifyClient:
     def add_items(self, token, playlist_id, uris):
         for offset in range(0, len(uris), 100):
             self.api("playlist_items", token, playlist_id=playlist_id, body={"uris": uris[offset:offset + 100]})
+
+
+    def my_playlists(self, token):
+        items = []
+        for offset in range(0, 1000, 50):
+            page = self.api("my_playlists", token, params={"limit": 50, "offset": offset})
+            items.extend(page.get("items", []))
+            if not page.get("next") or len(items) >= page.get("total", 0):
+                break
+        return items
+
+    def get_playlist_items(self, token, playlist_id):
+        items = []
+        for offset in range(0, 10000, 50):
+            page = self.api(
+                "get_playlist_items", token, playlist_id=playlist_id,
+                params={"limit": 50, "offset": offset},
+            )
+            items.extend(page.get("items", []))
+            if not page.get("next"):
+                break
+        return items
+
+    def track_details(self, token, track_id):
+        if not isinstance(track_id, str) or not re.fullmatch(r"[A-Za-z0-9]{22}", track_id):
+            raise TransferError("ID трека Spotify имеет неверный формат.")
+        try:
+            response = self.http.get(
+                f"{self.API}/tracks/{track_id}",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                timeout=(5, 25),
+                allow_redirects=False,
+            )
+            if 300 <= response.status_code < 400:
+                raise TransferError("Spotify API вернул неожиданный HTTP redirect.")
+            response.raise_for_status()
+            return response.json()
+        except TransferError:
+            raise
+        except (requests.RequestException, ValueError) as exc:
+            raise TransferError("Не удалось получить данные трека Spotify.") from exc
 
 
 def execute_transfer(
