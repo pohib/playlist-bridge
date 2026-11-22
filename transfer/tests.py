@@ -126,9 +126,17 @@ class VKAnonymousTokenTests(TestCase):
             "type": "okay",
             "data": {"access_token": "anonym.test-token", "expired_at": int(time.time()) + 3600},
         }
+        provider.http.get = Mock(return_value=Mock(status_code=200, raise_for_status=Mock(), close=Mock()))
         provider.http.post = Mock(return_value=response)
 
         self.assertEqual(provider.get_token(), "anonym.test-token")
+        provider.http.get.assert_called_once_with(
+            "https://vk.ru/",
+            headers={"Accept": "text/html"},
+            timeout=(5, 15),
+            allow_redirects=True,
+            stream=True,
+        )
         call = provider.http.post.call_args
         self.assertEqual(call.kwargs["data"]["client_id"], "app-id")
         self.assertEqual(call.kwargs["data"]["client_secret"], "app-secret")
