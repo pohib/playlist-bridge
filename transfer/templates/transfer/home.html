@@ -122,6 +122,21 @@
       </div>
       <p class="section-description">Собирай плейлисты и треки из подключённых сервисов в единой библиотеке. Исходные ID, ссылки и порядок композиций сохраняются.</p>
       <div class="import-provider-grid">
+        <form method="post" action="{% url "library_import_vk" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="vk-import-url">ВКонтакте · плейлист по ссылке</label>
+          <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected %}disabled{% endif %}>Импортировать</button></div>
+        </form>
+        <form method="post" action="{% url "library_import_spotify_library" %}" class="create-playlist-form">
+          {% csrf_token %}<label>Spotify · мои плейлисты</label><button class="primary-button compact-button" type="submit" {% if not connected %}disabled{% endif %}>Загрузить мои плейлисты</button>
+        </form>
+        <form method="post" action="{% url "library_import_spotify_playlist" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="spotify-playlist-url">Spotify · плейлист по ссылке</label>
+          <div class="form-inline"><input id="spotify-playlist-url" name="source_url" type="url" placeholder="https://open.spotify.com/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not connected %}disabled{% endif %}>Импортировать</button></div>
+        </form>
+        <form method="post" action="{% url "library_import_spotify_track" %}" class="create-playlist-form">
+          {% csrf_token %}<label for="spotify-track-url">Spotify · отдельный трек</label>
+          <div class="form-inline"><input id="spotify-track-url" name="source_url" type="url" placeholder="https://open.spotify.com/track/..." required><button class="primary-button compact-button" type="submit" {% if not connected %}disabled{% endif %}>Добавить</button></div>
+        </form>
           <form method="post" action="{% url "library_import_soundcloud_library" %}" class="create-playlist-form">
           {% csrf_token %}<label>SoundCloud · вся библиотека</label><button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Загрузить мои плейлисты</button>
         </form>
@@ -146,12 +161,6 @@
           <button class="primary-button compact-button" type="submit" {% if not soundcloud_connected %}disabled{% endif %}>Загрузить в SoundCloud</button>
         </form>
       </div>
-      <form method="post" action="{% url "library_import_vk" %}" class="create-playlist-form import-vk-form">
-        {% csrf_token %}
-        <label for="vk-import-url">Импортировать плейлист из ВКонтакте</label>
-        <div class="form-inline"><input id="vk-import-url" name="source_url" type="url" maxlength="2048" placeholder="https://vk.ru/music/playlist/..." required><button class="primary-button compact-button" type="submit" {% if not vk_connected or not encryption_key_configured %}disabled{% endif %}>↓ Импортировать VK</button></div>
-        {% if not vk_connected %}<p class="field-hint">Сначала подключи ВКонтакте в разделе «Сервисы».</p>{% endif %}
-      </form>
       <form method="post" action="{% url 'library_create_playlist' %}" class="create-playlist-form">
         {% csrf_token %}
         <div class="field-grid">
