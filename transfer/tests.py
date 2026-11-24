@@ -126,7 +126,7 @@ class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_is_requested_without_user_cookie(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
+        provider = VKAnonymousTokenProvider("app-id", http=Mock())
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {
@@ -152,7 +152,7 @@ class VKAnonymousTokenTests(TestCase):
             "act": "modals", "al": "1", "module": "audio",
         })
         self.assertEqual(token_call.kwargs["data"]["client_id"], "app-id")
-        self.assertEqual(token_call.kwargs["data"]["client_secret"], "fixture-value")
+        self.assertEqual(token_call.kwargs["data"]["client_secret"], provider.WEB_CLIENT_KEY)
         self.assertEqual(token_call.kwargs["data"]["scopes"], provider.SCOPES)
         for call in (modals_call, token_call):
             self.assertNotIn("cookies", call.kwargs)
@@ -173,7 +173,7 @@ class VKAnonymousTokenTests(TestCase):
 
 class VKPlaylistBatchTests(TestCase):
     def make_client(self):
-        client = VKClient("vk-app", "fixture-value", "5.289")
+        client = VKClient("vk-app", "5.289")
         client.token_provider.get_token = Mock(return_value="anonym.test")
         return client
 
