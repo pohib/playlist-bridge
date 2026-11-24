@@ -16,10 +16,10 @@
     <p class="landing-lead">Собирай плейлисты из разных музыкальных сервисов, храни коллекции в личной библиотеке и переноси композиции между платформами. Сохраняй порядок, проверяй совпадения и продолжай слушать там, где удобно.</p>
     <div class="landing-actions">
       {% if user.is_authenticated %}
-        <a class="primary-button" href="{% url 'dashboard' %}">Открыть мою библиотеку <span>↗</span></a>
+        <a class="primary-button" href="{% url 'dashboard' %}">Открыть мою библиотеку <span></span></a>
         <a class="secondary-button" href="{% url 'profile' %}">Мой профиль</a>
       {% else %}
-        <a class="primary-button" href="{% url 'register' %}">Создать свою библиотеку <span>↗</span></a>
+        <a class="primary-button" href="{% url 'register' %}">Создать свою библиотеку <span></span></a>
         <a class="secondary-button" href="{% url 'login' %}">У меня уже есть аккаунт</a>
       {% endif %}
     </div>
@@ -34,5 +34,5 @@
     <article class="feature-card"><span class="feature-number">03</span><div class="feature-icon">⇄</div><h2>Переноси с контролем</h2><p>Сопоставляй найденные композиции, проверяй пропуски и сохраняй отчёты.</p></article>
   </div>
 </section>
-<section class="landing-bottom"><div><span class="section-kicker">ТВОЯ МУЗЫКА В ОДНОМ ПРОСТРАНСТВЕ</span><h2>Начни собирать свою коллекцию.</h2></div>{% if user.is_authenticated %}<a class="primary-button" href="{% url 'dashboard' %}">Перейти в приложение <span>↗</span></a>{% else %}<a class="primary-button" href="{% url 'register' %}">Начать бесплатно <span>↗</span></a>{% endif %}</section>
+<section class="landing-bottom"><div><span class="section-kicker">ТВОЯ МУЗЫКА В ОДНОМ ПРОСТРАНСТВЕ</span><h2>Начни собирать свою коллекцию.</h2></div>{% if user.is_authenticated %}<a class="primary-button" href="{% url 'dashboard' %}">Перейти в приложение <span></span></a>{% else %}<a class="primary-button" href="{% url 'register' %}">Начать бесплатно <span></span></a>{% endif %}</section>
 {% endblock %}
