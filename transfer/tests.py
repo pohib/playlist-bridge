@@ -1199,11 +1199,25 @@ class LocalAudioPlayerTests(TestCase):
 
 class LibraryCoverProxyTests(TestCase):
     def setUp(self):
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+
         user_model = get_user_model()
         self.user = user_model.objects.create_user(username="cover-proxy-user", password=TEST_PASSWORD)
         self.client.force_login(self.user)
+        self.profile = LibraryProfile.objects.get(user=self.user)
+        self.playlist = LibraryPlaylist.objects.create(
+            profile=self.profile,
+            title="Cover test",
+            provider="manual",
+        )
+        self.track = LibraryTrack.objects.create(
+            playlist=self.playlist,
+            title="Cover track",
+            artist="Test artist",
+            cover_url="https://sun9-1.userapi.com/cover.jpg",
+        )
 
-    def test_cover_proxy_rejects_untrusted_hosts(self):
+    def test_cover_proxy_does_not_accept_arbitrary_url(self):
         with patch("requests.get") as upstream:
             response = self.client.get(
                 reverse("library_cover_proxy"),
@@ -1212,7 +1226,7 @@ class LibraryCoverProxyTests(TestCase):
         self.assertEqual(response.status_code, 400)
         upstream.assert_not_called()
 
-    def test_cover_proxy_serves_allowlisted_artwork_from_same_origin(self):
+    def test_cover_proxy_serves_owner_allowlisted_artwork(self):
         upstream = Mock()
         upstream.status_code = 200
         upstream.headers = {"Content-Type": "image/jpeg"}
@@ -1220,15 +1234,40 @@ class LibraryCoverProxyTests(TestCase):
         with patch("requests.get", return_value=upstream) as fetch:
             response = self.client.get(
                 reverse("library_cover_proxy"),
-                {"url": "https://sun9-1.userapi.com/cover.jpg"},
+                {"track_id": str(self.track.pk)},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
         self.assertEqual(response.content, bytes.fromhex("FFD8FF") + b"test-image-bytes")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(fetch.call_args.args[0], self.track.cover_url)
         self.assertEqual(fetch.call_args.kwargs["allow_redirects"], False)
         self.assertEqual(fetch.call_args.kwargs["headers"]["Referer"], "https://vk.ru/")
         upstream.close.assert_called_once()
+
+    def test_cover_proxy_cannot_fetch_another_users_track(self):
+        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+
+        other = get_user_model().objects.create_user(username="other-cover-owner", password=TEST_PASSWORD)
+        other_profile = LibraryProfile.objects.create(user=other, session_fingerprint="b" * 64)
+        other_playlist = LibraryPlaylist.objects.create(
+            profile=other_profile,
+            title="Private cover",
+            provider="manual",
+        )
+        other_track = LibraryTrack.objects.create(
+            playlist=other_playlist,
+            title="Private track",
+            artist="Private artist",
+            cover_url="https://sun9-1.userapi.com/private.jpg",
+        )
+        with patch("requests.get") as upstream:
+            response = self.client.get(
+                reverse("library_cover_proxy"),
+                {"track_id": str(other_track.pk)},
+            )
+        self.assertEqual(response.status_code, 404)
+        upstream.assert_not_called()
 
     def test_cover_proxy_detects_vk_jpeg_with_generic_content_type(self):
         upstream = Mock()
@@ -1238,7 +1277,7 @@ class LibraryCoverProxyTests(TestCase):
         with patch("requests.get", return_value=upstream):
             response = self.client.get(
                 reverse("library_cover_proxy"),
-                {"url": "https://sun9-1.userapi.com/cover.jpg"},
+                {"track_id": str(self.track.pk)},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
