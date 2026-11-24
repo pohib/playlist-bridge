@@ -19,6 +19,7 @@ class VKTrack:
     artist: str
     title: str
     duration: int
+    cover_url: str = ""
 
 
 def _validated_vk_url(value, error_message):
