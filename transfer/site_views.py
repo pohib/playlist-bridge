@@ -1,4 +1,4 @@
-from urllib.parse import quote, urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import requests
 from django.conf import settings
@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET
 
 from .credentials import get_session_fingerprint
 from .library_views import _profile
-from .models import LibraryPlaylist, LibraryTransfer, TransferJob
+from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, TransferJob
 
 
 @never_cache
@@ -45,7 +45,7 @@ def library(request):
         tracks = list(playlist.tracks.all())
         for track in tracks:
             track.cover_proxy_url = (
-                reverse("library_cover_proxy") + "?url=" + quote(track.cover_url, safe="")
+                reverse("library_cover_proxy") + "?track_id=" + str(track.pk)
                 if track.cover_url else ""
             )
         playlist.cover_proxy_url = next(
@@ -77,7 +77,7 @@ def playlist_detail(request, playlist_id):
     tracks = list(playlist.tracks.all())
     for track in tracks:
         track.cover_proxy_url = (
-            reverse("library_cover_proxy") + "?url=" + quote(track.cover_url, safe="")
+            reverse("library_cover_proxy") + "?track_id=" + str(track.pk)
             if track.cover_url else ""
         )
     playback_tracks = [{
@@ -151,16 +151,22 @@ def library_cover_proxy(request):
             and any(host == domain or host.endswith("." + domain) for domain in allowed_domains)
         )
 
-    current_url = request.GET.get("url", "")
+    track_id = request.GET.get("track_id", "")
+    if not track_id or len(track_id) > 36:
+        return HttpResponseBadRequest("Invalid artwork reference.")
+    track = get_object_or_404(
+        LibraryTrack.objects.select_related("playlist"),
+        pk=track_id,
+        playlist__profile=_profile(request),
+    )
+    current_url = track.cover_url
     if not allowed_url(current_url):
-        return HttpResponseBadRequest("Unsupported artwork source.")
+        return HttpResponseNotFound("Artwork source is not supported.")
 
     for _ in range(8):
         if not allowed_url(current_url):
             return HttpResponseBadRequest("Unsupported artwork redirect.")
         try:
-            # nosemgrep: python.django.security.injection.ssrf.ssrf-injection-requests.ssrf-injection-requests
-            # The URL is HTTPS-only and domain-allowlisted above; every redirect is revalidated before another request.
             upstream = requests.get(
                 current_url,
                 headers={
