@@ -1204,7 +1204,10 @@ class LibraryCoverProxyTests(TestCase):
         user_model = get_user_model()
         self.user = user_model.objects.create_user(username="cover-proxy-user", password=TEST_PASSWORD)
         self.client.force_login(self.user)
-        self.profile = LibraryProfile.objects.get(user=self.user)
+        self.profile = LibraryProfile.objects.create(
+            user=self.user,
+            session_fingerprint="a" * 64,
+        )
         self.playlist = LibraryPlaylist.objects.create(
             profile=self.profile,
             title="Cover test",
