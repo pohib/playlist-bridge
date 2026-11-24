@@ -1085,3 +1085,7 @@ body:has(.global-player:not([hidden])) { padding-bottom: 145px; }
  .player-side-controls .player-queue-controls #player-clear{display:none}
  .player-window-controls>button{width:30px;height:30px}
 }
+
+
+body:has(.global-player.is-collapsed:not([hidden])){padding-bottom:100px}
+@media(max-width:760px){body:has(.global-player.is-collapsed:not([hidden])){padding-bottom:92px}}
