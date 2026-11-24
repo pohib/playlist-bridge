@@ -139,7 +139,7 @@ class VKAnonymousTokenTests(TestCase):
         self.assertEqual(provider.get_token(), "anonym." + "fixture")
         provider.http.get.assert_called_once_with(
             "https://vk.ru/",
-            headers={"Accept": "text/html"},
+            headers={**provider.BROWSER_HEADERS, "Accept": "text/html"},
             timeout=(5, 15),
             allow_redirects=False,
             stream=True,
@@ -157,6 +157,10 @@ class VKAnonymousTokenTests(TestCase):
         for call in (modals_call, token_call):
             self.assertNotIn("cookies", call.kwargs)
             self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
+            self.assertEqual(
+                {key: call.kwargs["headers"].get(key) for key in provider.BROWSER_HEADERS},
+                provider.BROWSER_HEADERS,
+            )
 
     def test_anonymous_token_rejects_unexpected_response(self):
         from .services.vk_client import VKAnonymousTokenProvider
