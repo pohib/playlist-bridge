@@ -185,7 +185,7 @@
               <div class="playlist-card-top">
                 <div class="playlist-art art-{{ playlist.provider }}"><span>{% if playlist.provider == 'vk' %}vk{% elif playlist.provider == 'spotify' %}♫{% elif playlist.provider == 'soundcloud' %}SC{% elif playlist.provider == 'youtube_music' %}▶{% elif playlist.provider == 'apple_music' %}♪{% else %}PB{% endif %}</span></div>
                 <div class="playlist-meta"><span class="provider-label">{{ playlist.get_provider_display }}</span><h3>{{ playlist.title }}</h3><span>{{ playlist.track_count }} трек(ов)</span></div>
-                <form method="post" action="{% url 'library_delete_playlist' playlist.id %}" data-confirm-delete="'Удалить плейлист и все его записи из библиотеки?">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Удалить плейлист">×</button></form>
+                <form method="post" action="{% url 'library_delete_playlist' playlist.id %}" data-confirm-delete="Удалить плейлист и все его записи из библиотеки?">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Удалить плейлист">×</button></form>
               </div>
               {% if playlist.description %}<p class="playlist-description">{{ playlist.description }}</p>{% endif %}
               {% if playlist.external_url %}<a class="source-link" href="{% url 'library_open_playlist_source' playlist.id %}" target="_blank" rel="noopener noreferrer">Открыть оригинал </a>{% endif %}
