@@ -11,6 +11,7 @@ urlpatterns = [
     path("accounts/password_change/", django_auth_views.PasswordChangeView.as_view(template_name="transfer/auth/password_change.html", success_url=reverse_lazy("profile")), name="password_change"),
     path("app/", site_views.dashboard, name="dashboard"),
     path("library/", site_views.library, name="library"),
+    path("library/cover/", site_views.library_cover_proxy, name="library_cover_proxy"),
     path("library/<uuid:playlist_id>/", site_views.playlist_detail, name="playlist_detail"),
     path("connections/", site_views.connections, name="connections"),
     path("transfers/", site_views.transfers, name="transfers"),
