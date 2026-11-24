@@ -173,21 +173,71 @@ class VKClient:
 
     @staticmethod
     def _cover_from_item(item):
-        """Extract a secure album artwork URL from VK audio metadata."""
-        album = item.get("album") if isinstance(item.get("album"), dict) else {}
-        candidates = [
-            (album.get("thumb") or {}).get(key)
-            for key in ("photo_1200", "photo_600", "photo_300", "photo_270", "photo_135")
-        ] if isinstance(album.get("thumb"), dict) else []
-        thumb = item.get("thumb") if isinstance(item.get("thumb"), dict) else {}
-        candidates.extend(thumb.get(key) for key in ("photo_600", "photo_300", "photo_270", "photo_135"))
+        """Extract album artwork from the different shapes returned by VK."""
+        from urllib.parse import urlparse
+
+        preferred_keys = (
+            "photo_1200", "photo_1000", "photo_800", "photo_600",
+            "photo_540", "photo_500", "photo_400", "photo_300",
+            "photo_270", "photo_200", "photo_135", "photo_68",
+            "cover_url", "cover", "image_url", "image", "src", "url",
+        )
+        candidates = []
+        seen = set()
+
+        def collect(value, image_context=False):
+            if isinstance(value, str):
+                candidate = value.strip()
+                if image_context and candidate and candidate not in seen:
+                    seen.add(candidate)
+                    candidates.append(candidate)
+                return
+            if isinstance(value, list):
+                for entry in value:
+                    collect(entry, image_context)
+                return
+            if not isinstance(value, dict):
+                return
+            # VK has returned artwork as album.thumb.photo_*, item.thumb,
+            # track_covers[], and as direct cover/image URL fields.
+            for key in preferred_keys:
+                if key in value:
+                    collect(value[key], True)
+            for key in ("thumb", "track_covers", "covers", "artwork", "album"):
+                if key in value:
+                    collect(value[key], True)
+            # Keep walking nested metadata, but only treat strings as images
+            # once they are under a known artwork-related key.
+            for key, nested in value.items():
+                if key not in preferred_keys and key not in {
+                    "thumb", "track_covers", "covers", "artwork", "album",
+                }:
+                    if isinstance(nested, (dict, list)):
+                        collect(nested, image_context or any(
+                            marker in str(key).lower()
+                            for marker in ("cover", "thumb", "photo", "image", "artwork")
+                        ))
+
+        collect(item)
         for value in candidates:
-            if not isinstance(value, str) or len(value) > 2048:
+            if len(value) > 2048:
                 continue
-            from urllib.parse import urlparse
+            if value.startswith("//"):
+                value = "https:" + value
             parsed = urlparse(value)
-            host = (parsed.hostname or "").lower()
-            if parsed.scheme == "https" and (host.endswith(".vk.com") or host.endswith(".userapi.com")):
+            host = (parsed.hostname or "").lower().rstrip(".")
+            trusted_host = (
+                host == "vk.com" or host.endswith(".vk.com")
+                or host == "userapi.com" or host.endswith(".userapi.com")
+                or host == "vkuseraudio.net" or host.endswith(".vkuseraudio.net")
+            )
+            if (
+                parsed.scheme == "https"
+                and trusted_host
+                and not parsed.username
+                and not parsed.password
+                and parsed.port in (None, 443)
+            ):
                 return value
         return ""
 
