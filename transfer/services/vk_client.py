@@ -7,17 +7,17 @@ from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_trac
 class VKAnonymousTokenProvider:
     """Obtain a short-lived anonymous token using VK's public web client."""
 
-    ANONYMOUS_AUTH_URL = "https://login.vk.ru/"
+    ENDPOINT_URL = "https://login.vk.ru/"
     MODALS_ENDPOINT = "https://vk.ru/al_index.php"
     CLIENT_ID = "6287487"
     # Public web-client credential observed in VK's own browser request.
     # This is not a credential for a user-created VK application.
-    WEB_CLIENT_KEY = "QbYic1K3lEV5kTGiqlq2"
+    WEB_CLIENT_PARAMETER = "QbYic1K3lEV5kTGiqlq2"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
     def __init__(self, client_id=None, http=None):
         self.client_id = str(client_id or self.CLIENT_ID)
-        self.web_client_key = self.WEB_CLIENT_KEY
+        self.web_client_parameter = self.WEB_CLIENT_PARAMETER
         self.http = http or requests.Session()
         self._token: str | None = None
         self._expires_at = 0
@@ -63,7 +63,7 @@ class VKAnonymousTokenProvider:
             modals.raise_for_status()
 
             token_data = {
-                "client_secret": self.web_client_key,
+                "client_secret": self.web_client_parameter,
                 "client_id": self.client_id,
                 "scopes": self.SCOPES,
                 "isApiOauthAnonymEnabled": "false",
@@ -74,7 +74,7 @@ class VKAnonymousTokenProvider:
                 token_data["anonymous_token"] = self._token
 
             response = self.http.post(
-                self.ANONYMOUS_AUTH_URL,
+                self.ENDPOINT_URL,
                 params={"act": "get_anonym_token"},
                 data=token_data,
                 headers={
