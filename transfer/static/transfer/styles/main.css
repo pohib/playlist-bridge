@@ -35,9 +35,11 @@ body::before {
   position: fixed;
   z-index: -2;
   inset: 0;
-  background-image: linear-gradient(rgba(164, 184, 214, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(164, 184, 214, .025) 1px, transparent 1px);
+  background-image:
+    linear-gradient(rgba(164, 184, 214, .065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(164, 184, 214, .065) 1px, transparent 1px);
   background-size: 54px 54px;
-  mask-image: linear-gradient(to bottom, black, transparent 82%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, .98), rgba(0, 0, 0, .78) 72%, rgba(0, 0, 0, .48));
   content: "";
   pointer-events: none;
 }
@@ -45,7 +47,7 @@ body::after {
   position: fixed;
   z-index: -1;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 30%, rgba(3, 5, 10, .45) 100%);
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(3, 5, 10, .34) 100%);
   content: "";
   pointer-events: none;
 }
