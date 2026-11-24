@@ -892,3 +892,27 @@ body:has(.global-player:not([hidden])) { padding-bottom: 145px; }
  .player-transport{grid-template-columns:34px 31px minmax(60px,1fr) 31px;gap:6px}
  .player-queue-art{width:36px;height:36px;flex-basis:36px}
 }
+
+
+/* Library playback actions, artwork fallback and Spotify-inspired controls */
+[hidden]{display:none!important}
+.library-card-shell{position:relative}
+.library-card-shell .library-card{padding-right:54px;min-width:0}
+.library-card-play{position:absolute;right:48px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:50%;background:linear-gradient(145deg,#32df83,#16a65c);color:#06130b;font-size:15px;font-weight:900;box-shadow:0 7px 22px rgba(30,215,96,.22);cursor:pointer;transition:transform .18s,filter .18s}
+.library-card-play:hover{transform:translateY(-50%) scale(1.08);filter:brightness(1.08)}
+.track-table-row{display:grid;grid-template-columns:30px 48px minmax(0,1fr) 54px 38px 38px 34px;align-items:center;gap:12px;min-width:0}
+.track-main{min-width:0;text-align:left;justify-self:stretch}
+.track-main strong,.track-main small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track-cover{width:42px;height:42px;object-fit:cover;border-radius:9px;flex:0 0 42px}
+.track-cover-placeholder{display:grid;place-items:center;background:linear-gradient(145deg,#1b2b3d,#101723);color:#8ba0b9}
+.global-player{border-radius:26px}
+.player-actions button{border:0;background:transparent;box-shadow:none;color:#dce8f5}
+.player-actions button#player-play-pause{width:42px;height:42px;background:#f3f7f4;color:#08130c;box-shadow:0 5px 18px rgba(0,0,0,.2)}
+.player-actions button#player-play-pause:hover{background:#aaf3c3;transform:scale(1.06)}
+#player-progress{accent-color:#42df82;cursor:pointer}
+.player-queue-item{grid-template-columns:42px minmax(0,1fr) auto}
+.player-queue-art{display:grid;place-items:center;width:42px;height:42px;overflow:hidden;border-radius:9px;background:#172438;color:#9db2ca}
+.player-queue-art img{width:100%;height:100%;object-fit:cover}
+.player-queue-track{min-width:0;max-width:100%;overflow:hidden}
+.player-queue-track strong,.player-queue-track small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){.track-table-row{grid-template-columns:22px 40px minmax(0,1fr) 38px 30px 30px 26px;gap:6px}.library-card-play{right:42px;width:34px;height:34px}}
