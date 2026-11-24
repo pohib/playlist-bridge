@@ -10,6 +10,7 @@ services:
       DJANGO_DEBUG: "false"
     volumes:
       - ./reports:/app/reports
+      - ./media:/app/media
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -31,6 +32,7 @@ services:
       DJANGO_DEBUG: "false"
     volumes:
       - ./reports:/app/reports
+      - ./media:/app/media
     command: celery -A config worker --loglevel=INFO --concurrency=2
     depends_on:
       db:

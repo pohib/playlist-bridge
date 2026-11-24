@@ -1,9 +1,13 @@
 # ruff: noqa: I001
+import json
 import logging
+import mimetypes
 import re
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404, JsonResponse
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -154,6 +158,130 @@ def delete_playlist(request, playlist_id):
 
 
 
+def _normalized_track_key(artist, title):
+    import unicodedata
+
+    value = unicodedata.normalize("NFKD", f"{artist} {title}".casefold().replace("ё", "е"))
+    return re.sub(r"[^a-z0-9а-я]+", " ", value).strip()
+
+
+@require_POST
+def merge_playlists(request):
+    profile = _profile(request)
+    playlist_ids = list(dict.fromkeys(request.POST.getlist("playlist_ids")))
+    title = (request.POST.get("title") or "").strip()
+    if len(playlist_ids) < 2:
+        messages.error(request, "Выбери минимум два плейлиста для объединения.")
+        return redirect("library")
+    if len(playlist_ids) > 30:
+        messages.error(request, "За один раз можно объединить не более 30 плейлистов.")
+        return redirect("library")
+    if not title or len(title) > 120:
+        messages.error(request, "Укажи название новой коллекции (до 120 символов).")
+        return redirect("library")
+
+    owned = {
+        str(item.pk): item
+        for item in LibraryPlaylist.objects.filter(profile=profile, pk__in=playlist_ids)
+    }
+    if len(owned) != len(playlist_ids):
+        messages.error(request, "Один из выбранных плейлистов не найден.")
+        return redirect("library")
+
+    ordered_sources = [owned[item_id] for item_id in playlist_ids]
+    seen, merged_rows = set(), []
+    with transaction.atomic():
+        merged = LibraryPlaylist.objects.create(
+            profile=profile, title=title,
+            provider=LibraryPlaylist.Provider.MANUAL,
+            description=f"Объединено из {len(ordered_sources)} плейлистов",
+        )
+        for source in ordered_sources:
+            for track in source.tracks.all().order_by("position", "created_at"):
+                key = _normalized_track_key(track.artist, track.title)
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged_rows.append(LibraryTrack(
+                    playlist=merged, title=track.title, artist=track.artist,
+                    album=track.album, duration_ms=track.duration_ms,
+                    cover_url=track.cover_url, external_id=track.external_id,
+                    external_url=track.external_url,
+                    source_provider=track.source_provider or source.provider,
+                    audio_file=track.audio_file,
+                    position=len(merged_rows),
+                ))
+        if not merged_rows:
+            merged.delete()
+            messages.error(request, "В выбранных плейлистах нет композиций для объединения.")
+            return redirect("library")
+        LibraryTrack.objects.bulk_create(merged_rows)
+    messages.success(request, f"Создана коллекция «{merged.title}»: {len(merged_rows)} уникальных композиций.")
+    return redirect("playlist_detail", playlist_id=merged.pk)
+
+
+@require_POST
+@login_required
+def upload_local_track(request):
+    title = (request.POST.get("title") or "").strip()
+    artist = (request.POST.get("artist") or "").strip()
+    uploaded = request.FILES.get("audio_file")
+    allowed = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
+    if not title or len(title) > 180 or not artist or len(artist) > 180 or not uploaded:
+        messages.error(request, "Укажи название, исполнителя и аудиофайл.")
+        return redirect("library")
+    suffix = Path(uploaded.name).suffix.lower()
+    if suffix not in allowed or uploaded.size > 100 * 1024 * 1024:
+        messages.error(request, "Поддерживаются MP3, WAV, OGG, FLAC и M4A размером до 100 МБ.")
+        return redirect("library")
+    header = uploaded.read(16)
+    uploaded.seek(0)
+    signatures = {
+        ".wav": header.startswith(b"RIFF") and header[8:12] == b"WAVE",
+        ".ogg": header.startswith(b"OggS"),
+        ".flac": header.startswith(b"fLaC"),
+        ".m4a": header[4:8] == b"ftyp",
+        ".mp3": header.startswith(b"ID3") or (
+            len(header) > 1 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0
+        ),
+    }
+    if not signatures.get(suffix, False):
+        messages.error(request, "Содержимое файла не соответствует заявленному аудиоформату.")
+        return redirect("library")
+    profile = _profile(request)
+    playlist, _ = LibraryPlaylist.objects.get_or_create(
+        profile=profile, title="Мои аудиофайлы",
+        defaults={
+            "provider": LibraryPlaylist.Provider.MANUAL,
+            "description": "Личные аудиофайлы, загруженные в Playlist Bridge",
+        },
+    )
+    track = LibraryTrack.objects.create(
+        playlist=playlist, title=title, artist=artist,
+        source_provider=LibraryPlaylist.Provider.MANUAL,
+        audio_file=uploaded, position=playlist.tracks.count(),
+    )
+    playlist.save(update_fields=["updated_at"])
+    messages.success(request, f"Файл «{track.title}» добавлен в локальную библиотеку.")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
+
+
+@login_required
+def stream_local_track(request, track_id):
+    track = get_object_or_404(
+        LibraryTrack.objects.select_related("playlist__profile"),
+        pk=track_id,
+        playlist__profile=_profile(request),
+    )
+    if not track.audio_file:
+        raise Http404("У композиции нет локального аудиофайла.")
+    content_type = mimetypes.guess_type(track.audio_file.name)[0] or "application/octet-stream"
+    response = FileResponse(track.audio_file.open("rb"), content_type=content_type, as_attachment=False)
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
 @require_POST
 def update_profile(request):
     profile = _profile(request)
@@ -283,6 +411,87 @@ def _soundcloud_access(request):
     token, _ = get_access_token(get_session_fingerprint(request), "soundcloud", client)
     return client, token
 
+
+
+@login_required
+@require_POST
+def search_library_sources(request):
+    """Search supported providers for a library track; external-only providers return search links."""
+    try:
+        payload = json.loads(request.body or b"{}")
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Некорректный JSON запроса."}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({"error": "Некорректный формат запроса."}, status=400)
+    title = str(payload.get("title") or "").strip()
+    artist = str(payload.get("artist") or "").strip()
+    requested = payload.get("providers", ["auto"])
+    if not title or len(title) > 180 or len(artist) > 180:
+        return JsonResponse({"error": "Укажи название трека и корректного исполнителя."}, status=400)
+    allowed = {"auto", "vk", "spotify", "soundcloud", "youtube_music", "apple_music"}
+    if not isinstance(requested, list) or not requested or any(not isinstance(item, str) or item not in allowed for item in requested):
+        return JsonResponse({"error": "Выбраны неподдерживаемые источники."}, status=400)
+    providers = ["vk", "spotify", "soundcloud", "youtube_music", "apple_music"] if "auto" in requested else list(dict.fromkeys(requested))
+    query = f"{artist} {title}".strip()
+    results, statuses = [], {}
+    for provider in providers:
+        try:
+            if provider == "vk":
+                tracks = VKClient(version=settings.VK_API_VERSION).search_tracks(query, count=15)
+                for track in tracks:
+                    results.append({
+                        "provider": "vk", "id": f"{track.owner_id}_{track.track_id}",
+                        "title": track.title, "artist": track.artist, "cover": track.cover_url,
+                        "url": f"https://vk.ru/audio{track.owner_id}_{track.track_id}",
+                        "playable": False,
+                    })
+                statuses[provider] = "Найдены метаданные; прямое воспроизведение VK ещё проверяется."
+            elif provider == "spotify":
+                client, token = _spotify_access(request)
+                for track in client.search_tracks(token, query):
+                    artists = ", ".join(item.get("name", "") for item in track.get("artists", []) if item.get("name"))
+                    external = (track.get("external_urls") or {}).get("spotify", "")
+                    images = (track.get("album") or {}).get("images") or []
+                    if external:
+                        results.append({
+                            "provider": "spotify", "id": track.get("id", ""),
+                            "title": track.get("name", ""), "artist": artists,
+                            "cover": images[0].get("url", "") if images else "",
+                            "url": external, "playable": True,
+                        })
+                statuses[provider] = "ok"
+            elif provider == "soundcloud":
+                client, token = _soundcloud_access(request)
+                for track in client.search_tracks(token, query):
+                    permalink = track.get("permalink_url", "")
+                    if permalink:
+                        user = track.get("user") or {}
+                        results.append({
+                            "provider": "soundcloud", "id": str(track.get("id", "")),
+                            "title": track.get("title", ""), "artist": user.get("username", artist),
+                            "cover": track.get("artwork_url", ""), "url": permalink,
+                            "playable": True,
+                        })
+                statuses[provider] = "ok"
+            elif provider in {"youtube_music", "apple_music"}:
+                from urllib.parse import quote_plus
+                search_url = (
+                    "https://music.youtube.com/search?q=" if provider == "youtube_music"
+                    else "https://music.apple.com/search?term="
+                ) + quote_plus(query)
+                results.append({
+                    "provider": provider, "title": "Открыть поиск в " + (
+                        "YouTube Music" if provider == "youtube_music" else "Apple Music"
+                    ),
+                    "artist": query, "cover": "", "url": search_url,
+                    "playable": False, "search_only": True,
+                })
+                statuses[provider] = "Доступна ссылка на поиск; публичный API для получения результатов не подключён."
+        except TransferError as exc:
+            statuses[provider] = str(exc)
+        except (KeyError, TypeError, ValueError):
+            statuses[provider] = "Провайдер вернул данные неизвестного формата."
+    return JsonResponse({"results": results[:60], "statuses": statuses, "query": query})
 
 def _validate_soundcloud_permalink(value):
     from urllib.parse import urlparse

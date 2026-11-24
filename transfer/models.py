@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 
 class OAuthCredential(models.Model):
@@ -110,6 +112,8 @@ class LibraryTrack(models.Model):
     cover_url = models.URLField(max_length=2048, blank=True)
     external_id = models.CharField(max_length=200, blank=True)
     external_url = models.URLField(max_length=2048, blank=True)
+    source_provider = models.CharField(max_length=24, choices=LibraryPlaylist.Provider.choices, blank=True)
+    audio_file = models.FileField(upload_to="user-audio/%Y/%m/", blank=True)
     position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -179,3 +183,9 @@ class LibraryTransferItem(models.Model):
                 name="unique_source_track_per_library_transfer",
             ),
         ]
+
+
+@receiver(post_delete, sender=LibraryTrack)
+def remove_unreferenced_audio_file(sender, instance, **kwargs):
+    if instance.audio_file and not sender.objects.filter(audio_file=instance.audio_file.name).exists():
+        instance.audio_file.storage.delete(instance.audio_file.name)

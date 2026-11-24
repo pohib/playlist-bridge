@@ -209,14 +209,15 @@ class VKClient:
             # Keep walking nested metadata, but only treat strings as images
             # once they are under a known artwork-related key.
             for key, nested in value.items():
-                if key not in preferred_keys and key not in {
-                    "thumb", "track_covers", "covers", "artwork", "album",
-                }:
-                    if isinstance(nested, (dict, list)):
-                        collect(nested, image_context or any(
-                            marker in str(key).lower()
-                            for marker in ("cover", "thumb", "photo", "image", "artwork")
-                        ))
+                if (
+                    key not in preferred_keys
+                    and key not in {"thumb", "track_covers", "covers", "artwork", "album"}
+                    and isinstance(nested, (dict, list))
+                ):
+                    collect(nested, image_context or any(
+                        marker in str(key).lower()
+                        for marker in ("cover", "thumb", "photo", "image", "artwork")
+                    ))
 
         collect(item)
         for value in candidates:
@@ -227,9 +228,8 @@ class VKClient:
             parsed = urlparse(value)
             host = (parsed.hostname or "").lower().rstrip(".")
             trusted_host = (
-                host == "vk.com" or host.endswith(".vk.com")
-                or host == "userapi.com" or host.endswith(".userapi.com")
-                or host == "vkuseraudio.net" or host.endswith(".vkuseraudio.net")
+                host == "vk.com" or host == "userapi.com" or host == "vkuseraudio.net"
+                or host.endswith((".vk.com", ".userapi.com", ".vkuseraudio.net"))
             )
             try:
                 port = parsed.port
@@ -258,6 +258,25 @@ class VKClient:
             )
         except (KeyError, IndexError, TypeError, ValueError):
             return None
+
+    def search_tracks(self, query, count=20):
+        """Search public VK audio metadata without using a personal account."""
+        query = str(query or "").strip()
+        if not query or len(query) > 180:
+            raise TransferError("Поисковый запрос VK пуст или слишком длинный.")
+        payload = self.post(
+            "audio.search",
+            data={"q": query, "count": max(1, min(int(count), 50)), "sort": 2, "auto_complete": 0},
+        )
+        items, _ = self._response_items(payload)
+        tracks = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            track = self._track_from_item(item)
+            if track and track.artist and track.title:
+                tracks.append(track)
+        return tracks
 
     def fetch_playlist(self, url):
         owner, playlist_id, access_key = parse_vk_playlist_url(url)

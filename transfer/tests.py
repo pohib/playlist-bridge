@@ -255,6 +255,18 @@ class VKPlaylistBatchTests(TestCase):
             "https://sun9-2.userapi.com/cover.jpg",
         )
 
+    def test_search_tracks_uses_anonymous_audio_search_and_maps_results(self):
+        client = self.make_client()
+        with patch.object(client, "post", return_value={"response": [
+            {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Search result", "duration": 90}
+        ]}) as post:
+            tracks = client.search_tracks("Artist Search result")
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual((tracks[0].owner_id, tracks[0].track_id), (42, 7))
+        post.assert_called_once_with("audio.search", data={
+            "q": "Artist Search result", "count": 20, "sort": 2, "auto_complete": 0,
+        })
+
     def test_fetch_track_uses_audio_get_by_id(self):
         client = self.make_client()
         with patch.object(client, "post", return_value={"response": [
@@ -1088,3 +1100,94 @@ class AccountWorkspaceTests(TestCase):
             {"username": "listener_redirect", "password": TEST_PASSWORD, "next": "https://evil.example/"},
         )
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+
+
+class LibraryMergeTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryProfile
+
+        self.user = get_user_model().objects.create_user(username="merge_tester", password=TEST_PASSWORD)
+        self.client.force_login(self.user)
+        self.profile, _ = LibraryProfile.objects.get_or_create(
+            user=self.user,
+            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
+        )
+
+    def test_merge_preserves_order_deduplicates_and_keeps_sources(self):
+        from .models import LibraryPlaylist, LibraryTrack
+
+        first = LibraryPlaylist.objects.create(profile=self.profile, title="First", provider="spotify")
+        second = LibraryPlaylist.objects.create(profile=self.profile, title="Second", provider="soundcloud")
+        LibraryTrack.objects.create(playlist=first, title="Night Drive", artist="Artist", position=0, external_id="spotify-id", external_url="https://open.spotify.com/track/1234567890123456789012")
+        LibraryTrack.objects.create(playlist=second, title="night drive!", artist="ARTIST", position=0, external_id="sc-id", external_url="https://soundcloud.com/artist/night-drive")
+        LibraryTrack.objects.create(playlist=second, title="Other", artist="Singer", position=1, external_id="other-id")
+
+        response = self.client.post(reverse("library_merge_playlists"), {"title":"Merged set", "playlist_ids":[str(first.pk),str(second.pk)]})
+        self.assertEqual(response.status_code, 302)
+        merged = LibraryPlaylist.objects.get(title="Merged set")
+        tracks = list(merged.tracks.order_by("position"))
+        self.assertEqual([track.title for track in tracks], ["Night Drive", "Other"])
+        self.assertEqual(tracks[0].source_provider, "spotify")
+        self.assertEqual(tracks[1].source_provider, "soundcloud")
+        self.assertTrue(LibraryPlaylist.objects.filter(pk=first.pk).exists())
+        self.assertTrue(LibraryPlaylist.objects.filter(pk=second.pk).exists())
+
+    def test_merge_rejects_playlist_owned_by_another_user(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryPlaylist, LibraryProfile
+
+        other = get_user_model().objects.create_user(username="other_merge_user", password=TEST_PASSWORD)
+        other_profile = LibraryProfile.objects.create(user=other, session_fingerprint="a" * 64)
+        foreign = LibraryPlaylist.objects.create(profile=other_profile, title="Foreign")
+        own = LibraryPlaylist.objects.create(profile=self.profile, title="Own")
+        self.client.post(reverse("library_merge_playlists"), {"title":"Bad merge", "playlist_ids":[str(own.pk),str(foreign.pk)]})
+        self.assertFalse(LibraryPlaylist.objects.filter(title="Bad merge").exists())
+
+
+class LocalAudioPlayerTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryProfile
+
+        self.user = get_user_model().objects.create_user(username="audio_tester", password=TEST_PASSWORD)
+        self.client.force_login(self.user)
+        self.profile, _ = LibraryProfile.objects.get_or_create(
+            user=self.user,
+            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
+        )
+
+    def test_local_audio_upload_and_owner_only_stream(self):
+        import tempfile
+        from django.test import override_settings
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import LibraryTrack
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            upload = SimpleUploadedFile("demo.mp3", b"ID3" + b"\x00" * 40, content_type="audio/mpeg")
+            response = self.client.post(reverse("library_upload_local_track"), {
+                "title": "Demo", "artist": "Test Artist", "audio_file": upload,
+            })
+            self.assertEqual(response.status_code, 302)
+            track = LibraryTrack.objects.get(title="Demo")
+            self.assertTrue(track.audio_file.name.startswith("user-audio/"))
+            stream = self.client.get(reverse("library_stream_local_track", kwargs={"track_id": track.pk}))
+            self.assertEqual(stream.status_code, 200)
+            self.assertEqual(b"".join(stream.streaming_content), b"ID3" + b"\x00" * 40)
+
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
+    def test_playlist_page_includes_playback_metadata(self):
+        from .models import LibraryPlaylist, LibraryTrack
+
+        playlist = LibraryPlaylist.objects.create(profile=self.profile, title="Player test", provider="spotify")
+        LibraryTrack.objects.create(
+            playlist=playlist, title="Embed track", artist="Artist",
+            external_id="1234567890123456789012",
+            external_url="https://open.spotify.com/track/1234567890123456789012",
+        )
+        response = self.client.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk}))
+        self.assertContains(response, "playlist-playback-data")
+        self.assertContains(response, "play-playlist")
