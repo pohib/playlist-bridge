@@ -5,6 +5,6 @@
 <article class="auth-card"><span class="section-kicker">НОВЫЙ ПРОФИЛЬ</span><h2>Создать аккаунт</h2><p class="muted-copy">Это займёт меньше минуты.</p>
 <form method="post" class="auth-form">{% csrf_token %}
 {% for field in form %}<label>{{ field.label }}{{ field }}{% if field.help_text %}<small>{{ field.help_text|striptags }}</small>{% endif %}</label>{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}{% endfor %}
-<button class="primary-button auth-submit" type="submit">Создать профиль <span>↗</span></button></form>
+<button class="primary-button auth-submit" type="submit">Создать профиль <span></span></button></form>
 <div class="auth-switch">Уже зарегистрирован? <a href="{% url 'login' %}">Войти</a></div></article></section>
 {% endblock %}
