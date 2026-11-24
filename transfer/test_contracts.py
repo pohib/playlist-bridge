@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import get_resolver, reverse
+from django.utils.crypto import get_random_string
 
 
 class UrlContractTests(TestCase):
@@ -86,7 +87,7 @@ class UrlContractTests(TestCase):
     def test_get_only_audio_endpoint_rejects_post_for_authenticated_user(self):
         from django.contrib.auth import get_user_model
 
-        user = get_user_model().objects.create_user(username="route-contract-user", password="test-password")
+        user = get_user_model().objects.create_user(username="route-contract-user", password=get_random_string(32))
         self.client.force_login(user)
         response = self.client.post(
             reverse("library_vk_track_audio", kwargs={"track_id": "00000000-0000-0000-0000-000000000001"})
