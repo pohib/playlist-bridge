@@ -1175,6 +1175,10 @@ class LocalAudioPlayerTests(TestCase):
             self.assertEqual(stream.status_code, 200)
             self.assertEqual(b"".join(stream.streaming_content), b"ID3" + b"\x00" * 40)
 
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
     def test_playlist_page_includes_playback_metadata(self):
         from .models import LibraryPlaylist, LibraryTrack
 
