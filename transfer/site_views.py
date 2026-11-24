@@ -206,22 +206,21 @@ def library_cover_proxy(request):
         finally:
             upstream.close()
 
-        # VK CDN may return valid image bytes with a generic binary content type.
-        if content_type in {"application/octet-stream", "binary/octet-stream", "application/binary"}:
-            if body.startswith(bytes.fromhex("FFD8FF")):
-                content_type = "image/jpeg"
-            elif body.startswith(bytes.fromhex("89504E470D0A1A0A")):
-                content_type = "image/png"
-            elif body.startswith((b"GIF87a", b"GIF89a")):
-                content_type = "image/gif"
-            elif len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
-                content_type = "image/webp"
-            elif len(body) >= 12 and body[4:8] == b"ftyp" and body[8:12] in {b"avif", b"avis"}:
-                content_type = "image/avif"
-        if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"}:
-            return HttpResponseBadRequest("Unsupported artwork content type.")
-
-        response = HttpResponse(bytes(body), content_type=content_type)
+        # Trust the file signature rather than a CDN's sometimes incorrect MIME header.
+        detected_type = ""
+        if body.startswith(bytes.fromhex("FFD8FF")):
+            detected_type = "image/jpeg"
+        elif body.startswith(bytes.fromhex("89504E470D0A1A0A")):
+            detected_type = "image/png"
+        elif body.startswith((b"GIF87a", b"GIF89a")):
+            detected_type = "image/gif"
+        elif len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
+            detected_type = "image/webp"
+        elif len(body) >= 12 and body[4:8] == b"ftyp" and body[8:12] in {b"avif", b"avis"}:
+            detected_type = "image/avif"
+        if not detected_type:
+            return HttpResponseNotFound("Artwork response is not a supported image.")
+        response = HttpResponse(bytes(body), content_type=detected_type)
         response["Cache-Control"] = "private, max-age=3600"
         response["X-Content-Type-Options"] = "nosniff"
         return response
