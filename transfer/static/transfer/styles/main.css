@@ -1733,7 +1733,7 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 #player-progress{
   accent-color:#38df83!important;
   color:#38df83!important;
-  background:linear-gradient(90deg,rgba(53,221,128,.2),rgba(130,160,205,.18))!important;
+  background:transparent!important;
   border-radius:999px!important;
   height:6px!important;min-height:6px!important;
   appearance:none;-webkit-appearance:none;
@@ -1840,27 +1840,27 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
   gap:2px!important;
 }
 .global-player-center .player-actions{
-  min-height:24px!important;
-  height:24px!important;
-  align-items:flex-end!important;
-  padding-top:3px!important;
-  margin-bottom:-1px!important;
+  min-height:22px!important;
+  height:22px!important;
+  align-items:center!important;
+  padding-top:0!important;
+  margin-bottom:0!important;
 }
 .player-playback-modes{
   gap:6px!important;
-  transform:translateY(3px)!important;
+  transform:translateY(-2px)!important;
 }
 .player-mode-button{
-  width:29px!important;
-  min-width:29px!important;
-  height:26px!important;
-  border-radius:9px!important;
+  width:28px!important;
+  min-width:28px!important;
+  height:28px!important;
+  border-radius:6px!important;
   font-size:16px!important;
 }
 @media(max-width:760px){
   .global-player:not(.is-collapsed){min-height:106px!important;padding-top:7px!important;padding-bottom:7px!important}
-  .global-player-center .player-actions{height:22px!important;min-height:22px!important}
-  .player-mode-button{width:27px!important;min-width:27px!important;height:24px!important}
+  .global-player-center .player-actions{height:20px!important;min-height:20px!important}
+  .player-mode-button{width:26px!important;min-width:26px!important;height:26px!important}
 }
 
 
