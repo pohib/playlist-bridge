@@ -9,25 +9,54 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 __all__ = [
-    "api_create_transfer", "api_error", "api_openapi", "api_status",
-    "api_transfer_detail", "api_transfer_report", "connected_providers",
-    "disconnect_soundcloud", "disconnect_spotify", "download_report",
-    "encryption_key_is_valid", "healthz", "home", "rotate_session_binding",
-    "serialize_job", "soundcloud_callback", "soundcloud_login",
-    "spotify_callback", "spotify_login", "transfer_playlist", "SpotifyClient",
+    "SpotifyClient",
+    "api_create_transfer",
+    "api_error",
+    "api_openapi",
+    "api_status",
+    "api_transfer_detail",
+    "api_transfer_report",
+    "connected_providers",
+    "disconnect_soundcloud",
+    "disconnect_spotify",
+    "download_report",
+    "encryption_key_is_valid",
+    "healthz",
+    "home",
+    "rotate_session_binding",
+    "serialize_job",
+    "soundcloud_callback",
+    "soundcloud_client",
+    "soundcloud_login",
+    "spotify_callback",
+    "spotify_client",
+    "spotify_login",
+    "transfer_playlist",
 ]
 
 from .api_views import (
-    api_create_transfer, api_error, api_openapi, api_status,
-    api_transfer_detail, api_transfer_report, serialize_job,
+    api_create_transfer,
+    api_error,
+    api_openapi,
+    api_status,
+    api_transfer_detail,
+    api_transfer_report,
+    serialize_job,
 )
-from .services import SpotifyClient
 from .oauth_views import (
-    connected_providers, disconnect_soundcloud, disconnect_spotify,
-    encryption_key_is_valid, rotate_session_binding, soundcloud_callback,
-    soundcloud_client, soundcloud_login, spotify_callback, spotify_client,
+    connected_providers,
+    disconnect_soundcloud,
+    disconnect_spotify,
+    encryption_key_is_valid,
+    rotate_session_binding,
+    soundcloud_callback,
+    soundcloud_client,
+    soundcloud_login,
+    spotify_callback,
+    spotify_client,
     spotify_login,
 )
+from .services import SpotifyClient
 
 
 @never_cache
