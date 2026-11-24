@@ -134,12 +134,18 @@ class VKAnonymousTokenTests(TestCase):
             allow_redirects=False,
             stream=True,
         )
-        call = provider.http.post.call_args
-        self.assertEqual(call.kwargs["data"]["client_id"], "app-id")
-        self.assertEqual(call.kwargs["data"]["client_secret"], "fixture-value")
-        self.assertEqual(call.kwargs["data"]["scopes"], provider.SCOPES)
-        self.assertNotIn("cookies", call.kwargs)
-        self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
+        self.assertEqual(provider.http.post.call_count, 2)
+        modals_call, token_call = provider.http.post.call_args_list
+        self.assertIn("al_index.php?act=modals", modals_call.args[0])
+        self.assertEqual(modals_call.kwargs["data"], {
+            "act": "modals", "al": "1", "module": "audio",
+        })
+        self.assertEqual(token_call.kwargs["data"]["client_id"], "app-id")
+        self.assertEqual(token_call.kwargs["data"]["client_secret"], "fixture-value")
+        self.assertEqual(token_call.kwargs["data"]["scopes"], provider.SCOPES)
+        for call in (modals_call, token_call):
+            self.assertNotIn("cookies", call.kwargs)
+            self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
 
     def test_anonymous_token_rejects_unexpected_response(self):
         from .services.vk_client import VKAnonymousTokenProvider
