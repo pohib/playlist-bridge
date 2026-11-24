@@ -365,3 +365,20 @@ class VKClient:
         if parsed.scheme != "https" or not trusted or port not in (None, 443) or parsed.username or parsed.password:
             raise TransferError("VK вернул небезопасный адрес аудиопотока.")
         return {"url": url, "format": stream_format}
+
+
+    def resolve_playlist_audio_id(self, playlist_url, base_audio_id):
+        """Recover the exact access-key-bearing audio ID from its public playlist."""
+        owner, playlist_id, access_key = parse_vk_playlist_url(playlist_url)
+        entity_id = f"{owner}_{playlist_id}" + (f"_{access_key}" if access_key else "")
+        self.token_provider.referer = playlist_url
+        payload = self.post("audio.getIdsBySource", data={
+            "source": "playlist", "entity_id": entity_id, "ref": "",
+        })
+        response = payload.get("response", {})
+        refs = response.get("audios", []) if isinstance(response, dict) else []
+        for entry in refs if isinstance(refs, list) else []:
+            candidate = entry.get("audio_id") if isinstance(entry, dict) else None
+            if isinstance(candidate, str) and "_".join(candidate.split("_")[:2]) == base_audio_id:
+                return candidate
+        raise TransferError("VK не нашёл эту композицию в исходном плейлисте.")
