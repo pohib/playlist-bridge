@@ -12,4 +12,5 @@ staticfiles/
 reports/*.log
 reports/*.log.*
 !reports/.gitkeep
-\nmedia/ # user-uploaded audio; keep outside Git\n
+\n# Private user-uploaded audio; persisted via the media volume.
+media/\n
