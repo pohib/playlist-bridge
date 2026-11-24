@@ -12,6 +12,7 @@ from .api_views import (
     api_create_transfer, api_error, api_openapi, api_status,
     api_transfer_detail, api_transfer_report, serialize_job,
 )
+from .services import SoundCloudClient, SpotifyClient, TransferError, parse_vk_playlist_url
 from .oauth_views import (
     connected_providers, disconnect_soundcloud, disconnect_spotify,
     encryption_key_is_valid, rotate_session_binding, soundcloud_callback,
