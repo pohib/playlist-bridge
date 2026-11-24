@@ -223,7 +223,17 @@ def open_playlist_source(request, playlist_id):
         "apple_music": {"music.apple.com"},
     }
     parsed = urlparse(playlist.external_url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(playlist.provider, set()):
+    try:
+        port = parsed.port
+    except ValueError:
+        return redirect("library")
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in allowed_hosts.get(playlist.provider, set())
+        or port not in (None, 443)
+        or parsed.username
+        or parsed.password
+    ):
         return redirect("library")
     return HttpResponseRedirect(playlist.external_url)
 
@@ -248,7 +258,17 @@ def open_track_source(request, track_id):
         "apple_music": {"music.apple.com"},
     }
     parsed = urlparse(track.external_url)
-    if parsed.scheme != "https" or parsed.hostname not in allowed_hosts.get(provider, set()):
+    try:
+        port = parsed.port
+    except ValueError:
+        return redirect("library")
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in allowed_hosts.get(provider, set())
+        or port not in (None, 443)
+        or parsed.username
+        or parsed.password
+    ):
         return redirect("library")
     return HttpResponseRedirect(track.external_url)
 
