@@ -5,16 +5,19 @@ from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_trac
 
 
 class VKAnonymousTokenProvider:
-    """Fetch and cache an anonymous VK API token without user cookies."""
+    """Obtain a short-lived anonymous token using VK's public web client."""
 
-    TOKEN_ENDPOINT = "https://" + "login.vk.ru/"
+    TOKEN_ENDPOINT = "https://login.vk.ru/"
+    MODALS_ENDPOINT = "https://vk.ru/al_index.php"
+    CLIENT_ID = "6287487"
+    # Public web-client credential observed in VK's own browser request.
+    # This is not a credential for a user-created VK application.
+    CLIENT_SECRET = "QbYic1K3lEV5kTGiqlq2"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
-    def __init__(self, client_id, client_secret, http=None):
-        if not client_id or not client_secret:
-            raise TransferError("Не настроены параметры анонимного доступа VK.")
-        self.client_id = str(client_id)
-        self.client_secret = client_secret
+    def __init__(self, client_id=None, client_secret=None, http=None):
+        self.client_id = str(client_id or self.CLIENT_ID)
+        self.client_secret = client_secret or self.CLIENT_SECRET
         self.http = http or requests.Session()
         self._token: str | None = None
         self._expires_at = 0
@@ -25,7 +28,8 @@ class VKAnonymousTokenProvider:
         if self._token is not None and time.time() < self._expires_at - 60:
             return self._token
         try:
-            # Bootstrap an anonymous VK web session; this does not log in a user.
+            # Start a clean anonymous web session. The session object retains
+            # only cookies issued by VK during these requests.
             bootstrap = self.http.get(
                 "https://vk.ru/",
                 headers={"Accept": "text/html"},
@@ -38,6 +42,24 @@ class VKAnonymousTokenProvider:
                 bootstrap.close()
                 raise TransferError("VK не открыл публичную страницу для анонимной сессии.")
             bootstrap.close()
+
+            # VK's web audio flow initializes its modal context before asking
+            # login.vk.ru for an anonymous API token.
+            modals = self.http.post(
+                self.MODALS_ENDPOINT,
+                data={"act": "modals", "al": "1", "module": "audio"},
+                headers={
+                    "Accept": "*/*",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": "https://vk.ru",
+                    "Referer": "https://vk.ru/",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout=(5, 15),
+                allow_redirects=False,
+            )
+            modals.raise_for_status()
+
             response = self.http.post(
                 self.TOKEN_ENDPOINT,
                 params={"act": "get_anonym_token"},
@@ -50,7 +72,7 @@ class VKAnonymousTokenProvider:
                     "app_id": self.client_id,
                 },
                 headers={
-                    "Accept": "application/json",
+                    "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
                     "Referer": "https://vk.ru/",
@@ -68,14 +90,13 @@ class VKAnonymousTokenProvider:
         token = data.get("access_token") if isinstance(data, dict) else None
         expires_at = data.get("expired_at", data.get("expires")) if isinstance(data, dict) else None
         if payload.get("type") != "okay" or not isinstance(token, str) or not token.startswith("anonym."):
-            raise TransferError("VK не выдал анонимный токен. Проверь настройки приложения и доступность публичного API.")
+            raise TransferError("VK не выдал анонимный токен. Возможно, публичный API временно недоступен.")
         try:
             self._expires_at = int(expires_at)
         except (TypeError, ValueError) as exc:
             raise TransferError("VK вернул некорректный срок действия анонимного токена.") from exc
         self._token = token
         return self._token
-
 
 class VKClient:
     """VK public-audio client based on anonymous API access."""
