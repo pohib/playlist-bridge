@@ -60,17 +60,21 @@ class VKAnonymousTokenProvider:
             )
             modals.raise_for_status()
 
+            token_data = {
+                "client_secret": self.client_secret,
+                "client_id": self.client_id,
+                "scopes": self.SCOPES,
+                "isApiOauthAnonymEnabled": "false",
+                "version": "1",
+                "app_id": self.client_id,
+            }
+            if self._token:
+                token_data["anonymous_token"] = self._token
+
             response = self.http.post(
                 self.TOKEN_ENDPOINT,
                 params={"act": "get_anonym_token"},
-                data={
-                    "client_secret": self.client_secret,
-                    "client_id": self.client_id,
-                    "scopes": self.SCOPES,
-                    "isApiOauthAnonymEnabled": "false",
-                    "version": "1",
-                    "app_id": self.client_id,
-                },
+                data=token_data,
                 headers={
                     "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
