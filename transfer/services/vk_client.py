@@ -172,6 +172,26 @@ class VKClient:
         return [], 0
 
     @staticmethod
+    def _cover_from_item(item):
+        """Extract a secure album artwork URL from VK audio metadata."""
+        album = item.get("album") if isinstance(item.get("album"), dict) else {}
+        candidates = [
+            (album.get("thumb") or {}).get(key)
+            for key in ("photo_1200", "photo_600", "photo_300", "photo_270", "photo_135")
+        ] if isinstance(album.get("thumb"), dict) else []
+        thumb = item.get("thumb") if isinstance(item.get("thumb"), dict) else {}
+        candidates.extend(thumb.get(key) for key in ("photo_600", "photo_300", "photo_270", "photo_135"))
+        for value in candidates:
+            if not isinstance(value, str) or len(value) > 2048:
+                continue
+            from urllib.parse import urlparse
+            parsed = urlparse(value)
+            host = (parsed.hostname or "").lower()
+            if parsed.scheme == "https" and (host.endswith(".vk.com") or host.endswith(".userapi.com")):
+                return value
+        return ""
+
+    @staticmethod
     def _track_from_item(item):
         try:
             return VKTrack(
@@ -180,6 +200,7 @@ class VKClient:
                 str(item.get("artist") or "").strip(),
                 str(item.get("title") or "").strip(),
                 max(0, int(item.get("duration") or 0)),
+                VKClient._cover_from_item(item),
             )
         except (KeyError, IndexError, TypeError, ValueError):
             return None
