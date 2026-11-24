@@ -851,7 +851,17 @@ def _spotify_resource_id(value, resource_type):
 
     value = (value or "").strip()
     parsed = urlparse(value)
-    if parsed.scheme != "https" or parsed.hostname not in {"open.spotify.com", "www.open.spotify.com"}:
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Укажи ссылку на Spotify.") from exc
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"open.spotify.com", "www.open.spotify.com"}
+        or port not in (None, 443)
+        or parsed.username
+        or parsed.password
+    ):
         raise ValueError("Укажи ссылку на Spotify.")
     parts = [part for part in parsed.path.split("/") if part]
     if len(parts) < 2 or parts[-2] != resource_type or not re.fullmatch(r"[A-Za-z0-9]{22}", parts[-1]):
