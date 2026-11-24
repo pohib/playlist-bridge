@@ -16,6 +16,7 @@
   let state={queue:[],index:0,sourceProviders:["auto"],repeat:"off",shuffle:false};
   try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved&&Array.isArray(saved.queue)){state={...state,...saved};}}catch(_){}
   state.repeat=["off","all","one"].includes(state.repeat)?state.repeat:"off";state.shuffle=Boolean(state.shuffle);state.volume=Number.isFinite(Number(state.volume))?Math.max(0,Math.min(1,Number(state.volume))):0.8;state.collapsed=Boolean(state.collapsed);state.muted=Boolean(state.muted);audio.volume=state.volume;audio.muted=state.muted;ui.volume.value=String(state.volume);ui.mute.textContent=state.muted?"🔇":state.volume===0?"🔈":"🔊";ui.mute.setAttribute("aria-label",state.muted?"Включить звук":"Выключить звук");player.classList.toggle("is-collapsed",state.collapsed);ui.collapse.hidden=state.collapsed;ui.expand.hidden=!state.collapsed;
+  syncPlaybackModes();
   state.sourceProviders=(state.sourceProviders||["auto"]).filter(value=>value!=="vk");if(!state.sourceProviders.length)state.sourceProviders=["auto"];
   state.queue=state.queue.map(track=>{
     if(track&&track.cover)track.cover=sameOriginCover(track.cover);
