@@ -1384,3 +1384,125 @@ body.queue-drawer-open{overflow:hidden}
   *::-webkit-scrollbar{width:12px;height:12px}
   *{scrollbar-width:thin}
 }
+
+/* Animated ambient gradients and translucent glass surfaces */
+:root{
+  --glass-border:rgba(176,201,238,.16);
+  --glass-shadow:0 18px 52px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.055);
+}
+html,body{background-color:#080d17}
+body{
+  background-image:
+    radial-gradient(ellipse at 12% 8%,rgba(48,105,207,.25),transparent 38rem),
+    radial-gradient(ellipse at 88% 22%,rgba(20,166,111,.17),transparent 34rem),
+    radial-gradient(ellipse at 52% 100%,rgba(93,68,185,.14),transparent 42rem),
+    linear-gradient(125deg,#080d17 0%,#101a2b 34%,#0b1722 67%,#080d17 100%)!important;
+  background-size:160% 160%,170% 170%,180% 180%,240% 240%!important;
+  background-position:0% 0%,100% 10%,50% 100%,0% 50%;
+  animation:site-gradient-drift 28s ease-in-out infinite alternate;
+}
+body::after{
+  background:
+    radial-gradient(ellipse at 50% 45%,transparent 24%,rgba(2,5,12,.38) 100%),
+    linear-gradient(115deg,rgba(67,112,190,.035),transparent 42%,rgba(28,184,126,.035))!important;
+  background-size:100% 100%,220% 220%;
+  animation:site-gradient-wash 22s ease-in-out infinite alternate;
+}
+body::before{opacity:.72}
+.ambient{
+  opacity:.23!important;
+  filter:blur(115px)!important;
+  animation:ambient-float 24s ease-in-out infinite alternate;
+}
+.ambient-one{background:linear-gradient(135deg,#397eff,#6d65ec)!important}
+.ambient-two{background:linear-gradient(135deg,#13c98a,#2d8fe8)!important;animation-delay:-11s}
+@keyframes site-gradient-drift{
+  0%{background-position:0% 0%,100% 10%,50% 100%,0% 50%}
+  50%{background-position:35% 25%,65% 45%,70% 65%,55% 45%}
+  100%{background-position:80% 50%,10% 80%,20% 10%,100% 50%}
+}
+@keyframes site-gradient-wash{
+  0%{background-position:50% 50%,0% 50%}
+  100%{background-position:50% 50%,100% 50%}
+}
+@keyframes ambient-float{
+  0%{transform:translate3d(-2%,0,0) scale(.94)}
+  100%{transform:translate3d(4%,7%,0) scale(1.12)}
+}
+
+/* Main page containers */
+.site-header,
+.content-panel,
+.panel,
+.import-card,
+.library-card-shell,
+.connection-card,
+.auth-card,
+.candidate-row,
+.playlist-card,
+.library-card,
+.stat-card,
+.dashboard-card,
+.profile-card,
+.transfer-card,
+.transfer-panel,
+.library-panel,
+.playlist-panel,
+.track-list-panel,
+.global-message,
+.site-footer{
+  border-color:var(--glass-border)!important;
+  background:linear-gradient(145deg,rgba(30,43,65,.64),rgba(9,16,29,.58))!important;
+  box-shadow:var(--glass-shadow),0 12px 34px rgba(0,0,0,.13)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+  backdrop-filter:blur(24px) saturate(140%);
+}
+.site-header{
+  background:linear-gradient(110deg,rgba(25,39,61,.72),rgba(10,18,31,.62))!important;
+}
+.content-panel,.panel,.import-card,.library-card-shell,.connection-card,.auth-card,
+.playlist-card,.library-card,.stat-card,.dashboard-card,.profile-card,.transfer-card,
+.transfer-panel,.library-panel,.playlist-panel,.track-list-panel{
+  position:relative;
+  overflow:hidden;
+}
+.content-panel::after,.panel::after,.library-card-shell::after,.connection-card::after,
+.auth-card::after,.playlist-card::after,.library-card::after,.stat-card::after,
+.dashboard-card::after,.profile-card::after,.transfer-card::after{
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:linear-gradient(115deg,rgba(255,255,255,.045),transparent 28%,transparent 72%,rgba(111,158,224,.035));
+  content:"";
+  pointer-events:none;
+}
+.track-table-row,
+.connection-row,
+.candidate-row,
+.library-track-row,
+.playlist-track-row{
+  background:rgba(17,28,45,.38)!important;
+  border-color:rgba(174,198,232,.12)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 7px 20px rgba(0,0,0,.1);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+}
+.track-table-row:hover,.library-track-row:hover,.playlist-track-row:hover{
+  background:rgba(52,78,116,.34)!important;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+textarea,select{
+  background-color:rgba(6,13,24,.56)!important;
+  border-color:rgba(174,198,232,.19)!important;
+}
+button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
+  box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.07);
+}
+.global-player,.player-queue-panel{
+  background:linear-gradient(135deg,rgba(26,42,65,.78),rgba(7,14,26,.76))!important;
+  border-color:rgba(187,211,246,.22)!important;
+  box-shadow:0 26px 85px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  body,.ambient,body::after{animation:none!important}
+}
