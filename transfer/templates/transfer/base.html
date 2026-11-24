@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#080b12">
   <meta name="description" content="Playlist Bridge — собирай музыкальную библиотеку и переноси плейлисты между сервисами.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1420'/%3E%3Ctext x='32' y='45' font-size='42' text-anchor='middle' fill='%238af0a9'%3E%E2%99%AB%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261124-4">
+  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261124-5">
   <title>{% block title %}Playlist Bridge{% endblock %}</title>
   {% block head %}{% endblock %}
 </head>
@@ -53,6 +53,7 @@
         <button type="button" id="player-expand" aria-label="Развернуть плеер" title="Развернуть плеер" hidden>↗</button>
       </div>
     </div>
+    <button type="button" class="player-queue-backdrop" id="player-queue-backdrop" aria-label="Закрыть очередь" hidden></button>
     <section class="player-queue-panel" id="player-queue-panel" hidden aria-label="Очередь воспроизведения">
       <div class="player-queue-heading"><div><strong>Очередь воспроизведения</strong><small id="player-queue-summary">Композиции для следующего прослушивания</small></div><button type="button" id="player-queue-close" aria-label="Свернуть очередь">×</button></div>
       <label class="player-source-setting" for="player-source-mode">Где искать трек? Можно выбрать несколько сервисов
