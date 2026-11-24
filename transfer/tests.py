@@ -255,6 +255,18 @@ class VKPlaylistBatchTests(TestCase):
             "https://sun9-2.userapi.com/cover.jpg",
         )
 
+    def test_search_tracks_uses_anonymous_audio_search_and_maps_results(self):
+        client = self.make_client()
+        with patch.object(client, "post", return_value={"response": [
+            {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Search result", "duration": 90}
+        ]}) as post:
+            tracks = client.search_tracks("Artist Search result")
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual((tracks[0].owner_id, tracks[0].track_id), (42, 7))
+        post.assert_called_once_with("audio.search", data={
+            "q": "Artist Search result", "count": 20, "sort": 2, "auto_complete": 0,
+        })
+
     def test_fetch_track_uses_audio_get_by_id(self):
         client = self.make_client()
         with patch.object(client, "post", return_value={"response": [
