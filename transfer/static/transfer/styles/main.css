@@ -1440,6 +1440,10 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 
 /* Full-width header with a horizontally scrollable compact nav. */
 .site-header{
+  position:sticky;
+  top:0;
+  z-index:900;
+  isolation:isolate;
   display:flex;
   align-items:center;
   flex-wrap:nowrap;
