@@ -141,7 +141,7 @@ class VKClient:
                     "Accept": "application/json",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
-                    "Referer": "https://vk.ru/",
+                    "Referer": self.token_provider.referer or "https://vk.ru/",
                 },
                 timeout=(5, 30),
                 allow_redirects=False,
