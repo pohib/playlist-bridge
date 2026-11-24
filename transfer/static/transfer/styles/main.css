@@ -1862,3 +1862,35 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
   .global-player-center .player-actions{height:22px!important;min-height:22px!important}
   .player-mode-button{width:27px!important;min-width:27px!important;height:24px!important}
 }
+
+
+/* Playback mode state must remain obvious; hover never overrides the enabled state. */
+.player-mode-button{
+  border-color:rgba(220,235,255,.16)!important;
+  background:rgba(255,255,255,.045)!important;
+  color:#aebbd0!important;
+  box-shadow:none!important;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease!important;
+}
+.player-mode-button:not(.is-active):not([aria-pressed="true"]):hover{
+  border-color:rgba(220,235,255,.34)!important;
+  background:rgba(255,255,255,.10)!important;
+  color:#f4f7fb!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.035)!important;
+}
+.player-mode-button.is-active,
+.player-mode-button[aria-pressed="true"]{
+  border-color:rgba(79,231,143,.72)!important;
+  background:linear-gradient(145deg,rgba(41,196,111,.30),rgba(28,128,82,.23))!important;
+  color:#a5ffc5!important;
+  box-shadow:0 0 0 1px rgba(62,220,132,.12),0 0 15px rgba(40,205,116,.18),inset 0 1px rgba(255,255,255,.10)!important;
+}
+.player-mode-button.is-active:hover,
+.player-mode-button[aria-pressed="true"]:hover{
+  border-color:rgba(104,255,164,.9)!important;
+  background:linear-gradient(145deg,rgba(41,196,111,.38),rgba(28,128,82,.30))!important;
+  color:#c4ffda!important;
+  box-shadow:0 0 0 1px rgba(62,220,132,.16),0 0 18px rgba(40,205,116,.24),inset 0 1px rgba(255,255,255,.12)!important;
+}
+.player-mode-button:focus{outline:none!important}
+.player-mode-button:focus-visible{outline:2px solid rgba(255,255,255,.9)!important;outline-offset:3px!important}
