@@ -429,7 +429,7 @@ def search_library_sources(request):
     if not title or len(title) > 180 or len(artist) > 180:
         return JsonResponse({"error": "Укажи название трека и корректного исполнителя."}, status=400)
     allowed = {"auto", "vk", "spotify", "soundcloud", "youtube_music", "apple_music"}
-    if not isinstance(requested, list) or not requested or any(item not in allowed for item in requested):
+    if not isinstance(requested, list) or not requested or any(not isinstance(item, str) or item not in allowed for item in requested):
         return JsonResponse({"error": "Выбраны неподдерживаемые источники."}, status=400)
     providers = ["vk", "spotify", "soundcloud", "youtube_music", "apple_music"] if "auto" in requested else list(dict.fromkeys(requested))
     query = f"{artist} {title}".strip()
