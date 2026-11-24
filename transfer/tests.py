@@ -152,7 +152,7 @@ class VKAnonymousTokenTests(TestCase):
             "act": "modals", "al": "1", "module": "audio",
         })
         self.assertEqual(token_call.kwargs["data"]["client_id"], "app-id")
-        self.assertEqual(token_call.kwargs["data"]["client_secret"], provider.WEB_CLIENT_KEY)
+        self.assertEqual(token_call.kwargs["data"]["client_secret"], provider.WEB_CLIENT_PARAMETER)
         self.assertEqual(token_call.kwargs["data"]["scopes"], provider.SCOPES)
         for call in (modals_call, token_call):
             self.assertNotIn("cookies", call.kwargs)
