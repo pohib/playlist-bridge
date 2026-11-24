@@ -81,7 +81,7 @@ class UrlContractTests(TestCase):
     def test_post_only_import_endpoint_rejects_get(self):
         response = self.client.get(reverse("library_import_vk"))
         self.assertEqual(response.status_code, 405)
-        self.assertEqual(response["Allow"], "POST, OPTIONS")
+        self.assertEqual(response["Allow"], "POST")
 
     def test_get_only_audio_endpoint_rejects_post_for_authenticated_user(self):
         from django.contrib.auth import get_user_model
