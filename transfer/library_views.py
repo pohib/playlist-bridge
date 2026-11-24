@@ -188,6 +188,7 @@ def import_vk_playlist(request):
                 LibraryTrack(
                     playlist=playlist, title=track.title[:180], artist=track.artist[:180],
                     duration_ms=max(track.duration, 0) * 1000,
+                    cover_url=track.cover_url,
                     external_id=f"{track.owner_id}_{track.track_id}",
                     external_url=f"https://vk.ru/audio{track.owner_id}_{track.track_id}",
                     position=index,
