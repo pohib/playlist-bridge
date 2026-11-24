@@ -107,6 +107,7 @@ class LibraryTrack(models.Model):
     artist = models.CharField(max_length=180)
     album = models.CharField(max_length=180, blank=True)
     duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    cover_url = models.URLField(max_length=2048, blank=True)
     external_id = models.CharField(max_length=200, blank=True)
     external_url = models.URLField(max_length=2048, blank=True)
     position = models.PositiveIntegerField(default=0)
@@ -114,6 +115,14 @@ class LibraryTrack(models.Model):
 
     class Meta:
         ordering = ("position", "created_at")
+
+    @property
+    def duration_display(self):
+        if self.duration_ms is None:
+            return "—"
+        total_seconds = self.duration_ms // 1000
+        minutes, seconds = divmod(total_seconds, 60)
+        return f"{minutes}:{seconds:02d}"
 
     def __str__(self):
         return f"{self.artist} — {self.title}"
