@@ -44,7 +44,7 @@ def library(request):
             "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
             "title": track.title, "artist": track.artist, "cover": track.cover_url,
             "duration": track.duration_ms,
-            "stream_url": reverse("library_vk_track_stream", kwargs={"track_id": track.pk})
+            "stream_url": reverse("library_vk_track_audio", kwargs={"track_id": track.pk})
                 if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
         } for track in playlist.tracks.all()]
     return render(request, "transfer/library.html", {"playlists": playlists})
@@ -66,7 +66,7 @@ def playlist_detail(request, playlist_id):
         "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
         "title": track.title, "artist": track.artist,
         "cover": track.cover_url, "duration": track.duration_ms,
-        "stream_url": reverse("library_vk_track_stream", kwargs={"track_id": track.pk}) if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
+        "stream_url": reverse("library_vk_track_audio", kwargs={"track_id": track.pk}) if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
     } for track in tracks]
     return render(request, "transfer/playlist_detail.html", {
         "playlist": playlist, "playback_tracks": playback_tracks,
