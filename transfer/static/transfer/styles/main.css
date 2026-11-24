@@ -1977,3 +1977,30 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 @media(prefers-reduced-motion:reduce){
   .player-track-transport button,#player-progress::-webkit-slider-thumb,.player-mode-button{transition:none!important}
 }
+
+
+/* Queue drawer: square edges and short GPU-friendly slide */
+.player-queue-panel{
+  border-radius:0!important;
+  transition:transform .22s cubic-bezier(.2,.75,.2,1)!important;
+  will-change:transform;
+  contain:layout paint;
+}
+.player-queue-backdrop{
+  transition:opacity .18s linear!important;
+}
+@media(max-width:700px){
+  .player-queue-panel{border-radius:0!important}
+}
+
+/* Faster player morph: avoid animating expensive glass effects */
+.global-player{
+  transition:
+    opacity .18s ease,
+    transform .26s cubic-bezier(.2,.75,.22,1),
+    width .26s cubic-bezier(.2,.75,.22,1),
+    min-height .26s ease,
+    height .26s ease,
+    padding .26s ease,
+    border-radius .26s ease!important;
+}
