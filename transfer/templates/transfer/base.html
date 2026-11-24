@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#080b12">
   <meta name="description" content="Playlist Bridge — собирай музыкальную библиотеку и переноси плейлисты между сервисами.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1420'/%3E%3Ctext x='32' y='45' font-size='42' text-anchor='middle' fill='%238af0a9'%3E%E2%99%AB%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}">
+  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261124-3">
   <title>{% block title %}Playlist Bridge{% endblock %}</title>
   {% block head %}{% endblock %}
 </head>
@@ -45,11 +45,13 @@
   <aside class="global-player" id="global-player" aria-label="Музыкальный плеер" hidden>
     <div class="global-player-track"><img id="player-cover" src="" alt="" hidden><span class="player-placeholder" id="player-placeholder">♫</span><div class="global-player-meta"><strong id="player-title">Ничего не воспроизводится</strong><small id="player-artist">Выбери композицию в библиотеке</small></div></div>
     <div class="global-player-center"><div class="player-actions"><button type="button" id="player-prev" aria-label="Предыдущий трек">‹</button><span class="player-provider" id="player-provider">PLAYLIST BRIDGE</span><button type="button" id="player-next" aria-label="Следующий трек">›</button></div><div class="player-transport" id="player-transport" hidden><button type="button" id="player-play-pause" aria-label="Воспроизвести или приостановить">▶</button><span id="player-current-time">0:00</span><input id="player-progress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Позиция воспроизведения"><span id="player-duration">0:00</span></div><div class="player-status" id="player-status" role="status" aria-live="polite"></div><div class="player-embed" id="player-embed"><audio id="player-audio" preload="metadata" hidden></audio><span>Выбери трек для воспроизведения</span></div></div>
-    <div class="player-queue-controls"><span id="player-queue-count">Очередь пуста</span><button type="button" id="player-queue-toggle" aria-expanded="false" aria-controls="player-queue-panel">Очередь <span id="player-queue-size">0</span></button><button type="button" id="player-clear">Очистить</button></div>
-    <div class="player-window-controls">
-      <label class="player-volume-control" for="player-volume"><span aria-hidden="true">🔊</span><input id="player-volume" type="range" min="0" max="1" value="0.8" step="0.01" aria-label="Громкость" title="Громкость"></label>
-      <button type="button" id="player-collapse" aria-label="Свернуть плеер" title="Свернуть плеер">−</button>
-      <button type="button" id="player-expand" aria-label="Развернуть плеер" title="Развернуть плеер" hidden>↗</button>
+    <div class="player-side-controls">
+      <div class="player-queue-controls"><span id="player-queue-count">Очередь пуста</span><button type="button" id="player-queue-toggle" aria-expanded="false" aria-controls="player-queue-panel">Очередь <span id="player-queue-size">0</span></button><button type="button" id="player-clear">Очистить</button></div>
+      <div class="player-window-controls" aria-label="Настройки плеера">
+        <label class="player-volume-control" for="player-volume"><button type="button" id="player-mute" aria-label="Выключить звук" title="Выключить звук">🔊</button><input id="player-volume" type="range" min="0" max="1" value="0.8" step="0.01" aria-label="Громкость" title="Громкость"></label>
+        <button type="button" id="player-collapse" aria-label="Свернуть плеер" title="Свернуть плеер">−</button>
+        <button type="button" id="player-expand" aria-label="Развернуть плеер" title="Развернуть плеер" hidden>↗</button>
+      </div>
     </div>
     <section class="player-queue-panel" id="player-queue-panel" hidden aria-label="Очередь воспроизведения">
       <div class="player-queue-heading"><div><strong>Очередь воспроизведения</strong><small id="player-queue-summary">Композиции для следующего прослушивания</small></div><button type="button" id="player-queue-close" aria-label="Свернуть очередь">×</button></div>
@@ -63,6 +65,6 @@
     </section>
   </aside>
   {% endif %}
-  <script src="{% static 'transfer/js/app.js' %}" defer></script>
+  <script src="{% static 'transfer/js/app.js' %}?v=20261124-3" defer></script>
 </body>
 </html>
