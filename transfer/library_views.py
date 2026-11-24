@@ -440,7 +440,7 @@ def search_library_sources(request):
             if provider == "vk":
                 # VK audio.search is unavailable with anonymous tokens (API error 28).
                 # Public playlist imports and audio.getById remain supported.
-                statuses[provider] = "Поиск VK недоступен через анонимный API (ошибка 28). Импортируй публичный плейлист VK — его треки можно воспроизводить напрямую."
+                statuses[provider] = "VK используется для воспроизведения импортированных композиций; поиск по каталогу VK через анонимный API недоступен."
             elif provider == "spotify":
                 client, token = _spotify_access(request)
                 for track in client.search_tracks(token, query):
