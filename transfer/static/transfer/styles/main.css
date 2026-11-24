@@ -1031,3 +1031,57 @@ body:has(.global-player:not([hidden])) { padding-bottom: 145px; }
  .global-player.is-collapsed .global-player-track{grid-column:1/-1;grid-row:1}
  .global-player.is-collapsed .player-window-controls{top:50%;right:12px}
 }
+
+
+/* Clear, always-visible right control cluster */
+.global-player{
+  grid-template-columns:minmax(190px,.9fr) minmax(300px,1.45fr) minmax(220px,.9fr);
+  min-height:132px;
+  padding-top:17px;
+  padding-bottom:15px;
+}
+.player-side-controls{display:grid;justify-items:end;align-content:center;gap:9px;min-width:0}
+.player-side-controls .player-queue-controls{display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:7px;padding:0}
+.player-side-controls .player-queue-controls>span{max-width:125px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-side-controls .player-queue-controls button{min-height:32px;padding:6px 10px}
+.player-window-controls{position:static;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.player-volume-control{display:flex;align-items:center;gap:7px;min-height:36px;padding:4px 9px;border:1px solid rgba(170,190,220,.14);border-radius:11px;background:rgba(255,255,255,.045);color:#c8d5e5}
+.player-volume-control>button{display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;background:transparent;color:#d9e6f5;font-size:15px;cursor:pointer}
+.player-volume-control>button:hover{color:#8ff0ad}
+.player-volume-control input{width:90px;height:4px;min-height:4px;padding:0;border:0;accent-color:#32df7b;cursor:pointer}
+.player-window-controls>button{display:grid;place-items:center;width:36px;height:36px;border:1px solid rgba(170,190,220,.15);border-radius:11px;background:rgba(255,255,255,.055);color:#e3edf8;font-size:20px;line-height:1;cursor:pointer}
+.player-window-controls>button:hover{border-color:rgba(50,223,123,.42);background:rgba(50,223,123,.12);color:#9af0b2}
+.player-queue-controls{padding:0}
+.global-player.is-collapsed{grid-template-columns:minmax(0,1fr) auto;min-height:84px;padding:12px 24px}
+.global-player.is-collapsed .global-player-center{display:none!important}
+.global-player.is-collapsed .player-side-controls{grid-column:2;grid-row:1;display:flex;align-items:center}
+.global-player.is-collapsed .player-side-controls .player-queue-controls{display:none!important}
+.global-player.is-collapsed .global-player-track{grid-column:1;grid-row:1;padding-right:0}
+.global-player.is-collapsed .player-window-controls{position:static;transform:none}
+.global-player.is-collapsed #player-collapse{display:none!important}
+.global-player.is-collapsed #player-expand{display:grid!important;width:38px;height:38px;border-color:rgba(50,223,123,.3);background:rgba(50,223,123,.12);color:#9af0b2}
+@media(max-width:980px){
+ .global-player{grid-template-columns:minmax(160px,.85fr) minmax(260px,1.25fr) minmax(190px,.9fr);gap:13px}
+ .player-volume-control input{width:70px}
+ .player-side-controls .player-queue-controls>span{display:none}
+}
+@media(max-width:760px){
+ .global-player{grid-template-columns:minmax(0,1fr) auto;gap:9px 12px;padding:11px 14px}
+ .global-player-track{grid-column:1;grid-row:1}
+ .global-player-center{grid-column:1/-1;grid-row:2}
+ .player-side-controls{grid-column:2;grid-row:1;gap:6px}
+ .player-side-controls .player-queue-controls{gap:5px}
+ .player-side-controls .player-queue-controls button{min-height:30px;padding:5px 8px;font-size:10px}
+ .player-window-controls{gap:5px}
+ .player-volume-control{min-height:32px;padding:3px 6px}
+ .player-volume-control input{width:58px}
+ .player-window-controls>button{width:32px;height:32px}
+ .global-player.is-collapsed{grid-template-columns:minmax(0,1fr) auto;min-height:72px;padding:10px 12px}
+ .global-player.is-collapsed .global-player-track{grid-column:1;grid-row:1}
+ .global-player.is-collapsed .player-side-controls{grid-column:2;grid-row:1}
+}
+@media(max-width:420px){
+ .player-volume-control input{width:44px}
+ .player-side-controls .player-queue-controls #player-clear{display:none}
+ .player-window-controls>button{width:30px;height:30px}
+}
