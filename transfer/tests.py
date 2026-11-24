@@ -239,6 +239,22 @@ class VKPlaylistBatchTests(TestCase):
         item["album"]["thumb"]["photo_300"] = "https://attacker.example/cover.jpg"
         self.assertEqual(VKClient._track_from_item(item).cover_url, "")
 
+    def test_track_cover_supports_track_covers_and_direct_cover_fields(self):
+        item = {
+            "owner_id": 42, "id": 8, "artist": "Artist", "title": "Track", "duration": 120,
+            "track_covers": ["//sun9-1.userapi.com/s/v1/cover.jpg"],
+        }
+        self.assertEqual(
+            VKClient._track_from_item(item).cover_url,
+            "https://sun9-1.userapi.com/s/v1/cover.jpg",
+        )
+        item["track_covers"] = []
+        item["cover"] = {"url": "https://sun9-2.userapi.com/cover.jpg"}
+        self.assertEqual(
+            VKClient._track_from_item(item).cover_url,
+            "https://sun9-2.userapi.com/cover.jpg",
+        )
+
     def test_fetch_track_uses_audio_get_by_id(self):
         client = self.make_client()
         with patch.object(client, "post", return_value={"response": [
