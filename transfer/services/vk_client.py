@@ -259,6 +259,25 @@ class VKClient:
         except (KeyError, IndexError, TypeError, ValueError):
             return None
 
+    def search_tracks(self, query, count=20):
+        """Search public VK audio metadata without using a personal account."""
+        query = str(query or "").strip()
+        if not query or len(query) > 180:
+            raise TransferError("Поисковый запрос VK пуст или слишком длинный.")
+        payload = self.post(
+            "audio.search",
+            data={"q": query, "count": max(1, min(int(count), 50)), "sort": 2, "auto_complete": 0},
+        )
+        items, _ = self._response_items(payload)
+        tracks = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            track = self._track_from_item(item)
+            if track and track.artist and track.title:
+                tracks.append(track)
+        return tracks
+
     def fetch_playlist(self, url):
         owner, playlist_id, access_key = parse_vk_playlist_url(url)
         self.token_provider.referer = url
