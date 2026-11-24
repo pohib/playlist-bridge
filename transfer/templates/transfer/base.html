@@ -48,9 +48,12 @@
     <div class="player-queue-controls"><span id="player-queue-count">Очередь пуста</span><button type="button" id="player-queue-toggle" aria-expanded="false" aria-controls="player-queue-panel">Очередь <span id="player-queue-size">0</span></button><button type="button" id="player-clear">Очистить</button></div>
     <section class="player-queue-panel" id="player-queue-panel" hidden aria-label="Очередь воспроизведения">
       <div class="player-queue-heading"><div><strong>Очередь воспроизведения</strong><small id="player-queue-summary">Композиции для следующего прослушивания</small></div><button type="button" id="player-queue-close" aria-label="Свернуть очередь">×</button></div>
-      <label class="player-source-setting" for="player-source-mode">Предпочитаемый источник
-        <select id="player-source-mode"><option value="auto">Автоматически</option><option value="vk">VK</option><option value="soundcloud">SoundCloud</option><option value="spotify">Spotify</option><option value="youtube_music">YouTube Music</option><option value="apple_music">Apple Music</option></select>
+      <label class="player-source-setting" for="player-source-mode">Где искать трек? Можно выбрать несколько сервисов
+        <select id="player-source-mode" multiple size="5"><option value="auto" selected>Автоматически — все доступные</option><option value="vk">VK</option><option value="soundcloud">SoundCloud</option><option value="spotify">Spotify</option><option value="youtube_music">YouTube Music</option><option value="apple_music">Apple Music</option></select>
       </label>
+      <button type="button" class="player-search-button" id="player-search-current">Найти текущий трек</button>
+      <div class="player-search-results" id="player-search-results" aria-live="polite"></div>
+      <input type="hidden" id="player-csrf-token" value="{% csrf_token %}">
       <ol class="player-queue-list" id="player-queue-list"></ol>
     </section>
   </aside>
