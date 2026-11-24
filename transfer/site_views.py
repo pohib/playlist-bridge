@@ -1,7 +1,10 @@
-from urllib.parse import quote
+from urllib.parse import quote, urljoin, urlsplit
+
+import requests
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
@@ -126,10 +129,6 @@ def profile(request):
 @require_GET
 def library_cover_proxy(request):
     """Serve approved provider artwork from our origin to honor the strict image CSP."""
-    import requests
-    from urllib.parse import urljoin, urlsplit
-    from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
-
     allowed_domains = (
         "userapi.com", "mycdn.me", "vk.com", "vk.ru", "vk.me", "vkuserphoto.ru", "vkuseraudio.net", "okcdn.ru",
         "scdn.co", "sndcdn.com", "spotifycdn.com", "spotify.com",
