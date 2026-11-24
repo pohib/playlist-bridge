@@ -21,12 +21,27 @@ class VKTrack:
     duration: int
 
 
-def parse_vk_playlist_url(value):
+def _validated_vk_url(value, error_message):
     if not isinstance(value, str) or len(value) > 2048:
-        raise ValueError("Ссылка на плейлист VK слишком длинная или некорректная.")
+        raise ValueError(error_message)
     parsed = urlparse(value.strip())
-    if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"vk.ru", "vk.com", "www.vk.com", "m.vk.com"}:
-        raise ValueError("Укажи ссылку на плейлист VK.")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError(error_message) from exc
+    if (
+        parsed.scheme not in {"http", "https"}
+        or parsed.hostname not in {"vk.ru", "vk.com", "www.vk.com", "m.vk.com"}
+        or port not in (None, 80, 443)
+        or parsed.username
+        or parsed.password
+    ):
+        raise ValueError(error_message)
+    return parsed
+
+
+def parse_vk_playlist_url(value):
+    parsed = _validated_vk_url(value, "Укажи ссылку на плейлист VK.")
     match = re.fullmatch(r"/music/playlist/(-?\d+)_(\d+)(?:_([A-Za-z0-9]+))?/?", parsed.path)
     if not match:
         raise ValueError("Формат ссылки на плейлист VK не распознан.")
@@ -35,16 +50,11 @@ def parse_vk_playlist_url(value):
 
 
 def parse_vk_track_url(value):
-    if not isinstance(value, str) or len(value) > 2048:
-        raise ValueError("Ссылка на трек VK некорректна.")
-    parsed = urlparse(value.strip())
-    if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"vk.ru", "vk.com", "www.vk.com", "m.vk.com"}:
-        raise ValueError("Укажи ссылку на аудиозапись VK.")
+    parsed = _validated_vk_url(value, "Укажи ссылку на аудиозапись VK.")
     match = re.fullmatch(r"/audio(-?\d+)_(\d+)/?", parsed.path)
     if not match:
         raise ValueError("Формат ссылки на аудиозапись VK не распознан.")
     return int(match.group(1)), int(match.group(2))
-
 
 def normalize_track_text(value):
     value = (value or "").casefold().replace("ё", "е")

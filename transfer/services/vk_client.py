@@ -1,23 +1,27 @@
-"""VK ID OAuth and VK API client implementations."""
+"""VK anonymous public-audio API client implementation."""
 import requests
 
 from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_url
 
 
 class VKAnonymousTokenProvider:
-    """Fetch and cache an anonymous VK API token without user cookies."""
+    """Obtain a short-lived anonymous token using VK's public web client."""
 
-    TOKEN_ENDPOINT = "https://" + "login.vk.ru/"
+    ENDPOINT_URL = "https://login.vk.ru/"
+    MODALS_ENDPOINT = "https://vk.ru/al_index.php"
+    CLIENT_ID = "6287487"
+    # Public web-client credential observed in VK's own browser request.
+    # This is not a credential for a user-created VK application.
+    WEB_CLIENT_PARAMETER = "QbYic1K3lEV5kTGiqlq2"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
-    def __init__(self, client_id, client_secret, http=None):
-        if not client_id or not client_secret:
-            raise TransferError("Не настроены параметры анонимного доступа VK.")
-        self.client_id = str(client_id)
-        self.client_secret = client_secret
+    def __init__(self, client_id=None, http=None):
+        self.client_id = str(client_id or self.CLIENT_ID)
+        self.web_client_parameter = self.WEB_CLIENT_PARAMETER
         self.http = http or requests.Session()
         self._token: str | None = None
         self._expires_at = 0
+        self.referer = "https://vk.ru/"
 
     def get_token(self):
         import time
@@ -25,7 +29,8 @@ class VKAnonymousTokenProvider:
         if self._token is not None and time.time() < self._expires_at - 60:
             return self._token
         try:
-            # Bootstrap an anonymous VK web session; this does not log in a user.
+            # Start a clean anonymous web session. The session object retains
+            # only cookies issued by VK during these requests.
             bootstrap = self.http.get(
                 "https://vk.ru/",
                 headers={"Accept": "text/html"},
@@ -38,19 +43,42 @@ class VKAnonymousTokenProvider:
                 bootstrap.close()
                 raise TransferError("VK не открыл публичную страницу для анонимной сессии.")
             bootstrap.close()
-            response = self.http.post(
-                self.TOKEN_ENDPOINT,
-                params={"act": "get_anonym_token"},
-                data={
-                    "client_secret": self.client_secret,
-                    "client_id": self.client_id,
-                    "scopes": self.SCOPES,
-                    "isApiOauthAnonymEnabled": "false",
-                    "version": "1",
-                    "app_id": self.client_id,
-                },
+
+            # VK's web audio flow initializes its modal context before asking
+            # login.vk.ru for an anonymous API token.
+            modals = self.http.post(
+                self.MODALS_ENDPOINT,
+                params={"act": "modals"},
+                data={"act": "modals", "al": "1", "module": "audio"},
                 headers={
-                    "Accept": "application/json",
+                    "Accept": "*/*",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Origin": "https://vk.ru",
+                    "Referer": self.referer,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                timeout=(5, 15),
+                allow_redirects=False,
+            )
+            modals.raise_for_status()
+
+            token_data = {
+                "client_secret": self.web_client_parameter,
+                "client_id": self.client_id,
+                "scopes": self.SCOPES,
+                "isApiOauthAnonymEnabled": "false",
+                "version": "1",
+                "app_id": self.client_id,
+            }
+            if self._token:
+                token_data["anonymous_token"] = self._token
+
+            response = self.http.post(
+                self.ENDPOINT_URL,
+                params={"act": "get_anonym_token"},
+                data=token_data,
+                headers={
+                    "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
                     "Referer": "https://vk.ru/",
@@ -68,14 +96,13 @@ class VKAnonymousTokenProvider:
         token = data.get("access_token") if isinstance(data, dict) else None
         expires_at = data.get("expired_at", data.get("expires")) if isinstance(data, dict) else None
         if payload.get("type") != "okay" or not isinstance(token, str) or not token.startswith("anonym."):
-            raise TransferError("VK не выдал анонимный токен. Проверь настройки приложения и доступность публичного API.")
+            raise TransferError("VK не выдал анонимный токен. Возможно, публичный API временно недоступен.")
         try:
             self._expires_at = int(expires_at)
         except (TypeError, ValueError) as exc:
             raise TransferError("VK вернул некорректный срок действия анонимного токена.") from exc
         self._token = token
         return self._token
-
 
 class VKClient:
     """VK public-audio client based on anonymous API access."""
@@ -84,10 +111,10 @@ class VKClient:
     MAX_TRACKS = 5000
     AUDIO_BATCH_SIZE = 50
 
-    def __init__(self, client_id, client_secret, version="5.289"):
-        self.client_id = str(client_id)
+    def __init__(self, client_id=None, version="5.289"):
+        self.client_id = str(client_id or VKAnonymousTokenProvider.CLIENT_ID)
         self.version = str(version)
-        self.token_provider = VKAnonymousTokenProvider(client_id, client_secret)
+        self.token_provider = VKAnonymousTokenProvider(client_id)
         self.http = requests.Session()
 
     def post(self, method, *, data=None):
@@ -147,6 +174,7 @@ class VKClient:
 
     def fetch_playlist(self, url):
         owner, playlist_id, access_key = parse_vk_playlist_url(url)
+        self.token_provider.referer = url
         entity_id = f"{owner}_{playlist_id}" + (f"_{access_key}" if access_key else "")
         ids_payload = self.post(
             "audio.getIdsBySource",
@@ -184,6 +212,7 @@ class VKClient:
 
     def fetch_track(self, url):
         owner_id, track_id = parse_vk_track_url(url)
+        self.token_provider.referer = url
         payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"})
         items, _ = self._response_items(payload)
         if not items or not isinstance(items[0], dict):

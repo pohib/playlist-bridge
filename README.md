@@ -6,7 +6,7 @@ Django-приложение для сбора плейлистов и треко
 
 Пользователь подключает доступные сервисы кнопками на главной странице:
 - Spotify — OAuth Authorization Code.
-- VK — публичные плейлисты и отдельные треки импортируются по ссылке через анонимный API-токен; вход в VK и пользовательский VK OAuth не требуются. Для получения анонимного токена сервер использует секрет приложения VK, который хранится только в `.env`.
+- VK — публичные плейлисты и отдельные треки импортируются по ссылке через анонимный API-токен веб-клиента VK; вход в VK и создание собственного VK-приложения не требуются.
 - SoundCloud — OAuth 2.1 Authorization Code с PKCE S256 и одноразовыми refresh tokens.
 
 Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.
@@ -77,17 +77,17 @@ Django и приложение пишут логи в stdout и в `reports/appl
 В .env хранятся только конфигурация приложения, секреты разработчика и инфраструктуры:
 - DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEY, пароль PostgreSQL;
 - Spotify Developer App: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, Redirect URI;
-- VK Developer App: VK_ID_CLIENT_ID и VK_ANON_CLIENT_SECRET для получения анонимного токена. Секрет хранится только на сервере;
+
 - SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
 - версия VK API и адрес Redis.
 
 Не помещай пользовательские VK/Spotify/SoundCloud access token или refresh token в .env.
 
-Создай приложение Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), VK ID — в [кабинете VK ID](https://id.vk.com/about/business/go), а SoundCloud — в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. Для VK создай приложение и возьми его ID и секрет приложения для `VK_ID_CLIENT_ID` и `VK_ANON_CLIENT_SECRET`. VK OAuth callback не нужен. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
+Создай приложения Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и SoundCloud в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
-Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах VK ID, Spotify и SoundCloud.
+Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах Spotify и SoundCloud.
 
 ### 1. Подготовь проект и .env
 
@@ -118,9 +118,9 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 Заполни OAuth-переменные:
 - SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
-- VK_ID_CLIENT_ID — ID приложения VK, используемый для анонимного API;
-- SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App;
-- VK_ANON_CLIENT_SECRET — секрет приложения VK для `get_anonym_token`. Не используй скомпрометированный секрет; при необходимости выпусти новый в кабинете VK и внеси его только в локальный `.env`.
+- SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App.
+
+VK не требует регистрации приложения и отдельных значений в `.env`: сервер получает анонимный токен публичного веб-клиента.
 
 Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
 
@@ -189,7 +189,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 Quick Tunnel не гарантирует постоянный адрес. При новом запуске:
 1. Останови старый cloudflared процесс, если он ещё работает;
 2. Запусти scripts/start-tunnel.ps1 снова;
-3. Обнови оба callback URI в кабинетах VK ID и Spotify, если домен изменился;
+3. Обнови callback URI в кабинетах Spotify и SoundCloud, если домен изменился;
 4. Переподключи OAuth, если провайдер использует новый Redirect URI.
 
 Не публикуй приложение с Quick Tunnel как постоянный production-сервис: это временный туннель для разработки и проверки OAuth.

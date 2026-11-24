@@ -1,4 +1,6 @@
 # ruff: noqa: I001
+import base64
+import hashlib
 import time
 from unittest.mock import Mock, patch
 
@@ -10,6 +12,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from urllib.parse import parse_qs, urlparse
 from django.utils.crypto import get_random_string
 from requests import HTTPError
 
@@ -29,7 +32,6 @@ from .models import OAuthCredential, TransferJob
 
 
 TEST_PASSWORD = get_random_string(32)
-TEST_VK_ANON_SECRET = get_random_string(32)
 
 
 class InputValidationTests(TestCase):
@@ -46,6 +48,14 @@ class InputValidationTests(TestCase):
     def test_invalid_url_rejected(self):
         with self.assertRaises(ValueError):
             parse_vk_playlist_url("javascript:alert(1)")
+        for hostile in (
+            "https://vk.ru:8443/music/playlist/1_2",
+            "https://user@vk.ru/music/playlist/1_2",
+            "https://vk.ru.evil.example/music/playlist/1_2",
+        ):
+            with self.subTest(url=hostile), self.assertRaises(ValueError):
+                parse_vk_playlist_url(hostile)
+
 
     def test_normalization(self):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
@@ -116,7 +126,7 @@ class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_is_requested_without_user_cookie(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
+        provider = VKAnonymousTokenProvider("app-id", http=Mock())
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {
@@ -134,17 +144,24 @@ class VKAnonymousTokenTests(TestCase):
             allow_redirects=False,
             stream=True,
         )
-        call = provider.http.post.call_args
-        self.assertEqual(call.kwargs["data"]["client_id"], "app-id")
-        self.assertEqual(call.kwargs["data"]["client_secret"], "fixture-value")
-        self.assertEqual(call.kwargs["data"]["scopes"], provider.SCOPES)
-        self.assertNotIn("cookies", call.kwargs)
-        self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
+        self.assertEqual(provider.http.post.call_count, 2)
+        modals_call, token_call = provider.http.post.call_args_list
+        self.assertEqual(modals_call.args[0], provider.MODALS_ENDPOINT)
+        self.assertEqual(modals_call.kwargs["params"], {"act": "modals"})
+        self.assertEqual(modals_call.kwargs["data"], {
+            "act": "modals", "al": "1", "module": "audio",
+        })
+        self.assertEqual(token_call.kwargs["data"]["client_id"], "app-id")
+        self.assertEqual(token_call.kwargs["data"]["client_secret"], provider.WEB_CLIENT_PARAMETER)
+        self.assertEqual(token_call.kwargs["data"]["scopes"], provider.SCOPES)
+        for call in (modals_call, token_call):
+            self.assertNotIn("cookies", call.kwargs)
+            self.assertNotIn("Cookie", call.kwargs.get("headers", {}))
 
     def test_anonymous_token_rejects_unexpected_response(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
+        provider = VKAnonymousTokenProvider("app-id")
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"type": "error", "data": {}}
@@ -156,7 +173,7 @@ class VKAnonymousTokenTests(TestCase):
 
 class VKPlaylistBatchTests(TestCase):
     def make_client(self):
-        client = VKClient("vk-app", "fixture-value", "5.289")
+        client = VKClient("vk-app", "5.289")
         client.token_provider.get_token = Mock(return_value="anonym.test")
         return client
 
@@ -287,7 +304,6 @@ class VersionedApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     @override_settings(
-        VK_ID_CLIENT_ID="test-vk-app",
         SPOTIFY_CLIENT_ID="test-client",
         SPOTIFY_CLIENT_SECRET=Fernet.generate_key().decode(),
         TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
@@ -423,11 +439,7 @@ class ApiSessionSecurityTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    @override_settings(
-        TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
-        VK_ID_CLIENT_ID="vk-app",
-        VK_ANON_CLIENT_SECRET=TEST_VK_ANON_SECRET,
-    )
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
         session = SessionStore()
@@ -517,6 +529,25 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(track.artist, "The Weeknd")
         self.assertEqual(LibraryProfile.objects.count(), 1)
 
+    @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
+    def test_user_text_is_stored_as_data_and_escaped_in_html(self):
+        from .models import LibraryPlaylist
+
+        user = get_user_model().objects.create_user(username="xss-test", password=TEST_PASSWORD)
+        self.client.force_login(user)
+        payload = "<script>alert(1)</script>'); DROP TABLE transfer_libraryplaylist;--"
+        response = self.client.post(
+            reverse("library_create_playlist"),
+            {"title": payload, "provider": "manual"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(LibraryPlaylist.objects.filter(title=payload).exists())
+
+        page = self.client.get(reverse("library"))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "&lt;script&gt;alert(1)&lt;/script&gt;")
+        self.assertNotContains(page, "<script>alert(1)</script>")
+
     def test_library_objects_are_isolated_between_sessions(self):
         from .models import LibraryPlaylist, LibraryProfile
         self.client.post(
@@ -533,6 +564,25 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(playlist.tracks.count(), 0)
         self.assertEqual(LibraryProfile.objects.count(), 2)
+
+    def test_provider_url_validators_reject_ssrf_authority_tricks(self):
+        from .library_views import _spotify_resource_id, _validate_soundcloud_permalink
+
+        for url in (
+            "https://open.spotify.com:8443/playlist/" + "A" * 22,
+            "https://user@open.spotify.com/playlist/" + "A" * 22,
+        ):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                _spotify_resource_id(url, "playlist")
+
+        for url in (
+            "https://127.0.0.1/admin",
+            "https://soundcloud.com.attacker.example/track",
+            "https://user@soundcloud.com/track",
+            "https://soundcloud.com:8443/track",
+        ):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                _validate_soundcloud_permalink(url)
 
     def test_playlist_rejects_non_http_external_url(self):
         response = self.client.post(
@@ -561,11 +611,7 @@ class VKLibraryImportTests(TestCase):
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @override_settings(
-        VK_ID_CLIENT_ID="vk-client",
-        VK_ANON_CLIENT_SECRET=TEST_VK_ANON_SECRET,
-        VK_API_VERSION="5.289",
-    )
+    @override_settings(VK_API_VERSION="5.289")
     def test_import_saves_playlist_tracks_in_original_order(self, fetch_playlist):
         response = self.client.post(
             reverse("library_import_vk"),
@@ -684,6 +730,22 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(track.title, "Single")
         self.assertEqual(track.duration_ms, 90000)
 
+    def test_upload_rejects_mime_and_extension_spoofing(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from unittest.mock import patch
+
+        fake_audio = SimpleUploadedFile(
+            "not-really-audio.mp3", b"<script>alert(1)</script>",
+            content_type="audio/mpeg",
+        )
+        with patch("transfer.library_views._soundcloud_access") as access:
+            response = self.client.post(
+                reverse("library_upload_soundcloud_track"),
+                {"title": "Fake", "artist": "Attacker", "audio_file": fake_audio},
+            )
+        self.assertEqual(response.status_code, 302)
+        access.assert_not_called()
+
     @patch("transfer.library_views._soundcloud_access")
     def test_upload_owned_audio_file_to_soundcloud(self, access):
         client = Mock()
@@ -693,7 +755,7 @@ class SoundCloudIntegrationTests(TestCase):
             "permalink_url": "https://soundcloud.com/me/uploaded-track",
         }
         access.return_value = (client, "sc-token")
-        audio = SimpleUploadedFile("demo.mp3", b"audio-bytes", content_type="audio/mpeg")
+        audio = SimpleUploadedFile("demo.mp3", b"ID3\x04\x00\x00\x00\x00\x00\x00audio-data", content_type="application/octet-stream")
         response = self.client.post(
             reverse("library_upload_soundcloud_track"),
             {"title": "Demo", "artist": "Me", "audio_file": audio},
