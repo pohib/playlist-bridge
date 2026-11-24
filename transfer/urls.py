@@ -53,6 +53,7 @@ urlpatterns = [
     path("library/tracks/<uuid:track_id>/delete/", library_views.delete_track, name="library_delete_track"),
     path("api/v1/library/tracks/search/", library_views.search_library_sources, name="library_track_search"),
     path("api/v1/library/tracks/<uuid:track_id>/vk-stream/", library_views.get_vk_track_stream, name="library_vk_track_stream"),
+    path("library/tracks/<uuid:track_id>/vk-audio/", library_views.stream_vk_track_audio, name="library_vk_track_audio"),
     path("api/v1/status/", views.api_status, name="api_status"),
     path("api/v1/transfers/", views.api_create_transfer, name="api_create_transfer"),
     path("api/v1/transfers/<uuid:job_id>/", views.api_transfer_detail, name="api_transfer_detail"),
