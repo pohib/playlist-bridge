@@ -1097,7 +1097,10 @@ class LibraryMergeTests(TestCase):
 
         self.user = get_user_model().objects.create_user(username="merge_tester", password=TEST_PASSWORD)
         self.client.force_login(self.user)
-        self.profile = LibraryProfile.objects.get(user=self.user)
+        self.profile, _ = LibraryProfile.objects.get_or_create(
+            user=self.user,
+            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
+        )
 
     def test_merge_preserves_order_deduplicates_and_keeps_sources(self):
         from .models import LibraryPlaylist, LibraryTrack
