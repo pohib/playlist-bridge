@@ -1,8 +1,8 @@
 {% extends "transfer/base.html" %}
 {% block title %}Библиотека — Playlist Bridge{% endblock %}
 {% block content %}
-<section class="page-heading"><div><span class="section-kicker">YOUR MUSIC COLLECTION</span><h1>Моя <span>библиотека.</span></h1><p>Импортируй коллекции из сервисов или собери свой плейлист вручную.</p></div></section>
-<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">IMPORT MUSIC</span><h2>Добавить музыку</h2></div></div>
+<section class="page-heading"><div><span class="section-kicker">ТВОЯ МУЗЫКАЛЬНАЯ КОЛЛЕКЦИЯ</span><h1>Моя <span>библиотека.</span></h1><p>Импортируй коллекции из сервисов или собери свой плейлист вручную.</p></div></section>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">ДОБАВЛЕНИЕ МУЗЫКИ</span><h2>Добавить музыку</h2></div></div>
 <div class="import-grid">
 <form method="post" action="{% url 'library_import_vk' %}" class="import-card">{% csrf_token %}<span class="provider-chip vk-chip">VK</span><h3>Плейлист VK</h3><p>Импорт по ссылке на музыкальный плейлист.</p><div class="inline-help warning" role="note"><strong>Важно:</strong> плейлист VK должен быть публичным. Закрытые плейлисты и коллекции, доступные только после входа в аккаунт, импортировать нельзя.</div><input name="source_url" type="url" placeholder="https://vk.com/music/playlist/…" required><button class="secondary-button" type="submit">Импортировать</button></form>
 <form method="post" action="{% url 'library_import_vk_track' %}" class="import-card">{% csrf_token %}<span class="provider-chip vk-chip">VK</span><h3>Отдельный трек VK</h3><p>Добавь одну аудиозапись по ссылке.</p><input name="source_url" type="url" placeholder="https://vk.com/audio…" required><button class="secondary-button" type="submit">Добавить трек</button></form>
@@ -15,10 +15,10 @@
 <form method="post" enctype="multipart/form-data" action="{% url 'library_upload_soundcloud_track' %}" class="import-card import-wide">{% csrf_token %}<span class="provider-chip sc-chip">SC</span><h3>Загрузить собственный аудиофайл</h3><p>Только файлы, на загрузку которых у тебя есть права. До 100 МБ.</p><div class="inline-fields"><input name="title" maxlength="100" placeholder="Название" required><input name="artist" maxlength="100" placeholder="Исполнитель" required></div><input type="file" name="audio_file" accept="audio/*" required><button class="secondary-button" type="submit">Загрузить в SoundCloud</button></form>
 </div>
 </section>
-<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">YOUR COLLECTIONS</span><h2>Плейлисты и треки</h2></div><span class="count-chip">{{ playlists|length }} коллекций</span></div>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">ТВОИ КОЛЛЕКЦИИ</span><h2>Плейлисты и треки</h2></div><span class="count-chip">{{ playlists|length }} коллекций</span></div>
 {% if playlists %}<div class="library-grid">{% for playlist in playlists %}<a class="library-card" href="{% url 'playlist_detail' playlist.id %}">{% with cover=playlist.tracks.first.cover_url %}{% if cover %}<img class="library-art library-art-image" src="{{ cover }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<div class="library-art art-{{ playlist.provider }}"><span>♫</span></div>{% endif %}{% endwith %}<div class="library-card-info"><span>{{ playlist.get_provider_display }}</span><strong>{{ playlist.title }}</strong><small>{{ playlist.tracks.count }} композиций</small></div><b>↗</b></a>{% endfor %}</div>{% else %}<div class="empty-state"><span>♫</span><strong>Здесь пока тихо</strong><p>Импортируй плейлист выше или создай локальную коллекцию.</p></div>{% endif %}
 </section>
-<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">MAKE IT YOURS</span><h2>Новый плейлист</h2></div></div>
+<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">СОЗДАЙ СВОЮ КОЛЛЕКЦИЮ</span><h2>Новый плейлист</h2></div></div>
 <form method="post" action="{% url 'library_create_playlist' %}" class="create-inline">{% csrf_token %}<input name="title" maxlength="120" placeholder="Название плейлиста" required><input name="description" maxlength="240" placeholder="Описание (необязательно)"><button class="primary-button" type="submit">Создать коллекцию <span>＋</span></button></form>
 </section>
 {% endblock %}
