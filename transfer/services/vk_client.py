@@ -357,7 +357,7 @@ class VKClient:
         url = str(stream["url"])
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower().rstrip(".")
-        trusted = host == "okcdn.ru" or host.endswith(".okcdn.ru") or host == "vkuseraudio.ru" or host.endswith(".vkuseraudio.ru")
+        trusted = host == "okcdn.ru" or host.endswith((".okcdn.ru", ".vkuseraudio.ru")) or host == "vkuseraudio.ru"
         try:
             port = parsed.port
         except ValueError:
