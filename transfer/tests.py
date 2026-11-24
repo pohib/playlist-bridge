@@ -533,7 +533,7 @@ class LibraryWorkspaceTests(TestCase):
     def test_user_text_is_stored_as_data_and_escaped_in_html(self):
         from .models import LibraryPlaylist
 
-        user = get_user_model().objects.create_user(username="xss-test", password="test-password")
+        user = get_user_model().objects.create_user(username="xss-test", password=TEST_PASSWORD)
         self.client.force_login(user)
         payload = "<script>alert(1)</script>'); DROP TABLE transfer_libraryplaylist;--"
         response = self.client.post(
