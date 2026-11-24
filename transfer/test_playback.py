@@ -102,7 +102,7 @@ class VKPlaybackApiTests(TestCase):
     def test_stream_resolution_rejects_another_users_track(self):
         other_user = get_user_model().objects.create_user(
             username="vk-playback-other",
-            password="test-password",
+            password=get_random_string(32),
         )
         other_profile = LibraryProfile.objects.create(
             user=other_user,
