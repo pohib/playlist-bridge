@@ -35,7 +35,18 @@ def dashboard(request):
 @require_GET
 def library(request):
     profile = _profile(request)
-    playlists = LibraryPlaylist.objects.filter(profile=profile).prefetch_related("tracks")
+    playlists = list(LibraryPlaylist.objects.filter(profile=profile).prefetch_related("tracks"))
+    import json
+    for playlist in playlists:
+        playlist.playback_json = json.dumps([{
+            "provider": "local" if track.audio_file else (track.source_provider or playlist.provider),
+            "id": track.external_id,
+            "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
+            "title": track.title, "artist": track.artist, "cover": track.cover_url,
+            "duration": track.duration_ms,
+            "stream_url": reverse("library_vk_track_stream", kwargs={"track_id": track.pk})
+                if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
+        } for track in playlist.tracks.all()], ensure_ascii=False)
     return render(request, "transfer/library.html", {"playlists": playlists})
 
 
