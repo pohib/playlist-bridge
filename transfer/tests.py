@@ -188,7 +188,8 @@ class VKPlaylistBatchTests(TestCase):
             for index in range(1, 46)
         ]
         audio_items = [
-            {"owner_id": 42, "id": index, "artist": "Artist", "title": f"Track {index}", "duration": 180}
+            {"owner_id": 42, "id": index, "artist": "Artist", "title": f"Track {index}", "duration": 180,
+             "album": {"thumb": {"photo_300": "https://sun9-1.userapi.com/cover.jpg"}}}
             for index in range(1, 46)
         ]
         with patch.object(client, "post", side_effect=[
@@ -200,6 +201,7 @@ class VKPlaylistBatchTests(TestCase):
         self.assertEqual(name, "VK playlist")
         self.assertEqual(len(tracks), 45)
         self.assertEqual([track.track_id for track in tracks], list(range(1, 46)))
+        self.assertTrue(all(track.cover_url == "https://sun9-1.userapi.com/cover.jpg" for track in tracks))
         self.assertEqual(post.call_args_list[0].args[0], "audio.getIdsBySource")
         self.assertEqual(post.call_args_list[0].kwargs["data"], {
             "source": "playlist", "entity_id": "42_9_testkey", "ref": "",
@@ -229,6 +231,13 @@ class VKPlaylistBatchTests(TestCase):
         client = self.make_client()
         with patch.object(client, "post", return_value={"response": {"audios": []}}), self.assertRaises(TransferError):
             client.fetch_playlist("https://vk.ru/music/playlist/42_9")
+
+    def test_track_cover_rejects_non_https_and_untrusted_hosts(self):
+        item = {"owner_id": 42, "id": 7, "artist": "Artist", "title": "Track", "duration": 120,
+                "album": {"thumb": {"photo_300": "http://sun9-1.userapi.com/cover.jpg"}}}
+        self.assertEqual(VKClient._track_from_item(item).cover_url, "")
+        item["album"]["thumb"]["photo_300"] = "https://attacker.example/cover.jpg"
+        self.assertEqual(VKClient._track_from_item(item).cover_url, "")
 
     def test_fetch_track_uses_audio_get_by_id(self):
         client = self.make_client()
