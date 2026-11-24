@@ -4,7 +4,6 @@ import time
 
 from cryptography.fernet import Fernet
 from django.conf import settings
-from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
