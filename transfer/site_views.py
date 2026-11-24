@@ -155,14 +155,19 @@ def library_cover_proxy(request):
     if not allowed_url(current_url):
         return HttpResponseBadRequest("Unsupported artwork source.")
 
-    for _ in range(4):
+    for _ in range(8):
         if not allowed_url(current_url):
             return HttpResponseBadRequest("Unsupported artwork redirect.")
         try:
             upstream = requests.get(
                 current_url,
-                headers={"User-Agent": "Mozilla/5.0 PlaylistBridge/1.0", "Accept": "image/avif,image/webp,image/*"},
-                timeout=(5, 12),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36 PlaylistBridge/1.0",
+                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                    "Referer": "https://vk.ru/",
+                    "Origin": "https://vk.ru",
+                },
+                timeout=(5, 15),
                 stream=True,
                 allow_redirects=False,
             )
@@ -186,10 +191,8 @@ def library_cover_proxy(request):
             return HttpResponseBadRequest("Artwork is too large.")
 
         content_type = upstream.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-        if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"}:
-            upstream.close()
-            return HttpResponseBadRequest("Unsupported artwork content type.")
-
+        if content_type == "image/jpg":
+            content_type = "image/jpeg"
         body = bytearray()
         try:
             for chunk in upstream.iter_content(chunk_size=64 * 1024):
@@ -202,6 +205,21 @@ def library_cover_proxy(request):
             return HttpResponseNotFound("Artwork is temporarily unavailable.")
         finally:
             upstream.close()
+
+        # VK CDN may return valid image bytes with a generic binary content type.
+        if content_type in {"application/octet-stream", "binary/octet-stream", "application/binary"}:
+            if body.startswith(bytes.fromhex("FFD8FF")):
+                content_type = "image/jpeg"
+            elif body.startswith(bytes.fromhex("89504E470D0A1A0A")):
+                content_type = "image/png"
+            elif body.startswith((b"GIF87a", b"GIF89a")):
+                content_type = "image/gif"
+            elif len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
+                content_type = "image/webp"
+            elif len(body) >= 12 and body[4:8] == b"ftyp" and body[8:12] in {b"avif", b"avis"}:
+                content_type = "image/avif"
+        if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"}:
+            return HttpResponseBadRequest("Unsupported artwork content type.")
 
         response = HttpResponse(bytes(body), content_type=content_type)
         response["Cache-Control"] = "private, max-age=3600"
