@@ -1637,6 +1637,7 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 }
 
 /* Compact player: morph to a bottom-right control capsule */
+.global-player.is-morphing{transition:none!important;}
 .global-player{
   transition:opacity .28s ease,transform .36s cubic-bezier(.22,.72,.18,1),width .36s ease,
     min-height .36s ease,padding .36s ease,border-radius .36s ease,
@@ -1743,9 +1744,9 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 }
 #player-progress::-webkit-slider-thumb{
   appearance:none;-webkit-appearance:none;
-  width:13px;height:13px;margin-top:-3.5px;border:2px solid #eafff1;
-  border-radius:50%;background:linear-gradient(145deg,#75f5a7,#24c96d);
-  box-shadow:0 0 0 3px rgba(53,221,128,.14),0 2px 8px rgba(0,0,0,.32);
+  width:15px;height:15px;margin-top:-4.5px;border:2px solid rgba(255,255,255,.96);
+  border-radius:50%;background:#fff;
+  box-shadow:0 2px 9px rgba(0,0,0,.38);
 }
 #player-progress::-moz-range-track{
   height:6px;border-radius:999px;background:linear-gradient(90deg,rgba(50,220,126,.42),rgba(119,151,196,.25));
@@ -1754,8 +1755,8 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
   height:6px;border-radius:999px;background:linear-gradient(90deg,#24c96d,#75f5a7);
 }
 #player-progress::-moz-range-thumb{
-  width:10px;height:10px;border:2px solid #eafff1;border-radius:50%;
-  background:#38df83;box-shadow:0 0 0 3px rgba(53,221,128,.14);
+  width:14px;height:14px;border:2px solid rgba(255,255,255,.96);border-radius:50%;
+  background:#fff;box-shadow:0 2px 9px rgba(0,0,0,.38);
 }
 
 /* Keep drawer animation cheap: no full-screen blur or animated shadow */
