@@ -179,8 +179,8 @@ class VKClient:
         preferred_keys = (
             "photo_1200", "photo_1000", "photo_800", "photo_600",
             "photo_540", "photo_500", "photo_400", "photo_300",
-            "photo_270", "photo_200", "photo_135", "photo_68",
-            "cover_url", "cover", "image_url", "image", "src", "url",
+            "photo_270", "photo_200", "photo_135", "photo_68", "photo", "photo_url",
+            "cover_url", "cover", "cover_uri", "image_url", "image", "thumb_src", "src", "url",
         )
         candidates = []
         seen = set()
@@ -229,7 +229,8 @@ class VKClient:
             host = (parsed.hostname or "").lower().rstrip(".")
             trusted_host = (
                 host == "vk.com" or host == "userapi.com" or host == "vkuseraudio.net"
-                or host.endswith((".vk.com", ".userapi.com", ".vkuseraudio.net"))
+                or host == "vkuserphoto.ru" or host == "okcdn.ru"
+                or host.endswith((".vk.com", ".userapi.com", ".vkuseraudio.net", ".vkuserphoto.ru", ".okcdn.ru"))
             )
             try:
                 port = parsed.port
@@ -246,7 +247,7 @@ class VKClient:
         return ""
 
     @staticmethod
-    def _track_from_item(item):
+    def _track_from_item(item, audio_id=""):
         try:
             return VKTrack(
                 int(item["owner_id"]),
@@ -255,6 +256,7 @@ class VKClient:
                 str(item.get("title") or "").strip(),
                 max(0, int(item.get("duration") or 0)),
                 VKClient._cover_from_item(item),
+                str(audio_id or item.get("audio_id") or f"{item['owner_id']}_{item.get('id', '')}")[:200],
             )
         except (KeyError, IndexError, TypeError, ValueError):
             return None
@@ -301,6 +303,7 @@ class VKClient:
         ]
         if not audio_ids:
             raise TransferError("VK не вернул доступные композиции. Проверь публичность плейлиста.")
+        audio_id_by_track = {"_".join(value.split("_")[:2]): value for value in audio_ids}
         tracks = []
         for start in range(0, len(audio_ids), self.AUDIO_BATCH_SIZE):
             batch = audio_ids[start:start + self.AUDIO_BATCH_SIZE]
@@ -308,7 +311,8 @@ class VKClient:
             items, _ = self._response_items(payload)
             for item in items:
                 if isinstance(item, dict):
-                    track = self._track_from_item(item)
+                    key = f"{item.get('owner_id')}_{item.get('id')}"
+                    track = self._track_from_item(item, audio_id_by_track.get(key, ""))
                     if track and track.artist and track.title:
                         tracks.append(track)
         if not tracks:
@@ -327,3 +331,54 @@ class VKClient:
         if not track or not track.artist or not track.title:
             raise TransferError("VK вернул некорректные данные аудиозаписи.")
         return track
+
+
+    def get_track_stream(self, audio_id, stream_format="mp3"):
+        """Return a fresh, validated CDN URL for one public VK audio item."""
+        import re
+        from urllib.parse import urlparse
+
+        audio_id = str(audio_id or "").strip()
+        if not re.fullmatch(r"-?\d+_\d+(?:_[A-Za-z0-9]+)?", audio_id):
+            raise TransferError("Некорректный идентификатор аудиозаписи VK.")
+        if stream_format not in {"mp3", "hls_ts"}:
+            raise TransferError("Неподдерживаемый формат аудиопотока.")
+        payload = self.post("audio.getById", data={"audios": audio_id})
+        items, _ = self._response_items(payload)
+        if not items or not isinstance(items[0], dict):
+            raise TransferError("VK не вернул аудиозапись. Возможно, она недоступна.")
+        item = items[0]
+        streams = item.get("audio_streams") or []
+        stream = next((entry for entry in streams if isinstance(entry, dict) and entry.get("type") == stream_format and entry.get("url")), None)
+        if not stream:
+            if item.get("content_restricted"):
+                raise TransferError("VK не предоставил аудиопоток для этой композиции (ограничение доступа).")
+            raise TransferError(f"VK не предоставил поток в формате {stream_format}.")
+        url = str(stream["url"])
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        trusted = host == "okcdn.ru" or host.endswith((".okcdn.ru", ".vkuseraudio.ru")) or host == "vkuseraudio.ru"
+        try:
+            port = parsed.port
+        except ValueError:
+            port = -1
+        if parsed.scheme != "https" or not trusted or port not in (None, 443) or parsed.username or parsed.password:
+            raise TransferError("VK вернул небезопасный адрес аудиопотока.")
+        return {"url": url, "format": stream_format}
+
+
+    def resolve_playlist_audio_id(self, playlist_url, base_audio_id):
+        """Recover the exact access-key-bearing audio ID from its public playlist."""
+        owner, playlist_id, access_key = parse_vk_playlist_url(playlist_url)
+        entity_id = f"{owner}_{playlist_id}" + (f"_{access_key}" if access_key else "")
+        self.token_provider.referer = playlist_url
+        payload = self.post("audio.getIdsBySource", data={
+            "source": "playlist", "entity_id": entity_id, "ref": "",
+        })
+        response = payload.get("response", {})
+        refs = response.get("audios", []) if isinstance(response, dict) else []
+        for entry in refs if isinstance(refs, list) else []:
+            candidate = entry.get("audio_id") if isinstance(entry, dict) else None
+            if isinstance(candidate, str) and "_".join(candidate.split("_")[:2]) == base_audio_id:
+                return candidate
+        raise TransferError("VK не нашёл эту композицию в исходном плейлисте.")
