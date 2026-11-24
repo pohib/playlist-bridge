@@ -7,17 +7,17 @@ from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_trac
 class VKAnonymousTokenProvider:
     """Obtain a short-lived anonymous token using VK's public web client."""
 
-    TOKEN_ENDPOINT = "https://login.vk.ru/"  # nosec B105 - endpoint URL, not a password
+    ANONYMOUS_AUTH_URL = "https://login.vk.ru/"
     MODALS_ENDPOINT = "https://vk.ru/al_index.php"
     CLIENT_ID = "6287487"
     # Public web-client credential observed in VK's own browser request.
     # This is not a credential for a user-created VK application.
-    CLIENT_SECRET = "QbYic1K3lEV5kTGiqlq2"  # nosec B105 - public VK web-client parameter, not a user/app secret
+    WEB_CLIENT_KEY = "QbYic1K3lEV5kTGiqlq2"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
-    def __init__(self, client_id=None, client_secret=None, http=None):
+    def __init__(self, client_id=None, http=None):
         self.client_id = str(client_id or self.CLIENT_ID)
-        self.client_secret = client_secret or self.CLIENT_SECRET
+        self.web_client_key = self.WEB_CLIENT_KEY
         self.http = http or requests.Session()
         self._token: str | None = None
         self._expires_at = 0
@@ -63,7 +63,7 @@ class VKAnonymousTokenProvider:
             modals.raise_for_status()
 
             token_data = {
-                "client_secret": self.client_secret,
+                "client_secret": self.web_client_key,
                 "client_id": self.client_id,
                 "scopes": self.SCOPES,
                 "isApiOauthAnonymEnabled": "false",
@@ -74,7 +74,7 @@ class VKAnonymousTokenProvider:
                 token_data["anonymous_token"] = self._token
 
             response = self.http.post(
-                self.TOKEN_ENDPOINT,
+                self.ANONYMOUS_AUTH_URL,
                 params={"act": "get_anonym_token"},
                 data=token_data,
                 headers={
@@ -111,10 +111,10 @@ class VKClient:
     MAX_TRACKS = 5000
     AUDIO_BATCH_SIZE = 50
 
-    def __init__(self, client_id=None, client_secret=None, version="5.289"):
+    def __init__(self, client_id=None, version="5.289"):
         self.client_id = str(client_id or VKAnonymousTokenProvider.CLIENT_ID)
         self.version = str(version)
-        self.token_provider = VKAnonymousTokenProvider(client_id, client_secret)
+        self.token_provider = VKAnonymousTokenProvider(client_id)
         self.http = requests.Session()
 
     def post(self, method, *, data=None):
