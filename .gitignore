@@ -12,4 +12,4 @@ staticfiles/
 reports/*.log
 reports/*.log.*
 !reports/.gitkeep
-\nmedia/\n
+\nmedia/ # user-uploaded audio; keep outside Git\n
