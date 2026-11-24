@@ -1,0 +1,12 @@
+[run]
+branch = True
+source = transfer
+omit =
+    */migrations/*
+    */tests.py
+    */test_*.py
+
+[report]
+show_missing = True
+skip_covered = True
+precision = 1
