@@ -690,7 +690,6 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(track.title, "Single")
         self.assertEqual(track.duration_ms, 90000)
 
-    @patch("transfer.library_views._soundcloud_access")
     def test_upload_rejects_mime_and_extension_spoofing(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from unittest.mock import patch
@@ -707,6 +706,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         access.assert_not_called()
 
+    @patch("transfer.library_views._soundcloud_access")
     def test_upload_owned_audio_file_to_soundcloud(self, access):
         client = Mock()
         client.upload_track.return_value = {
