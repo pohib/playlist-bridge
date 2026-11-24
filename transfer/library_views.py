@@ -1,9 +1,12 @@
 # ruff: noqa: I001
 import logging
+import mimetypes
 import re
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -204,6 +207,7 @@ def merge_playlists(request):
                     cover_url=track.cover_url, external_id=track.external_id,
                     external_url=track.external_url,
                     source_provider=track.source_provider or source.provider,
+                    audio_file=track.audio_file,
                     position=len(merged_rows),
                 ))
         if not merged_rows:
@@ -213,6 +217,68 @@ def merge_playlists(request):
         LibraryTrack.objects.bulk_create(merged_rows)
     messages.success(request, f"Создана коллекция «{merged.title}»: {len(merged_rows)} уникальных композиций.")
     return redirect("playlist_detail", playlist_id=merged.pk)
+
+
+@require_POST
+@login_required
+def upload_local_track(request):
+    title = (request.POST.get("title") or "").strip()
+    artist = (request.POST.get("artist") or "").strip()
+    uploaded = request.FILES.get("audio_file")
+    allowed = {".mp3", ".wav", ".ogg", ".flac", ".m4a"}
+    if not title or len(title) > 180 or not artist or len(artist) > 180 or not uploaded:
+        messages.error(request, "Укажи название, исполнителя и аудиофайл.")
+        return redirect("library")
+    suffix = Path(uploaded.name).suffix.lower()
+    if suffix not in allowed or uploaded.size > 100 * 1024 * 1024:
+        messages.error(request, "Поддерживаются MP3, WAV, OGG, FLAC и M4A размером до 100 МБ.")
+        return redirect("library")
+    header = uploaded.read(16)
+    uploaded.seek(0)
+    signatures = {
+        ".wav": header.startswith(b"RIFF") and header[8:12] == b"WAVE",
+        ".ogg": header.startswith(b"OggS"),
+        ".flac": header.startswith(b"fLaC"),
+        ".m4a": header[4:8] == b"ftyp",
+        ".mp3": header.startswith(b"ID3") or (
+            len(header) > 1 and header[0] == 0xFF and header[1] & 0xE0 == 0xE0
+        ),
+    }
+    if not signatures.get(suffix, False):
+        messages.error(request, "Содержимое файла не соответствует заявленному аудиоформату.")
+        return redirect("library")
+    profile = _profile(request)
+    playlist, _ = LibraryPlaylist.objects.get_or_create(
+        profile=profile, title="Мои аудиофайлы",
+        defaults={
+            "provider": LibraryPlaylist.Provider.MANUAL,
+            "description": "Личные аудиофайлы, загруженные в Playlist Bridge",
+        },
+    )
+    track = LibraryTrack.objects.create(
+        playlist=playlist, title=title, artist=artist,
+        source_provider=LibraryPlaylist.Provider.MANUAL,
+        audio_file=uploaded, position=playlist.tracks.count(),
+    )
+    playlist.save(update_fields=["updated_at"])
+    messages.success(request, f"Файл «{track.title}» добавлен в локальную библиотеку.")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
+
+
+@login_required
+def stream_local_track(request, track_id):
+    track = get_object_or_404(
+        LibraryTrack.objects.select_related("playlist__profile"),
+        pk=track_id,
+        playlist__profile=_profile(request),
+    )
+    if not track.audio_file:
+        raise Http404("У композиции нет локального аудиофайла.")
+    content_type = mimetypes.guess_type(track.audio_file.name)[0] or "application/octet-stream"
+    response = FileResponse(track.audio_file.open("rb"), content_type=content_type, as_attachment=False)
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @require_POST

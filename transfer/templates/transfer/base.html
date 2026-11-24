@@ -44,7 +44,7 @@
   {% if user.is_authenticated %}
   <aside class="global-player" id="global-player" aria-label="Музыкальный плеер" hidden>
     <div class="global-player-track"><img id="player-cover" src="" alt="" hidden><span class="player-placeholder" id="player-placeholder">♫</span><div class="global-player-meta"><strong id="player-title">Ничего не воспроизводится</strong><small id="player-artist">Выбери композицию в библиотеке</small></div></div>
-    <div class="global-player-center"><div class="player-actions"><button type="button" id="player-prev" aria-label="Предыдущий трек">|◀</button><span class="player-provider" id="player-provider">PLAYLIST BRIDGE</span><button type="button" id="player-next" aria-label="Следующий трек">▶|</button></div><div class="player-embed" id="player-embed"><span>Выбери трек для воспроизведения</span></div></div>
+    <div class="global-player-center"><div class="player-actions"><button type="button" id="player-prev" aria-label="Предыдущий трек">|◀</button><span class="player-provider" id="player-provider">PLAYLIST BRIDGE</span><button type="button" id="player-next" aria-label="Следующий трек">▶|</button></div><div class="player-embed" id="player-embed"><audio id="player-audio" controls preload="metadata" hidden></audio><span>Выбери трек для воспроизведения</span></div></div>
     <div class="player-queue-controls"><span id="player-queue-count">Очередь пуста</span><button type="button" id="player-clear">Очистить</button></div>
   </aside>
   {% endif %}

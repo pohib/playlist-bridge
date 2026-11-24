@@ -1131,3 +1131,47 @@ class LibraryMergeTests(TestCase):
         own = LibraryPlaylist.objects.create(profile=self.profile, title="Own")
         self.client.post(reverse("library_merge_playlists"), {"title":"Bad merge", "playlist_ids":[str(own.pk),str(foreign.pk)]})
         self.assertFalse(LibraryPlaylist.objects.filter(title="Bad merge").exists())
+
+
+class LocalAudioPlayerTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryProfile
+
+        self.user = get_user_model().objects.create_user(username="audio_tester", password=TEST_PASSWORD)
+        self.client.force_login(self.user)
+        self.profile, _ = LibraryProfile.objects.get_or_create(
+            user=self.user,
+            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
+        )
+
+    def test_local_audio_upload_and_owner_only_stream(self):
+        import tempfile
+        from django.test import override_settings
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import LibraryTrack
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            upload = SimpleUploadedFile("demo.mp3", b"ID3" + b"\x00" * 40, content_type="audio/mpeg")
+            response = self.client.post(reverse("library_upload_local_track"), {
+                "title": "Demo", "artist": "Test Artist", "audio_file": upload,
+            })
+            self.assertEqual(response.status_code, 302)
+            track = LibraryTrack.objects.get(title="Demo")
+            self.assertTrue(track.audio_file.name.startswith("user-audio/"))
+            stream = self.client.get(reverse("library_stream_local_track", kwargs={"track_id": track.pk}))
+            self.assertEqual(stream.status_code, 200)
+            self.assertEqual(b"".join(stream.streaming_content), b"ID3" + b"\x00" * 40)
+
+    def test_playlist_page_includes_playback_metadata(self):
+        from .models import LibraryPlaylist, LibraryTrack
+
+        playlist = LibraryPlaylist.objects.create(profile=self.profile, title="Player test", provider="spotify")
+        LibraryTrack.objects.create(
+            playlist=playlist, title="Embed track", artist="Artist",
+            external_id="1234567890123456789012",
+            external_url="https://open.spotify.com/track/1234567890123456789012",
+        )
+        response = self.client.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk}))
+        self.assertContains(response, "playlist-playback-data")
+        self.assertContains(response, "play-playlist")
