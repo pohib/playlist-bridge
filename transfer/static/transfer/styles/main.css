@@ -1600,3 +1600,142 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 @media(prefers-reduced-motion:reduce){
   .player-queue-panel,.player-queue-backdrop{transition:none!important}
 }
+
+/* Compact player: morph to a bottom-right control capsule */
+.global-player{
+  transition:opacity .28s ease,transform .36s cubic-bezier(.22,.72,.18,1),width .36s ease,
+    min-height .36s ease,padding .36s ease,border-radius .36s ease,
+    background .3s ease,box-shadow .3s ease!important;
+}
+.global-player.is-collapsed{
+  left:auto!important;right:18px!important;bottom:18px!important;
+  width:min(390px,calc(100vw - 28px))!important;
+  min-width:0!important;min-height:76px!important;height:76px!important;
+  padding:10px 13px!important;margin:0!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  gap:10px!important;border-radius:20px!important;
+  transform:none!important;opacity:1!important;pointer-events:auto!important;
+  background:linear-gradient(125deg,rgba(24,40,63,.48),rgba(7,14,27,.43))!important;
+  box-shadow:0 18px 54px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.12)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(150%)!important;
+  backdrop-filter:blur(24px) saturate(150%)!important;
+}
+.global-player.is-collapsed .global-player-track{
+  grid-column:1!important;grid-row:1!important;
+  display:flex!important;align-items:center!important;min-width:0!important;
+  gap:10px!important;overflow:hidden!important;
+}
+.global-player.is-collapsed .global-player-track img,
+.global-player.is-collapsed .global-player-track .player-placeholder{
+  width:46px!important;height:46px!important;flex:0 0 46px!important;
+  border-radius:11px!important;
+}
+.global-player.is-collapsed .global-player-meta{min-width:0!important;overflow:hidden!important}
+.global-player.is-collapsed .global-player-meta strong,
+.global-player.is-collapsed .global-player-meta small{
+  display:block!important;max-width:100%!important;overflow:hidden!important;
+  text-overflow:ellipsis!important;white-space:nowrap!important;
+}
+.global-player.is-collapsed .global-player-meta strong{font-size:12px!important}
+.global-player.is-collapsed .global-player-meta small{font-size:10px!important}
+.global-player.is-collapsed .global-player-center,
+.global-player.is-collapsed .player-queue-controls{display:none!important}
+.global-player.is-collapsed .player-side-controls{
+  grid-column:2!important;grid-row:1!important;
+  display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:flex-end!important;gap:8px!important;
+  min-width:0!important;
+}
+.global-player.is-collapsed .player-window-controls{
+  position:static!important;display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:flex-end!important;gap:7px!important;
+}
+.global-player.is-collapsed .player-volume-control{
+  display:flex!important;align-items:center!important;gap:5px!important;
+  min-height:36px!important;padding:3px 7px!important;
+}
+.global-player.is-collapsed .player-volume-control input{width:66px!important}
+.global-player.is-collapsed #player-expand{
+  display:grid!important;place-items:center!important;flex:0 0 36px!important;
+  width:36px!important;height:36px!important;
+}
+.global-player.is-collapsed #player-collapse{display:none!important}
+.global-player.is-collapsing{pointer-events:none!important}
+@media(max-width:560px){
+  .global-player.is-collapsed{right:10px!important;bottom:10px!important;width:min(360px,calc(100vw - 20px))!important;height:68px!important;min-height:68px!important;padding:8px 10px!important;gap:7px!important}
+  .global-player.is-collapsed .global-player-track img,
+  .global-player.is-collapsed .global-player-track .player-placeholder{width:40px!important;height:40px!important;flex-basis:40px!important}
+  .global-player.is-collapsed .player-volume-control input{width:48px!important}
+}
+
+/* Queue header is flush with the drawer and remains pinned while its contents scroll */
+.player-queue-panel{
+  padding:0 18px 22px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  scroll-padding-top:76px;
+}
+.player-queue-heading{
+  position:sticky!important;top:0!important;z-index:10!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  margin:0 -18px 16px!important;
+  padding:20px 18px 15px!important;
+  min-height:76px!important;
+  border-bottom:1px solid rgba(176,202,238,.14)!important;
+  border-radius:0!important;
+  background:linear-gradient(180deg,rgba(12,21,36,.99),rgba(12,21,36,.94))!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.16)!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+.player-queue-heading>div{min-width:0}
+.player-queue-heading strong{display:block;line-height:1.35}
+.player-queue-panel>*:not(.player-queue-heading){scroll-margin-top:84px}
+
+/* Restore the player's green seek-bar identity */
+#player-progress{
+  accent-color:#38df83!important;
+  color:#38df83!important;
+  background:linear-gradient(90deg,rgba(53,221,128,.2),rgba(130,160,205,.18))!important;
+  border-radius:999px!important;
+  height:6px!important;min-height:6px!important;
+  appearance:none;-webkit-appearance:none;
+}
+#player-progress::-webkit-slider-runnable-track{
+  height:6px;border-radius:999px;
+  background:linear-gradient(90deg,rgba(50,220,126,.42),rgba(119,151,196,.25));
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.34);
+}
+#player-progress::-webkit-slider-thumb{
+  appearance:none;-webkit-appearance:none;
+  width:13px;height:13px;margin-top:-3.5px;border:2px solid #eafff1;
+  border-radius:50%;background:linear-gradient(145deg,#75f5a7,#24c96d);
+  box-shadow:0 0 0 3px rgba(53,221,128,.14),0 2px 8px rgba(0,0,0,.32);
+}
+#player-progress::-moz-range-track{
+  height:6px;border-radius:999px;background:linear-gradient(90deg,rgba(50,220,126,.42),rgba(119,151,196,.25));
+}
+#player-progress::-moz-range-progress{
+  height:6px;border-radius:999px;background:linear-gradient(90deg,#24c96d,#75f5a7);
+}
+#player-progress::-moz-range-thumb{
+  width:10px;height:10px;border:2px solid #eafff1;border-radius:50%;
+  background:#38df83;box-shadow:0 0 0 3px rgba(53,221,128,.14);
+}
+
+/* Keep drawer animation cheap: no full-screen blur or animated shadow */
+.player-queue-backdrop{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  background:rgba(2,6,13,.32)!important;
+  transition:opacity .2s linear!important;
+}
+.player-queue-panel{
+  box-shadow:-18px 0 48px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.08)!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  will-change:transform;transform:translate3d(102%,0,0)!important;
+  transition:transform .32s cubic-bezier(.2,.75,.2,1)!important;
+}
+.player-queue-panel.is-open{transform:translate3d(0,0,0)!important}
+@media(prefers-reduced-motion:reduce){
+  .global-player,.player-queue-panel,.player-queue-backdrop{transition:none!important}
+}
