@@ -1,5 +1,4 @@
-from io import BytesIO
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import requests
 from django.core.files.uploadedfile import SimpleUploadedFile
