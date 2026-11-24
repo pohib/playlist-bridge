@@ -1,7 +1,7 @@
 from django.contrib.auth import views as django_auth_views
 from django.urls import path, reverse_lazy
 
-from . import auth_views, library_views, site_views, views
+from . import api_views, auth_views, library_views, oauth_views, site_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -17,12 +17,12 @@ urlpatterns = [
     path("transfers/", site_views.transfers, name="transfers"),
     path("profile/", site_views.profile, name="profile"),
     path("healthz/", views.healthz, name="healthz"),
-    path("spotify/login/", views.spotify_login, name="spotify_login"),
-    path("spotify/callback/", views.spotify_callback, name="spotify_callback"),
-    path("spotify/disconnect/", views.disconnect_spotify, name="disconnect_spotify"),
-    path("soundcloud/login/", views.soundcloud_login, name="soundcloud_login"),
-    path("soundcloud/callback/", views.soundcloud_callback, name="soundcloud_callback"),
-    path("soundcloud/disconnect/", views.disconnect_soundcloud, name="disconnect_soundcloud"),
+    path("spotify/login/", oauth_views.spotify_login, name="spotify_login"),
+    path("spotify/callback/", oauth_views.spotify_callback, name="spotify_callback"),
+    path("spotify/disconnect/", oauth_views.disconnect_spotify, name="disconnect_spotify"),
+    path("soundcloud/login/", oauth_views.soundcloud_login, name="soundcloud_login"),
+    path("soundcloud/callback/", oauth_views.soundcloud_callback, name="soundcloud_callback"),
+    path("soundcloud/disconnect/", oauth_views.disconnect_soundcloud, name="disconnect_soundcloud"),
     path("transfer/", views.transfer_playlist, name="transfer_playlist"),
     path("report.csv", views.download_report, name="download_report"),
     path("library/profile/update/", library_views.update_profile, name="library_update_profile"),
@@ -55,9 +55,9 @@ urlpatterns = [
     path("api/v1/library/tracks/search/", library_views.search_library_sources, name="library_track_search"),
     path("api/v1/library/tracks/<uuid:track_id>/vk-stream/", library_views.get_vk_track_stream, name="library_vk_track_stream"),
     path("library/tracks/<uuid:track_id>/vk-audio/", library_views.stream_vk_track_audio, name="library_vk_track_audio"),
-    path("api/v1/status/", views.api_status, name="api_status"),
-    path("api/v1/transfers/", views.api_create_transfer, name="api_create_transfer"),
-    path("api/v1/transfers/<uuid:job_id>/", views.api_transfer_detail, name="api_transfer_detail"),
-    path("api/v1/transfers/<uuid:job_id>/report/", views.api_transfer_report, name="api_transfer_report"),
-    path("api/v1/openapi.json", views.api_openapi, name="api_openapi"),
+    path("api/v1/status/", api_views.api_status, name="api_status"),
+    path("api/v1/transfers/", api_views.api_create_transfer, name="api_create_transfer"),
+    path("api/v1/transfers/<uuid:job_id>/", api_views.api_transfer_detail, name="api_transfer_detail"),
+    path("api/v1/transfers/<uuid:job_id>/report/", api_views.api_transfer_report, name="api_transfer_report"),
+    path("api/v1/openapi.json", api_views.api_openapi, name="api_openapi"),
 ]
