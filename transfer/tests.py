@@ -32,7 +32,6 @@ from .models import OAuthCredential, TransferJob
 
 
 TEST_PASSWORD = get_random_string(32)
-TEST_VK_ANON_SECRET = get_random_string(32)
 
 
 class InputValidationTests(TestCase):
