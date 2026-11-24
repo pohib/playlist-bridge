@@ -1348,33 +1348,39 @@ body.queue-drawer-open{overflow:hidden}
 /* Site-wide glass scrollbars */
 *{
   scrollbar-width:auto;
-  scrollbar-color:rgba(137,166,207,.72) rgba(12,20,33,.72);
+  scrollbar-color:rgba(150,180,224,.82) rgba(10,18,31,.88);
 }
 *::-webkit-scrollbar{
-  width:13px;
-  height:13px;
+  width:16px;
+  height:16px;
 }
 *::-webkit-scrollbar-track{
-  background:linear-gradient(180deg,rgba(11,19,32,.82),rgba(24,35,53,.76));
-  border:1px solid rgba(175,199,232,.1);
+  margin:3px 2px;
+  background:
+    linear-gradient(180deg,rgba(7,14,25,.94),rgba(25,38,59,.9)),
+    rgba(12,20,33,.9);
+  border:1px solid rgba(178,205,242,.16);
   border-radius:999px;
-  box-shadow:inset 0 1px 5px rgba(0,0,0,.34);
+  box-shadow:inset 0 2px 7px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.035);
 }
 *::-webkit-scrollbar-thumb{
-  min-height:38px;
+  min-height:42px;
   border:3px solid transparent;
   border-radius:999px;
-  background:linear-gradient(180deg,rgba(163,190,229,.88),rgba(91,121,165,.86)) padding-box;
-  box-shadow:inset 0 1px rgba(255,255,255,.28),0 1px 5px rgba(0,0,0,.28);
+  background:
+    linear-gradient(180deg,rgba(178,204,241,.94),rgba(91,126,178,.94)) padding-box;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.34),0 2px 8px rgba(0,0,0,.38);
 }
 *::-webkit-scrollbar-thumb:hover{
-  background:linear-gradient(180deg,rgba(196,216,246,.96),rgba(119,153,201,.96)) padding-box;
+  background:linear-gradient(180deg,rgba(207,225,250,.98),rgba(119,158,211,.98)) padding-box;
 }
 *::-webkit-scrollbar-thumb:active{
-  background:linear-gradient(180deg,rgba(126,165,220,.98),rgba(79,112,163,.98)) padding-box;
+  background:linear-gradient(180deg,rgba(140,180,237,.99),rgba(76,113,171,.99)) padding-box;
 }
-*::-webkit-scrollbar-corner{background:rgba(12,20,33,.82)}
+*::-webkit-scrollbar-corner{
+  background:linear-gradient(135deg,rgba(7,14,25,.94),rgba(25,38,59,.9));
+}
 @media(max-width:700px){
-  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar{width:12px;height:12px}
   *{scrollbar-width:thin}
 }
