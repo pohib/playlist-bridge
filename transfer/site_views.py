@@ -159,6 +159,8 @@ def library_cover_proxy(request):
         if not allowed_url(current_url):
             return HttpResponseBadRequest("Unsupported artwork redirect.")
         try:
+            # nosemgrep: python.django.security.injection.ssrf.ssrf-injection-requests.ssrf-injection-requests
+            # The URL is HTTPS-only and domain-allowlisted above; every redirect is revalidated before another request.
             upstream = requests.get(
                 current_url,
                 headers={
