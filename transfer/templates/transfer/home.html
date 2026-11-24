@@ -74,7 +74,7 @@
           {% if vk_connected %}
             <form method="post" action="{% url 'disconnect_vk' %}">{% csrf_token %}<button class="text-button" type="submit">Отключить</button></form>
           {% else %}
-            <a class="connect-link {% if not vk_configured %}disabled{% endif %}" href="{% if vk_configured %}{% url 'vk_login' %}{% else %}#{% endif %}" {% if not vk_configured %}aria-disabled="true"{% endif %}>Подключить ↗</a>
+            <a class="connect-link {% if not vk_configured %}disabled{% endif %}" href="{% if vk_configured %}{% url 'vk_login' %}{% else %}#{% endif %}" {% if not vk_configured %}aria-disabled="true"{% endif %}>Подключить </a>
           {% endif %}
         </div>
         <div class="service-card">
@@ -83,7 +83,7 @@
           {% if connected %}
             <form method="post" action="{% url 'disconnect_spotify' %}">{% csrf_token %}<button class="text-button" type="submit">Отключить</button></form>
           {% else %}
-            <a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true"{% endif %}>Подключить ↗</a>
+            <a class="connect-link {% if not spotify_configured %}disabled{% endif %}" href="{% if spotify_configured %}{% url 'spotify_login' %}{% else %}#{% endif %}" {% if not spotify_configured %}aria-disabled="true"{% endif %}>Подключить </a>
           {% endif %}
         </div>
         <div class="service-card">
@@ -92,7 +92,7 @@
           {% if soundcloud_connected %}
             <form method="post" action="{% url "disconnect_soundcloud" %}">{% csrf_token %}<button class="text-button" type="submit">Отключить</button></form>
           {% else %}
-            <a class="connect-link {% if not soundcloud_configured %}disabled{% endif %}" href="{% if soundcloud_configured %}{% url "soundcloud_login" %}{% else %}#{% endif %}" {% if not soundcloud_configured %}aria-disabled="true"{% endif %}>Подключить ↗</a>
+            <a class="connect-link {% if not soundcloud_configured %}disabled{% endif %}" href="{% if soundcloud_configured %}{% url "soundcloud_login" %}{% else %}#{% endif %}" {% if not soundcloud_configured %}aria-disabled="true"{% endif %}>Подключить </a>
           {% endif %}
         </div>
         <div class="service-card service-coming">
@@ -188,13 +188,13 @@
                 <form method="post" action="{% url 'library_delete_playlist' playlist.id %}" onsubmit="return confirm('Удалить плейлист и все его записи из библиотеки?');">{% csrf_token %}<button class="icon-button" type="submit" aria-label="Удалить плейлист">×</button></form>
               </div>
               {% if playlist.description %}<p class="playlist-description">{{ playlist.description }}</p>{% endif %}
-              {% if playlist.external_url %}<a class="source-link" href="{% url 'library_open_playlist_source' playlist.id %}" target="_blank" rel="noopener noreferrer">Открыть оригинал ↗</a>{% endif %}
+              {% if playlist.external_url %}<a class="source-link" href="{% url 'library_open_playlist_source' playlist.id %}" target="_blank" rel="noopener noreferrer">Открыть оригинал </a>{% endif %}
               <div class="track-list">
                 {% for track in playlist.tracks.all %}
                   <div class="track-row">
                     <div class="track-index">{{ forloop.counter|stringformat:"02d" }}</div>
                     <div class="track-copy"><strong>{{ track.title }}</strong><span>{{ track.artist }}{% if track.album %} · {{ track.album }}{% endif %}</span></div>
-                    {% if track.external_url %}<a class="track-open" href="{% url 'library_open_track_source' track.id %}" target="_blank" rel="noopener noreferrer" aria-label="Открыть композицию">↗</a>{% endif %}
+                    {% if track.external_url %}<a class="track-open" href="{% url 'library_open_track_source' track.id %}" target="_blank" rel="noopener noreferrer" aria-label="Открыть композицию"></a>{% endif %}
                     <form method="post" action="{% url 'library_delete_track' track.id %}">{% csrf_token %}<button class="remove-track" type="submit" aria-label="Удалить композицию">×</button></form>
                   </div>
                 {% empty %}
