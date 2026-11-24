@@ -1815,3 +1815,16 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
   .main-nav a{padding:9px 11px;font-size:10px}
   .header-account{gap:5px}
 }
+
+
+/* Playback modes stay visible for native audio tracks; the old selector hid the entire action row. */
+.global-player-center:has(.player-transport:not([hidden])) .player-actions{display:flex!important;justify-content:space-between!important;align-items:center!important;min-height:32px!important;visibility:visible!important;opacity:1!important}
+.player-playback-modes{display:flex!important;align-items:center!important;gap:8px!important;flex:0 0 auto!important}
+.player-mode-button{display:grid!important;visibility:visible!important;opacity:1!important;place-items:center!important;width:36px!important;height:34px!important;min-width:36px!important;padding:0!important;border:1px solid rgba(220,235,255,.2)!important;border-radius:11px!important;background:rgba(255,255,255,.07)!important;color:#f4f7fb!important;font-size:18px!important;line-height:1!important;cursor:pointer!important}
+.player-mode-button[aria-pressed="true"]{border-color:rgba(130,225,171,.55)!important;background:rgba(53,221,128,.16)!important;color:#fff!important;box-shadow:0 0 16px rgba(53,221,128,.16)!important}
+.player-mode-button:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.42)!important;background:rgba(255,255,255,.12)!important}
+
+/* Full-bleed top navigation while keeping page content on its centered grid. */
+.site-header{width:100vw!important;max-width:none!important;box-sizing:border-box!important;margin-left:calc(50% - 50vw)!important;padding-left:max(24px,calc((100vw - 1160px)/2))!important;padding-right:max(24px,calc((100vw - 1160px)/2))!important;border-radius:0!important}
+@media(max-width:900px){.site-header{padding-left:18px!important;padding-right:18px!important}}
+@media(max-width:620px){.site-header{padding-left:14px!important;padding-right:14px!important}}
