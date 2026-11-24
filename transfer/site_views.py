@@ -1,11 +1,11 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
-from urllib.parse import quote
-
 from .credentials import get_session_fingerprint
 from .library_views import _profile
 from .models import LibraryPlaylist, LibraryTransfer, TransferJob
@@ -130,7 +130,7 @@ def library_cover_proxy(request):
     from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 
     allowed_domains = (
-        "userapi.com", "mycdn.me", "vk.com", "vk.ru",
+        "userapi.com", "mycdn.me", "vk.com", "vk.ru", "vk.me", "vkuserphoto.ru", "vkuseraudio.net", "okcdn.ru",
         "scdn.co", "sndcdn.com", "spotifycdn.com", "spotify.com",
     )
 
