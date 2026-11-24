@@ -514,3 +514,112 @@ button,.secondary-button,.primary-button { border-radius:13px; }
 @media (prefers-reduced-motion:reduce) {
   .ambient,.page-content,.landing-copy,.music-orbit,.orbit-pill,.orbit-note,.orbit-glow { animation:none !important; }
 }
+
+
+/* Glass controls, file picker and collection actions */
+.import-card,
+.content-panel,
+.library-card-shell,
+.connection-card,
+.auth-card,
+.candidate-row {
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+.import-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(174,194,226,.17);
+  background: linear-gradient(145deg,rgba(29,40,61,.72),rgba(9,15,27,.72));
+  box-shadow: 0 16px 42px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.055);
+}
+.import-card::before {
+  position:absolute; inset:0 18% auto; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(130,190,255,.32),transparent);
+  content:""; pointer-events:none;
+}
+.import-card input:not([type="file"]) {
+  width:100%; min-height:46px; padding:0 15px;
+  border:1px solid rgba(174,194,226,.19); border-radius:14px;
+  background:rgba(5,10,19,.58); color:#f0f5fc;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.2);
+  transition:border-color .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.import-card input:not([type="file"]):hover { border-color:rgba(139,177,232,.38); }
+.import-card input:not([type="file"]):focus {
+  outline:0; border-color:rgba(112,225,157,.68);
+  background:rgba(8,16,27,.88);
+  box-shadow:0 0 0 4px rgba(30,215,96,.09),0 8px 24px rgba(0,0,0,.16);
+}
+input[type="file"] {
+  display:block; width:100%; min-height:54px; padding:7px;
+  border:1px dashed rgba(143,169,207,.32); border-radius:15px;
+  background:linear-gradient(135deg,rgba(16,26,43,.8),rgba(8,14,25,.8));
+  color:#aebbd0; font-size:11px; cursor:pointer;
+  transition:border-color .2s ease,background .2s ease,box-shadow .2s ease;
+}
+input[type="file"]:hover, input[type="file"]:focus {
+  outline:0; border-color:rgba(115,226,158,.62);
+  background:rgba(17,31,48,.9); box-shadow:0 0 0 4px rgba(30,215,96,.07);
+}
+input[type="file"]::file-selector-button {
+  min-height:36px; margin-right:12px; padding:0 14px;
+  border:1px solid rgba(135,177,231,.26); border-radius:10px;
+  background:linear-gradient(135deg,rgba(66,105,160,.34),rgba(35,58,91,.48));
+  color:#e7f0ff; font:inherit; font-size:11px; font-weight:800;
+  cursor:pointer; transition:background .18s ease,border-color .18s ease,transform .18s ease;
+}
+input[type="file"]::file-selector-button:hover {
+  border-color:rgba(135,190,255,.5); background:rgba(74,119,180,.42);
+  transform:translateY(-1px);
+}
+select,
+.import-card select,
+.transfer-action select,
+.create-playlist-form select,
+.playlist-transfer-form select {
+  min-height:47px; padding:0 44px 0 15px; border:1px solid rgba(174,194,226,.2);
+  border-radius:14px; appearance:none; -webkit-appearance:none;
+  background-color:rgba(7,13,23,.86); color:#edf4ff; font:inherit; font-size:11px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 8px 20px rgba(0,0,0,.1);
+  cursor:pointer; transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;
+}
+select:hover { border-color:rgba(140,177,231,.4); background-color:rgba(12,21,35,.96); }
+select:focus {
+  outline:0; border-color:rgba(112,225,157,.68);
+  box-shadow:0 0 0 4px rgba(30,215,96,.09),0 8px 22px rgba(0,0,0,.16);
+}
+select option { padding:12px; background:#111a2a; color:#edf4ff; }
+select option:disabled { color:#748197; }
+.transfer-action select { width:min(100%,360px); }
+.library-card-shell { position:relative; display:flex; min-width:0; align-items:stretch; gap:7px; }
+.library-card-shell .library-card { flex:1; min-width:0; padding-right:15px; }
+.library-card-delete { display:flex; align-items:center; flex:0 0 auto; }
+.library-card-delete button {
+  display:grid; place-items:center; width:40px; height:40px;
+  border:1px solid rgba(174,194,226,.13); border-radius:13px;
+  background:rgba(255,255,255,.035); color:#8291a8;
+  cursor:pointer; transition:transform .2s ease,color .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.library-card-delete svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.library-card-delete button:hover {
+  transform:translateY(-3px); border-color:rgba(255,92,105,.55);
+  background:linear-gradient(145deg,rgba(117,27,43,.42),rgba(69,18,30,.58));
+  color:#ff7885; box-shadow:0 8px 24px rgba(239,54,78,.18),inset 0 1px 0 rgba(255,255,255,.07);
+}
+.library-card-delete button:active { transform:translateY(-1px) scale(.97); }
+.library-card { position:relative; }
+.library-card:hover { box-shadow:0 14px 34px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.045); }
+.content-panel {
+  border-color:rgba(174,194,226,.15);
+  background:linear-gradient(145deg,rgba(20,29,45,.76),rgba(9,15,26,.78));
+  box-shadow:0 22px 65px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.045);
+}
+.import-grid { gap:15px; }
+.import-card .secondary-button { box-shadow:0 8px 22px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.07); }
+.import-card .secondary-button:hover { box-shadow:0 12px 28px rgba(0,0,0,.22),0 0 22px rgba(85,151,221,.08); }
+@media(max-width:620px) {
+  .library-card-shell { gap:5px; }
+  .library-card-delete button { width:36px; height:36px; }
+  .transfer-action select { width:100%; }
+}
