@@ -305,7 +305,6 @@ class VersionedApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     @override_settings(
-        VK_ID_CLIENT_ID="test-vk-app",
         SPOTIFY_CLIENT_ID="test-client",
         SPOTIFY_CLIENT_SECRET=Fernet.generate_key().decode(),
         TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
@@ -441,11 +440,7 @@ class ApiSessionSecurityTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    @override_settings(
-        TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode(),
-        VK_ID_CLIENT_ID="vk-app",
-        VK_ANON_CLIENT_SECRET=TEST_VK_ANON_SECRET,
-    )
+    @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     @patch("transfer.tasks.run_transfer.delay")
     def test_repeated_transfer_request_reuses_active_job(self, enqueue):
         session = SessionStore()
@@ -614,11 +609,7 @@ class VKLibraryImportTests(TestCase):
             VKTrack(10, 102, "Artist B", "Track B", 210),
         ],
     ))
-    @override_settings(
-        VK_ID_CLIENT_ID="vk-client",
-        VK_ANON_CLIENT_SECRET=TEST_VK_ANON_SECRET,
-        VK_API_VERSION="5.289",
-    )
+    @override_settings(VK_API_VERSION="5.289")
     def test_import_saves_playlist_tracks_in_original_order(self, fetch_playlist):
         response = self.client.post(
             reverse("library_import_vk"),
