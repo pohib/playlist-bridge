@@ -109,6 +109,8 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 WHITENOISE_ALLOW_ALL_ORIGINS = False
+# Tests and rolling deployments may render templates before collectstatic has built the manifest.
+WHITENOISE_MANIFEST_STRICT = False
 
 
 LOGIN_URL = "login"
