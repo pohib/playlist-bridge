@@ -564,6 +564,25 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(playlist.tracks.count(), 0)
         self.assertEqual(LibraryProfile.objects.count(), 2)
 
+    def test_provider_url_validators_reject_ssrf_authority_tricks(self):
+        from .library_views import _spotify_resource_id, _validate_soundcloud_permalink
+
+        for url in (
+            "https://open.spotify.com:8443/playlist/" + "A" * 22,
+            "https://user@open.spotify.com/playlist/" + "A" * 22,
+        ):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                _spotify_resource_id(url, "playlist")
+
+        for url in (
+            "https://127.0.0.1/admin",
+            "https://soundcloud.com.attacker.example/track",
+            "https://user@soundcloud.com/track",
+            "https://soundcloud.com:8443/track",
+        ):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                _validate_soundcloud_permalink(url)
+
     def test_playlist_rejects_non_http_external_url(self):
         response = self.client.post(
             reverse("library_create_playlist"),
