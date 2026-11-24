@@ -432,21 +432,15 @@ def search_library_sources(request):
     allowed = {"auto", "vk", "spotify", "soundcloud", "youtube_music", "apple_music"}
     if not isinstance(requested, list) or not requested or any(not isinstance(item, str) or item not in allowed for item in requested):
         return JsonResponse({"error": "Выбраны неподдерживаемые источники."}, status=400)
-    providers = ["vk", "spotify", "soundcloud", "youtube_music", "apple_music"] if "auto" in requested else list(dict.fromkeys(requested))
+    providers = ["spotify", "soundcloud", "youtube_music", "apple_music"] if "auto" in requested else list(dict.fromkeys(requested))
     query = f"{artist} {title}".strip()
     results, statuses = [], {}
     for provider in providers:
         try:
             if provider == "vk":
-                tracks = VKClient(version=settings.VK_API_VERSION).search_tracks(query, count=15)
-                for track in tracks:
-                    results.append({
-                        "provider": "vk", "id": f"{track.owner_id}_{track.track_id}",
-                        "title": track.title, "artist": track.artist, "cover": track.cover_url,
-                        "url": f"https://vk.ru/audio{track.owner_id}_{track.track_id}",
-                        "playable": False,
-                    })
-                statuses[provider] = "Найдены метаданные; прямое воспроизведение VK ещё проверяется."
+                # VK audio.search is unavailable with anonymous tokens (API error 28).
+                # Public playlist imports and audio.getById remain supported.
+                statuses[provider] = "Поиск VK недоступен через анонимный API (ошибка 28). Импортируй публичный плейлист VK — его треки можно воспроизводить напрямую."
             elif provider == "spotify":
                 client, token = _spotify_access(request)
                 for track in client.search_tracks(token, query):
