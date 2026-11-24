@@ -43,8 +43,6 @@ def run_transfer(self, job_id):
 
         result = execute_transfer(
             vk_version=settings.VK_API_VERSION,
-            vk_client_id=settings.VK_ID_CLIENT_ID,
-            vk_client_secret=settings.VK_ANON_CLIENT_SECRET,
             spotify=spotify,
             spotify_token=spotify_token(),
             token_provider=spotify_token,
