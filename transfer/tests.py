@@ -161,7 +161,7 @@ class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_rejects_unexpected_response(self):
         from .services.vk_client import VKAnonymousTokenProvider
 
-        provider = VKAnonymousTokenProvider("app-id", "fixture-value")
+        provider = VKAnonymousTokenProvider("app-id")
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"type": "error", "data": {}}
