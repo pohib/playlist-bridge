@@ -715,7 +715,7 @@ class SoundCloudIntegrationTests(TestCase):
             "permalink_url": "https://soundcloud.com/me/uploaded-track",
         }
         access.return_value = (client, "sc-token")
-        audio = SimpleUploadedFile("demo.mp3", b"ID3\\x04\\x00\\x00\\x00\\x00\\x00\\x00audio-data", content_type="application/octet-stream")
+        audio = SimpleUploadedFile("demo.mp3", b"ID3\x04\x00\x00\x00\x00\x00\x00audio-data", content_type="application/octet-stream")
         response = self.client.post(
             reverse("library_upload_soundcloud_track"),
             {"title": "Demo", "artist": "Me", "audio_file": audio},
