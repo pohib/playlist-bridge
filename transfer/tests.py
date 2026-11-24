@@ -1191,3 +1191,36 @@ class LocalAudioPlayerTests(TestCase):
         response = self.client.get(reverse("playlist_detail", kwargs={"playlist_id": playlist.pk}))
         self.assertContains(response, "playlist-playback-data")
         self.assertContains(response, "play-playlist")
+
+
+class LibraryCoverProxyTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(username="cover-proxy-user", password=TEST_PASSWORD)
+        self.client.force_login(self.user)
+
+    def test_cover_proxy_rejects_untrusted_hosts(self):
+        with patch("requests.get") as upstream:
+            response = self.client.get(
+                reverse("library_cover_proxy"),
+                {"url": "https://attacker.example/image.jpg"},
+            )
+        self.assertEqual(response.status_code, 400)
+        upstream.assert_not_called()
+
+    def test_cover_proxy_serves_allowlisted_artwork_from_same_origin(self):
+        upstream = Mock()
+        upstream.status_code = 200
+        upstream.headers = {"Content-Type": "image/jpeg"}
+        upstream.iter_content.return_value = [b"test-image-bytes"]
+        with patch("requests.get", return_value=upstream) as fetch:
+            response = self.client.get(
+                reverse("library_cover_proxy"),
+                {"url": "https://sun9-1.userapi.com/cover.jpg"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
+        self.assertEqual(response.content, b"test-image-bytes")
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(fetch.call_args.kwargs["allow_redirects"], False)
+        upstream.close.assert_called_once()
