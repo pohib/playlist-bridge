@@ -42,7 +42,7 @@ def _validated_vk_url(value, error_message):
 
 def parse_vk_playlist_url(value):
     parsed = _validated_vk_url(value, "Укажи ссылку на плейлист VK.")
-    match = re.fullmatch(r"/music/playlist/(-?\\d+)_(\\d+)(?:_([A-Za-z0-9]+))?/?", parsed.path)
+    match = re.fullmatch(r"/music/playlist/(-?\d+)_(\\d+)(?:_([A-Za-z0-9]+))?/?", parsed.path)
     if not match:
         raise ValueError("Формат ссылки на плейлист VK не распознан.")
     owner, playlist, key = match.groups()
