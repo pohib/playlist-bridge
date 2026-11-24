@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 from .credentials import get_session_fingerprint
 from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
@@ -13,7 +14,7 @@ from .services import TransferError
 class VKPlaybackApiTests(TestCase):
     def setUp(self):
         user_model = get_user_model()
-        self.user = user_model.objects.create_user(username="vk-playback-user", password="test-password")
+        self.user = user_model.objects.create_user(username="vk-playback-user", password=get_random_string(32))
         self.client.force_login(self.user)
         self.profile, _ = LibraryProfile.objects.get_or_create(
             user=self.user,
