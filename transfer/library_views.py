@@ -1295,10 +1295,18 @@ def stream_vk_track_audio(request, track_id):
     api = VKClient(version=settings.VK_API_VERSION)
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
     audio_id = track.external_id
-    if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
-        audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
+    try:
+        if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
+            audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
 
-    stream = api.get_track_stream(audio_id, "mp3")
+        stream = api.get_track_stream(audio_id, "mp3")
+    except (TransferError, ValueError) as exc:
+        # VK may not expose an MP3 stream for a track. Return the actual
+        # upstream reason instead of turning it into an unhandled HTTP 500.
+        logger.info("VK MP3 stream unavailable for track %s: %s", track.pk, exc)
+        response = JsonResponse({"error": str(exc)}, status=422)
+        response["Cache-Control"] = "private, no-store"
+        return response
     headers = {
         **api.token_provider.BROWSER_HEADERS,
         "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
