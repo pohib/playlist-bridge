@@ -231,12 +231,16 @@ class VKClient:
                 or host == "userapi.com" or host.endswith(".userapi.com")
                 or host == "vkuseraudio.net" or host.endswith(".vkuseraudio.net")
             )
+            try:
+                port = parsed.port
+            except ValueError:
+                continue
             if (
                 parsed.scheme == "https"
                 and trusted_host
                 and not parsed.username
                 and not parsed.password
-                and parsed.port in (None, 443)
+                and port in (None, 443)
             ):
                 return value
         return ""
