@@ -1,7 +1,5 @@
 from urllib.parse import quote, urljoin, urlsplit
 
-import requests
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
@@ -9,6 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
+import requests
 
 from .credentials import get_session_fingerprint
 from .library_views import _profile
