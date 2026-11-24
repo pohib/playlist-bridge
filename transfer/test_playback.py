@@ -38,6 +38,7 @@ class VKPlaybackApiTests(TestCase):
     def test_stream_resolution_returns_fresh_mp3_url_without_cache(self):
         with patch("transfer.library_views.VKClient") as client_class:
             client = client_class.return_value
+            client.resolve_playlist_audio_id.return_value = "10_101"
             client.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.mp3",
                 "format": "mp3",
