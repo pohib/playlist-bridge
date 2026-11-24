@@ -14,6 +14,15 @@ class VKAnonymousTokenProvider:
     # This is not a credential for a user-created VK application.
     WEB_CLIENT_PARAMETER = "QbYic1K3lEV5kTGiqlq2"
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
+    BROWSER_HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "sec-ch-ua-mobile": "?0",
+    }
 
     def __init__(self, client_id=None, http=None):
         self.client_id = str(client_id or self.CLIENT_ID)
@@ -33,7 +42,7 @@ class VKAnonymousTokenProvider:
             # only cookies issued by VK during these requests.
             bootstrap = self.http.get(
                 "https://vk.ru/",
-                headers={"Accept": "text/html"},
+                headers={**self.BROWSER_HEADERS, "Accept": "text/html"},
                 timeout=(5, 15),
                 allow_redirects=False,
                 stream=True,
@@ -51,6 +60,7 @@ class VKAnonymousTokenProvider:
                 params={"act": "modals"},
                 data={"act": "modals", "al": "1", "module": "audio"},
                 headers={
+                    **self.BROWSER_HEADERS,
                     "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
@@ -78,6 +88,7 @@ class VKAnonymousTokenProvider:
                 params={"act": "get_anonym_token"},
                 data=token_data,
                 headers={
+                    **self.BROWSER_HEADERS,
                     "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
@@ -126,6 +137,7 @@ class VKClient:
                 params={"v": self.version, "client_id": self.client_id},
                 data=form_data,
                 headers={
+                    **self.token_provider.BROWSER_HEADERS,
                     "Accept": "application/json",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
