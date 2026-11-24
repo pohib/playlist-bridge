@@ -27,6 +27,7 @@ urlpatterns = [
     path("library/profile/update/", library_views.update_profile, name="library_update_profile"),
     path("library/import/vk/", library_views.import_vk_playlist, name="library_import_vk"),
     path("library/import/vk/track/", library_views.import_vk_track, name="library_import_vk_track"),
+    path("library/playlists/<uuid:playlist_id>/refresh-vk-artwork/", library_views.refresh_vk_artwork, name="library_refresh_vk_artwork"),
     path("library/import/spotify/playlist/", library_views.import_spotify_playlist, name="library_import_spotify_playlist"),
     path("library/import/spotify/track/", library_views.import_spotify_track, name="library_import_spotify_track"),
     path("library/import/spotify/library/", library_views.import_spotify_library, name="library_import_spotify_library"),
