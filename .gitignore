@@ -12,3 +12,4 @@ staticfiles/
 reports/*.log
 reports/*.log.*
 !reports/.gitkeep
+\nmedia/\n
