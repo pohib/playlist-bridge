@@ -529,6 +529,7 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(track.artist, "The Weeknd")
         self.assertEqual(LibraryProfile.objects.count(), 1)
 
+    @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_user_text_is_stored_as_data_and_escaped_in_html(self):
         from .models import LibraryPlaylist
 
