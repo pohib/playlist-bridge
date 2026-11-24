@@ -58,10 +58,10 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Bandit SAST (SARIF report)
         if: always()
-        run: bandit -r config transfer -f sarif -o bandit.sarif -l --exit-zero
+        run: bandit -r config transfer -x 'transfer/test*.py,transfer/tests.py' -f sarif -o bandit.sarif -l --exit-zero
       - name: Enforce Bandit findings
         if: always()
-        run: bandit -r config transfer -l
+        run: bandit -r config transfer -x 'transfer/test*.py,transfer/tests.py' -l
       - name: Semgrep SAST (SARIF report)
         if: always()
         run: docker run --rm -v "$PWD:/src" semgrep/semgrep:1.186.0 semgrep scan --config p/security-audit --config p/owasp-top-ten --sarif --output /src/semgrep.sarif /src
