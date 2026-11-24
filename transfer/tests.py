@@ -46,6 +46,14 @@ class InputValidationTests(TestCase):
     def test_invalid_url_rejected(self):
         with self.assertRaises(ValueError):
             parse_vk_playlist_url("javascript:alert(1)")
+        for hostile in (
+            "https://vk.ru:8443/music/playlist/1_2",
+            "https://user@vk.ru/music/playlist/1_2",
+            "https://vk.ru.evil.example/music/playlist/1_2",
+        ):
+            with self.subTest(url=hostile), self.assertRaises(ValueError):
+                parse_vk_playlist_url(hostile)
+
 
     def test_normalization(self):
         self.assertEqual(normalize_track_text("Ёлка — Прованс!"), "елка прованс")
