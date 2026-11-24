@@ -191,7 +191,6 @@ class VKPlaybackApiTests(TestCase):
             patch("requests.get", return_value=upstream_response),
         ):
             client_class.return_value.token_provider.BROWSER_HEADERS = {}
-            client_class.return_value.token_provider.BROWSER_HEADERS = {}
             client_class.return_value.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.mp3",
                 "format": "mp3",
@@ -208,6 +207,7 @@ class VKPlaybackApiTests(TestCase):
             patch("transfer.library_views.VKClient") as client_class,
             patch("requests.get", side_effect=requests.RequestException("connection failed")),
         ):
+            client_class.return_value.token_provider.BROWSER_HEADERS = {}
             client_class.return_value.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.mp3",
                 "format": "mp3",
@@ -223,6 +223,7 @@ class VKPlaybackApiTests(TestCase):
             patch("transfer.library_views.VKClient") as client_class,
             patch("requests.get", return_value=upstream_response),
         ):
+            client_class.return_value.token_provider.BROWSER_HEADERS = {}
             client_class.return_value.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.mp3",
                 "format": "mp3",
