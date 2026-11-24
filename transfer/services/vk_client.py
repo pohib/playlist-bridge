@@ -1,4 +1,4 @@
-"""VK ID OAuth and VK API client implementations."""
+"""VK anonymous public-audio API client implementation."""
 import requests
 
 from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_url
@@ -7,12 +7,12 @@ from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_trac
 class VKAnonymousTokenProvider:
     """Obtain a short-lived anonymous token using VK's public web client."""
 
-    TOKEN_ENDPOINT = "https://login.vk.ru/"
+    TOKEN_ENDPOINT = "https://login.vk.ru/"  # nosec B105 - endpoint URL, not a password
     MODALS_ENDPOINT = "https://vk.ru/al_index.php"
     CLIENT_ID = "6287487"
     # Public web-client credential observed in VK's own browser request.
     # This is not a credential for a user-created VK application.
-    CLIENT_SECRET = "QbYic1K3lEV5kTGiqlq2"
+    CLIENT_SECRET = "QbYic1K3lEV5kTGiqlq2"  # nosec B105 - public VK web-client parameter, not a user/app secret
     SCOPES = "audio_anonymous,video_anonymous,photos_anonymous,profile_anonymous"
 
     def __init__(self, client_id=None, client_secret=None, http=None):
@@ -111,8 +111,8 @@ class VKClient:
     MAX_TRACKS = 5000
     AUDIO_BATCH_SIZE = 50
 
-    def __init__(self, client_id, client_secret, version="5.289"):
-        self.client_id = str(client_id)
+    def __init__(self, client_id=None, client_secret=None, version="5.289"):
+        self.client_id = str(client_id or VKAnonymousTokenProvider.CLIENT_ID)
         self.version = str(version)
         self.token_provider = VKAnonymousTokenProvider(client_id, client_secret)
         self.http = requests.Session()
