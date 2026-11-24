@@ -1216,7 +1216,7 @@ class LibraryCoverProxyTests(TestCase):
         upstream = Mock()
         upstream.status_code = 200
         upstream.headers = {"Content-Type": "image/jpeg"}
-        upstream.iter_content.return_value = [b"test-image-bytes"]
+        upstream.iter_content.return_value = [bytes.fromhex("FFD8FF") + b"test-image-bytes"]
         with patch("requests.get", return_value=upstream) as fetch:
             response = self.client.get(
                 reverse("library_cover_proxy"),
@@ -1224,7 +1224,7 @@ class LibraryCoverProxyTests(TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/jpeg")
-        self.assertEqual(response.content, b"test-image-bytes")
+        self.assertEqual(response.content, bytes.fromhex("FFD8FF") + b"test-image-bytes")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertEqual(fetch.call_args.kwargs["allow_redirects"], False)
         self.assertEqual(fetch.call_args.kwargs["headers"]["Referer"], "https://vk.ru/")
