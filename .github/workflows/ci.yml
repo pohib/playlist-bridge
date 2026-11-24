@@ -37,7 +37,7 @@ jobs:
           DJANGO_DEBUG: "true"
           TOKEN_ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
       - name: Tests
-        run: pytest -q
+        run: pytest -q --cov=transfer --cov-report=term-missing --cov-report=xml:coverage.xml
         env:
           DJANGO_SECRET_KEY: ci-only-test-key
           DJANGO_DEBUG: "true"
