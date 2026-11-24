@@ -539,6 +539,7 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(response.status_code, 302)
         track = LibraryTrack.objects.get(playlist=playlist)
         self.assertEqual(track.duration_ms, 240000)
+        self.assertEqual(track.duration_display, "4:00")
         self.assertEqual(track.artist, "The Weeknd")
         self.assertEqual(LibraryProfile.objects.count(), 1)
 
