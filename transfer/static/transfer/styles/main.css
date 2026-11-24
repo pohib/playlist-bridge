@@ -678,3 +678,180 @@ select option:disabled { color:#748197; }
 .player-search-result-meta small{color:#8798b0;font-size:9px}
 .player-search-result button,.player-search-result a{flex:0 0 auto;padding:6px 8px;border:1px solid rgba(174,194,226,.14);border-radius:8px;background:rgba(255,255,255,.04);color:#a9c8ff;font-size:9px;text-decoration:none;cursor:pointer}
 .player-search-result button:hover,.player-search-result a:hover{border-color:rgba(112,225,157,.4);color:#9af0b2}
+
+
+/* Floating glass player refresh */
+.global-player {
+  position: fixed;
+  z-index: 1000;
+  right: auto;
+  bottom: 22px;
+  left: 50%;
+  width: min(1120px, calc(100vw - 40px));
+  min-height: 104px;
+  grid-template-columns: minmax(190px, .95fr) minmax(280px, 1.35fr) minmax(150px, .65fr);
+  gap: 22px;
+  padding: 14px 20px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(166, 194, 235, .23);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(76, 132, 255, .17), transparent 42%),
+    radial-gradient(ellipse at 92% 100%, rgba(30, 215, 96, .12), transparent 40%),
+    linear-gradient(135deg, rgba(20, 29, 47, .88), rgba(8, 14, 26, .91));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .48), 0 5px 22px rgba(3, 8, 18, .32), inset 0 1px 0 rgba(255, 255, 255, .11);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  backdrop-filter: blur(28px) saturate(145%);
+}
+.global-player::before {
+  position: absolute;
+  inset: 0 18% auto;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(135, 190, 255, .45), rgba(115, 239, 171, .45), transparent);
+  content: "";
+  pointer-events: none;
+}
+.global-player-track img, .global-player-track .player-placeholder {
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+  border-radius: 16px;
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .28);
+}
+.global-player-meta strong { font-size: 13px; letter-spacing: -.02em; }
+.global-player-meta small { font-size: 11px; }
+.global-player-center { gap: 4px; }
+.player-actions { gap: 13px; }
+.player-actions button, .player-queue-controls button {
+  min-width: 36px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(181, 205, 240, .16);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.035));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 5px 14px rgba(0,0,0,.12);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.player-actions button:hover, .player-queue-controls button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(119, 231, 166, .42);
+  background: linear-gradient(145deg, rgba(76, 211, 139, .17), rgba(84, 130, 210, .12));
+  box-shadow: 0 8px 22px rgba(0,0,0,.2);
+}
+.player-provider { color: #a0b5d2; letter-spacing: .16em; }
+.player-embed { min-height: 42px; }
+.player-embed iframe { height: 62px; border-radius: 13px; }
+.player-embed audio { width: min(100%, 440px); height: 36px; accent-color: #42df82; }
+.player-queue-controls { gap: 7px; }
+#player-queue-count { color: #9eacc1; font-size: 10px; }
+#player-queue-toggle { min-width: 112px; color: #e6f1ff; }
+#player-queue-size {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  margin-left: 5px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, rgba(58, 218, 127, .25), rgba(74, 139, 255, .2));
+  color: #b9ffd1;
+  font-size: 10px;
+  font-weight: 850;
+}
+#player-clear { min-height: 27px; padding: 3px 9px; border-color: transparent; background: transparent; color: #8190a7; box-shadow: none; font-size: 10px; }
+#player-clear:hover { color: #ffaaaa; border-color: rgba(255, 120, 120, .2); background: rgba(255, 90, 90, .07); }
+.player-queue-panel {
+  right: 0;
+  bottom: calc(100% + 14px);
+  width: min(440px, calc(100vw - 28px));
+  max-height: min(68vh, 590px);
+  padding: 19px;
+  border: 1px solid rgba(160, 190, 232, .24);
+  border-radius: 23px;
+  background:
+    radial-gradient(ellipse at 0 0, rgba(67, 117, 220, .19), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, rgba(32, 191, 111, .12), transparent 45%),
+    linear-gradient(145deg, rgba(20, 30, 49, .94), rgba(7, 13, 24, .96));
+  box-shadow: 0 28px 90px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.1);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+}
+.player-queue-heading { padding-bottom: 13px; border-bottom: 1px solid rgba(177, 199, 231, .1); }
+.player-queue-heading strong { font-size: 15px; letter-spacing: -.025em; }
+.player-queue-heading small { font-size: 10px; }
+.player-queue-heading > button {
+  width: 34px; height: 34px; border-radius: 11px;
+  background: rgba(255,255,255,.06);
+}
+.player-source-setting { gap: 9px; margin: 14px 0; color: #bdc9da; font-size: 11px; font-weight: 750; }
+.player-source-setting select {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid rgba(174, 199, 235, .16);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(4, 9, 18, .58);
+  color: #eaf1fb;
+}
+.player-source-setting select:focus { border-color: rgba(83, 221, 139, .55); box-shadow: 0 0 0 3px rgba(56, 213, 126, .1); }
+.player-source-setting option { background: #101a2b; color: #eaf1fb; }
+.player-search-button {
+  width: 100%; min-height: 40px; margin-bottom: 13px; padding: 9px 13px;
+  border: 1px solid rgba(94, 221, 148, .27); border-radius: 12px;
+  background: linear-gradient(110deg, rgba(34, 190, 105, .2), rgba(62, 123, 220, .17));
+  color: #caffdc; font: inherit; font-size: 11px; font-weight: 850; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 7px 20px rgba(0,0,0,.15);
+}
+.player-search-button:hover { border-color: rgba(112, 239, 166, .5); filter: brightness(1.12); }
+.player-queue-list { gap: 8px; }
+.player-queue-item {
+  gap: 9px; padding: 9px;
+  border: 1px solid rgba(170, 196, 232, .11); border-radius: 15px;
+  background: linear-gradient(120deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.player-queue-item:hover { transform: translateX(2px); border-color: rgba(155, 188, 233, .22); }
+.player-queue-item.is-current {
+  border-color: rgba(93, 231, 150, .42);
+  background: linear-gradient(110deg, rgba(37, 183, 103, .16), rgba(57, 116, 210, .09));
+  box-shadow: inset 3px 0 0 rgba(88, 231, 148, .8), 0 8px 24px rgba(0,0,0,.16);
+}
+.player-queue-track { gap: 5px; padding: 4px 7px; }
+.player-queue-track strong { font-size: 12px; }
+.player-queue-track small { font-size: 10px; }
+.player-queue-item-actions { gap: 5px; }
+.player-queue-item-actions button {
+  width: 30px; height: 30px; border-radius: 10px;
+  border-color: rgba(174, 194, 226, .13);
+  background: rgba(255,255,255,.045);
+  color: #c5d3e7;
+}
+.player-queue-item-actions button:last-child:hover:not(:disabled) { border-color: rgba(255, 120, 120, .35); color: #ffaaaa; background: rgba(255, 90, 90, .08); }
+.player-source-hint { color: #9aa9bf; line-height: 1.65; }
+body:has(.global-player:not([hidden])) { padding-bottom: 145px; }
+@media (max-width: 760px) {
+  .global-player {
+    right: auto; bottom: 10px; left: 50%;
+    width: calc(100vw - 20px);
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px 12px;
+    padding: 12px;
+    border-radius: 20px;
+    transform: translateX(-50%);
+  }
+  .global-player-track { grid-column: 1; grid-row: 1; }
+  .global-player-center { grid-column: 1 / -1; grid-row: 2; }
+  .player-queue-controls { grid-column: 2; grid-row: 1; }
+  .player-embed iframe { width: 100%; }
+  .player-queue-panel { right: 0; bottom: calc(100% + 10px); width: min(440px, calc(100vw - 20px)); max-height: 56vh; }
+  body:has(.global-player:not([hidden])) { padding-bottom: 210px; }
+}
+@media (max-width: 420px) {
+  .global-player { gap: 8px; padding: 10px; }
+  .global-player-track img, .global-player-track .player-placeholder { width: 48px; height: 48px; flex-basis: 48px; border-radius: 13px; }
+  .global-player-meta strong { font-size: 11px; }
+  .global-player-meta small { font-size: 10px; }
+  .player-actions { gap: 8px; }
+}
