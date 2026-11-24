@@ -531,6 +531,22 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(track.artist, "The Weeknd")
         self.assertEqual(LibraryProfile.objects.count(), 1)
 
+    def test_user_text_is_stored_as_data_and_escaped_in_html(self):
+        from .models import LibraryPlaylist
+
+        payload = "<script>alert(1)</script>'); DROP TABLE transfer_libraryplaylist;--"
+        response = self.client.post(
+            reverse("library_create_playlist"),
+            {"title": payload, "provider": "manual"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(LibraryPlaylist.objects.filter(title=payload).exists())
+
+        page = self.client.get(reverse("library"))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "&lt;script&gt;alert(1)&lt;/script&gt;")
+        self.assertNotContains(page, "<script>alert(1)</script>")
+
     def test_library_objects_are_isolated_between_sessions(self):
         from .models import LibraryPlaylist, LibraryProfile
         self.client.post(
