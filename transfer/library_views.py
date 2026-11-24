@@ -770,7 +770,6 @@ def skip_transfer_item(request, transfer_id, item_id):
     return redirect("transfer_review", transfer_id=review.pk)
 
 
-@require_POST
 def _has_audio_file_signature(uploaded, extension):
     """Check file bytes instead of trusting the browser-supplied MIME type."""
     signatures = {
@@ -798,6 +797,7 @@ def _has_audio_file_signature(uploaded, extension):
     return checker(header)
 
 
+@require_POST
 def upload_track_to_soundcloud(request):
     uploaded = request.FILES.get("audio_file")
     title = (request.POST.get("title") or "").strip()
