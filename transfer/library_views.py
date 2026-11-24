@@ -173,7 +173,7 @@ def import_vk_playlist(request):
     try:
         owner_id, playlist_id, access_key = parse_vk_playlist_url(source_url)
         logger.info("VK public playlist import started owner_id=%s playlist_id=%s has_access_key=%s", owner_id, playlist_id, bool(access_key))
-        api = VKClient(settings.VK_ID_CLIENT_ID, settings.VK_ANON_CLIENT_SECRET, settings.VK_API_VERSION)
+        api = VKClient(version=settings.VK_API_VERSION)
         title, tracks = api.fetch_playlist(source_url)
         if not tracks:
             raise TransferError("VK не вернул композиции для импорта.")
@@ -1001,9 +1001,7 @@ def import_vk_track(request):
     source_url = (request.POST.get("source_url") or "").strip()
     try:
         parse_vk_track_url(source_url)
-        track = VKClient(
-            settings.VK_ID_CLIENT_ID, settings.VK_ANON_CLIENT_SECRET, settings.VK_API_VERSION
-        ).fetch_track(source_url)
+        track = VKClient(version=settings.VK_API_VERSION).fetch_track(source_url)
         playlist = LibraryPlaylist.objects.create(
             profile=_profile(request), title=f"VK — {track.artist} — {track.title}"[:120],
             provider=LibraryPlaylist.Provider.VK, external_url=source_url,
