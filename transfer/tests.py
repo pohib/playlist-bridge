@@ -691,6 +691,22 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(track.duration_ms, 90000)
 
     @patch("transfer.library_views._soundcloud_access")
+    def test_upload_rejects_mime_and_extension_spoofing(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from unittest.mock import patch
+
+        fake_audio = SimpleUploadedFile(
+            "not-really-audio.mp3", b"<script>alert(1)</script>",
+            content_type="audio/mpeg",
+        )
+        with patch("transfer.library_views._soundcloud_access") as access:
+            response = self.client.post(
+                reverse("library_upload_soundcloud_track"),
+                {"title": "Fake", "artist": "Attacker", "audio_file": fake_audio},
+            )
+        self.assertEqual(response.status_code, 302)
+        access.assert_not_called()
+
     def test_upload_owned_audio_file_to_soundcloud(self, access):
         client = Mock()
         client.upload_track.return_value = {
@@ -699,7 +715,7 @@ class SoundCloudIntegrationTests(TestCase):
             "permalink_url": "https://soundcloud.com/me/uploaded-track",
         }
         access.return_value = (client, "sc-token")
-        audio = SimpleUploadedFile("demo.mp3", b"audio-bytes", content_type="audio/mpeg")
+        audio = SimpleUploadedFile("demo.mp3", b"ID3\\x04\\x00\\x00\\x00\\x00\\x00\\x00audio-data", content_type="application/octet-stream")
         response = self.client.post(
             reverse("library_upload_soundcloud_track"),
             {"title": "Demo", "artist": "Me", "audio_file": audio},
