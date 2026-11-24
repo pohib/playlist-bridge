@@ -81,8 +81,11 @@
   el("player-prev").addEventListener("click",()=>{if(state.queue.length){state.index=(state.index-1+state.queue.length)%state.queue.length;render();}});
   el("player-next").addEventListener("click",nextTrack);audio.addEventListener("ended",nextTrack);
   el("player-clear").addEventListener("click",()=>{state={...state,queue:[],index:0};audio.pause();ui.embed.replaceChildren();player.hidden=true;renderQueue();persist();});
-  ui.toggle.addEventListener("click",()=>{const open=ui.panel.hidden;ui.panel.hidden=!open;ui.toggle.setAttribute("aria-expanded",String(open));});
-  el("player-queue-close").addEventListener("click",()=>{ui.panel.hidden=true;ui.toggle.setAttribute("aria-expanded","false");});
+  function setQueueOpen(open){ui.panel.hidden=!open;ui.backdrop.hidden=!open;ui.toggle.setAttribute("aria-expanded",String(open));document.body.classList.toggle("queue-drawer-open",open);}
+  ui.toggle.addEventListener("click",()=>setQueueOpen(ui.panel.hidden));
+  ui.backdrop.addEventListener("click",()=>setQueueOpen(false));
+  el("player-queue-close").addEventListener("click",()=>setQueueOpen(false));
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!ui.panel.hidden)setQueueOpen(false);});
   Array.from(ui.source.options).forEach(option=>{option.selected=(state.sourceProviders||["auto"]).includes(option.value);});
   ui.source.addEventListener("change",()=>{let selected=Array.from(ui.source.selectedOptions).map(option=>option.value);if(selected.includes("auto"))selected=["auto"];else selected=selected.filter(value=>value!=="auto");state.sourceProviders=selected.length?selected:["auto"];Array.from(ui.source.options).forEach(option=>{option.selected=state.sourceProviders.includes(option.value);});persist();});
   function providerLabel(value){return ({vk:"VK",spotify:"Spotify",soundcloud:"SoundCloud",youtube_music:"YouTube Music",apple_music:"Apple Music"})[value]||value;}
