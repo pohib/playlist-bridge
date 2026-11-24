@@ -1506,3 +1506,97 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 @media(prefers-reduced-motion:reduce){
   body,.ambient,body::after{animation:none!important}
 }
+
+/* Queue drawer: edge-to-edge, transform-only animation for smooth compositing */
+.player-queue-backdrop{
+  background:rgba(2,6,13,.38)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  transition:opacity .24s ease!important;
+}
+.player-queue-panel{
+  position:fixed!important;
+  z-index:1002!important;
+  inset:0 0 0 auto!important;
+  width:min(480px, min(100vw, 44vw))!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  margin:0!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  border:1px solid rgba(205,224,250,.2)!important;
+  border-right:0!important;
+  border-radius:22px 0 0 22px!important;
+  background:linear-gradient(145deg,rgba(22,37,59,.96),rgba(7,14,27,.96))!important;
+  box-shadow:-24px 0 80px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.09)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  transform:translate3d(105%,0,0)!important;
+  opacity:1!important;
+  visibility:visible;
+  will-change:transform;
+  backface-visibility:hidden;
+  contain:layout paint;
+  transition:transform .38s cubic-bezier(.22,.72,.18,1)!important;
+  animation:none!important;
+}
+.player-queue-panel.is-open{transform:translate3d(0,0,0)!important}
+.player-queue-panel[hidden]{display:none!important;visibility:hidden}
+.player-queue-heading{
+  position:sticky;top:0;z-index:2;
+  background:rgba(13,23,39,.98)!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
+@media(max-width:700px){
+  .player-queue-panel{width:min(100vw,520px)!important;border-radius:18px 0 0 18px!important}
+}
+
+/* Playback controls stay together above a full-width seek bar */
+.player-transport{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 38px 46px 38px minmax(0,1fr)!important;
+  grid-template-rows:46px 15px 12px!important;
+  align-items:center!important;
+  justify-items:center!important;
+  column-gap:8px!important;
+  row-gap:3px!important;
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+}
+#player-prev{grid-column:2!important;grid-row:1!important;align-self:center!important}
+#player-play-pause{grid-column:3!important;grid-row:1!important;align-self:center!important}
+#player-next{grid-column:4!important;grid-row:1!important;align-self:center!important}
+#player-current-time{grid-column:1!important;grid-row:2!important;justify-self:start!important;align-self:center!important}
+#player-duration{grid-column:5!important;grid-row:2!important;justify-self:end!important;align-self:center!important}
+#player-progress{
+  grid-column:1/6!important;
+  grid-row:3!important;
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  justify-self:stretch!important;
+  align-self:center!important;
+  margin:0!important;
+}
+.global-player-center{min-width:0!important}
+@media(max-width:760px){
+  .player-transport{grid-template-columns:minmax(0,1fr) 34px 44px 34px minmax(0,1fr)!important;grid-template-rows:42px 14px 12px!important;column-gap:5px!important}
+}
+@media(max-width:420px){
+  .player-transport{grid-template-columns:minmax(0,1fr) 30px 40px 30px minmax(0,1fr)!important;grid-template-rows:40px 14px 12px!important;column-gap:4px!important}
+}
+.global-player{
+  background:
+    radial-gradient(ellipse at 12% 0%,rgba(119,163,230,.12),transparent 48%),
+    radial-gradient(ellipse at 90% 100%,rgba(58,220,143,.07),transparent 44%),
+    linear-gradient(120deg,rgba(24,39,61,.57),rgba(6,13,25,.56) 55%,rgba(18,31,49,.58))!important;
+  border-color:rgba(187,211,246,.18)!important;
+  box-shadow:0 26px 80px rgba(0,0,0,.42),0 8px 24px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.12)!important;
+  -webkit-backdrop-filter:blur(30px) saturate(155%)!important;
+  backdrop-filter:blur(30px) saturate(155%)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .player-queue-panel,.player-queue-backdrop{transition:none!important}
+}
