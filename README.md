@@ -120,7 +120,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 - SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
 - VK_ID_CLIENT_ID — ID приложения VK, используемый для анонимного API;
 - SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App;
-- VK_ANON_CLIENT_SECRET — секрет приложения VK для `get_anonym_token`. Не используй секрет, опубликованный в переписке; при необходимости выпусти новый в кабинете VK и внеси его только в локальный `.env`.
+- VK_ANON_CLIENT_SECRET — секрет приложения VK для `get_anonym_token`. Не используй скомпрометированный секрет; при необходимости выпусти новый в кабинете VK и внеси его только в локальный `.env`.
 
 Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
 
