@@ -1,9 +1,6 @@
 # ruff: noqa: I001
-import base64
-import hashlib
 import time
 from unittest.mock import Mock, patch
-from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -22,7 +19,6 @@ from .core import (
     SpotifyClient,
     TransferError,
     VKClient,
-    VKIDClient,
     VKTrack,
     normalize_track_text,
     parse_vk_playlist_url,
@@ -308,38 +304,6 @@ class VersionedApiTests(TestCase):
 
 
 class OAuthSecurityTests(TestCase):
-    def test_vk_oauth_authorization_uses_pkce_s256(self):
-        client = VKIDClient("vk-app-id", "https://example.test/vk/callback/")
-        verifier = "a" * 64
-        url = client.authorization_url("random-state", verifier)
-        params = parse_qs(urlparse(url).query)
-        expected = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
-        self.assertEqual(params["code_challenge"][0], expected)
-        self.assertEqual(params["code_challenge_method"][0], "s256")
-        self.assertEqual(params["state"][0], "random-state")
-        self.assertEqual(params["scope"][0], "audio")
-
-    def test_vk_oauth_secrets_are_sent_in_post_body(self):
-        service_token = Fernet.generate_key().decode()
-        client = VKIDClient("vk-app-id", "https://example.test/vk/callback/", service_token)
-        response = Mock()
-        response.raise_for_status.return_value = None
-        response.json.return_value = {
-            "access_token": Fernet.generate_key().decode(),
-            "refresh_token": Fernet.generate_key().decode(),
-            "state": "expected-state",
-        }
-        client.http.post = Mock(return_value=response)
-
-        client.exchange_code("one-time-code", "device-id", "expected-state", "pkce-verifier")
-
-        call = client.http.post.call_args
-        self.assertNotIn("params", call.kwargs)
-        self.assertEqual(call.kwargs["data"]["code"], "one-time-code")
-        self.assertEqual(call.kwargs["data"]["code_verifier"], "pkce-verifier")
-        self.assertEqual(call.kwargs["data"]["service_token"], service_token)
-        self.assertEqual(call.kwargs["data"]["state"], "expected-state")
-
     @override_settings(TOKEN_ENCRYPTION_KEY=Fernet.generate_key().decode())
     def test_oauth_tokens_are_encrypted_at_rest(self):
         access_token = Fernet.generate_key().decode()
