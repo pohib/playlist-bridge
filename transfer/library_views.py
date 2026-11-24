@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse, StreamingHttpResponse
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -1275,6 +1275,70 @@ def get_vk_track_stream(request, track_id):
                 time.sleep(0.35)
     response = JsonResponse({"error": str(last_error or "VK временно не выдал аудиопоток.")}, status=422)
     response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
+@require_GET
+def stream_vk_track_audio(request, track_id):
+    """Proxy a fresh VK MP3 stream with browser-friendly audio and Range headers."""
+    import requests
+
+    track = get_object_or_404(
+        LibraryTrack.objects.select_related("playlist"),
+        pk=track_id,
+        playlist__profile=_profile(request),
+    )
+    if (track.source_provider or track.playlist.provider) != LibraryPlaylist.Provider.VK:
+        raise Http404("VK track not found")
+
+    api = VKClient(version=settings.VK_API_VERSION)
+    api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
+    audio_id = track.external_id
+    if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
+        audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
+
+    stream = api.get_track_stream(audio_id, "mp3")
+    headers = {
+        **api.token_provider.BROWSER_HEADERS,
+        "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
+        "Referer": api.token_provider.referer,
+    }
+    requested_range = request.headers.get("Range")
+    if requested_range:
+        headers["Range"] = requested_range
+
+    upstream = requests.get(
+        stream["url"], headers=headers, stream=True,
+        timeout=(8, 45), allow_redirects=False,
+    )
+    if upstream.status_code not in {200, 206}:
+        upstream.close()
+        return JsonResponse({"error": "VK CDN не смог отдать аудиопоток."}, status=502)
+
+    content_range = upstream.headers.get("Content-Range")
+    if upstream.status_code == 206 and not content_range:
+        upstream.close()
+        return JsonResponse({"error": "VK CDN вернул некорректный диапазон аудио."}, status=502)
+
+    def chunks():
+        try:
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    response = StreamingHttpResponse(chunks(), status=upstream.status_code, content_type="audio/mpeg")
+    response["Accept-Ranges"] = upstream.headers.get("Accept-Ranges", "bytes")
+    if content_range:
+        response["Content-Range"] = content_range
+    content_length = upstream.headers.get("Content-Length")
+    if content_length:
+        response["Content-Length"] = content_length
+    response["Content-Disposition"] = "inline"
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
     return response
 
 
