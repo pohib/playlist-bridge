@@ -1308,10 +1308,14 @@ def stream_vk_track_audio(request, track_id):
     if requested_range:
         headers["Range"] = requested_range
 
-    upstream = requests.get(
-        stream["url"], headers=headers, stream=True,
-        timeout=(8, 45), allow_redirects=False,
-    )
+    try:
+        upstream = requests.get(
+            stream["url"], headers=headers, stream=True,
+            timeout=(8, 45), allow_redirects=False,
+        )
+    except requests.RequestException:
+        logger.exception("VK CDN stream request failed for track %s", track.pk)
+        return JsonResponse({"error": "Не удалось подключиться к CDN VK. Попробуй запустить трек ещё раз."}, status=502)
     if upstream.status_code not in {200, 206}:
         upstream.close()
         return JsonResponse({"error": "VK CDN не смог отдать аудиопоток."}, status=502)
