@@ -311,6 +311,10 @@ class HttpSurfaceTests(TestCase):
         self.assertContains(response, "Мой профиль")
         self.assertNotContains(response, "Создать свою библиотеку")
         self.assertNotContains(response, "У меня уже есть аккаунт")
+        self.assertContains(response, 'id="player-volume"')
+        self.assertContains(response, 'id="player-mute"')
+        self.assertContains(response, 'id="player-collapse"')
+        self.assertContains(response, 'id="player-expand"')
 
     def test_health(self):
         self.assertEqual(self.client.get(reverse("healthz")).json(), {"status": "ok"})
@@ -1223,4 +1227,18 @@ class LibraryCoverProxyTests(TestCase):
         self.assertEqual(response.content, b"test-image-bytes")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertEqual(fetch.call_args.kwargs["allow_redirects"], False)
+        self.assertEqual(fetch.call_args.kwargs["headers"]["Referer"], "https://vk.ru/")
         upstream.close.assert_called_once()
+
+    def test_cover_proxy_detects_vk_jpeg_with_generic_content_type(self):
+        upstream = Mock()
+        upstream.status_code = 200
+        upstream.headers = {"Content-Type": "application/octet-stream"}
+        upstream.iter_content.return_value = [bytes.fromhex("FFD8FF") + b"fixture"]
+        with patch("requests.get", return_value=upstream):
+            response = self.client.get(
+                reverse("library_cover_proxy"),
+                {"url": "https://sun9-1.userapi.com/cover.jpg"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/jpeg")
