@@ -134,10 +134,17 @@ def library_cover_proxy(request):
     )
 
     def allowed_url(value):
-        parsed = urlsplit(value)
+        if not isinstance(value, str) or not value or len(value) > 2048:
+            return False
+        try:
+            parsed = urlsplit(value)
+            port = parsed.port
+        except ValueError:
+            return False
         host = (parsed.hostname or "").lower().rstrip(".")
         return (
             parsed.scheme == "https"
+            and port in (None, 443)
             and bool(host)
             and not parsed.username
             and not parsed.password
@@ -173,6 +180,11 @@ def library_cover_proxy(request):
             upstream.close()
             return HttpResponseNotFound("Artwork is unavailable.")
 
+        content_length = upstream.headers.get("Content-Length", "")
+        if content_length.isdigit() and int(content_length) > 6 * 1024 * 1024:
+            upstream.close()
+            return HttpResponseBadRequest("Artwork is too large.")
+
         content_type = upstream.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         if content_type not in {"image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"}:
             upstream.close()
@@ -186,6 +198,8 @@ def library_cover_proxy(request):
                 body.extend(chunk)
                 if len(body) > 6 * 1024 * 1024:
                     return HttpResponseBadRequest("Artwork is too large.")
+        except requests.RequestException:
+            return HttpResponseNotFound("Artwork is temporarily unavailable.")
         finally:
             upstream.close()
 
