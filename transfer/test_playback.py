@@ -269,3 +269,85 @@ class VKPlaybackApiTests(TestCase):
         self.client.logout()
         response = self.client.get(self.audio_url)
         self.assertEqual(response.status_code, 302)
+
+class VKTrackStreamValidationTests(TestCase):
+    def setUp(self):
+        from .services.vk_client import VKClient
+
+        self.client = VKClient(version="5.289")
+
+    def test_mp3_stream_is_extracted_from_vk_response(self):
+        self.client.post = Mock(return_value={
+            "response": [{
+                "audio_streams": [{
+                    "type": "mp3",
+                    "url": "https://cdn.okcdn.ru/audio.mp3",
+                }],
+            }],
+        })
+
+        result = self.client.get_track_stream("10_101", "mp3")
+
+        self.assertEqual(
+            result,
+            {"url": "https://cdn.okcdn.ru/audio.mp3", "format": "mp3"},
+        )
+        self.client.post.assert_called_once_with("audio.getById", data={"audios": "10_101"})
+
+    def test_missing_requested_stream_format_is_reported(self):
+        self.client.post = Mock(return_value={
+            "response": [{
+                "audio_streams": [{
+                    "type": "hls_ts",
+                    "url": "https://cdn.okcdn.ru/audio.m3u8",
+                }],
+            }],
+        })
+
+        with self.assertRaisesRegex(TransferError, "формате mp3"):
+            self.client.get_track_stream("10_101", "mp3")
+
+    def test_restricted_track_has_distinct_error(self):
+        self.client.post = Mock(return_value={
+            "response": [{"content_restricted": True, "audio_streams": []}],
+        })
+
+        with self.assertRaisesRegex(TransferError, "ограничение доступа"):
+            self.client.get_track_stream("10_101", "mp3")
+
+    def test_untrusted_cdn_host_is_rejected(self):
+        self.client.post = Mock(return_value={
+            "response": [{
+                "audio_streams": [{
+                    "type": "mp3",
+                    "url": "https://cdn.attacker.example/audio.mp3",
+                }],
+            }],
+        })
+
+        with self.assertRaisesRegex(TransferError, "небезопасный адрес"):
+            self.client.get_track_stream("10_101", "mp3")
+
+    def test_non_https_cdn_url_is_rejected(self):
+        self.client.post = Mock(return_value={
+            "response": [{
+                "audio_streams": [{
+                    "type": "mp3",
+                    "url": "http://cdn.okcdn.ru/audio.mp3",
+                }],
+            }],
+        })
+
+        with self.assertRaisesRegex(TransferError, "небезопасный адрес"):
+            self.client.get_track_stream("10_101", "mp3")
+
+    def test_invalid_audio_id_and_stream_format_are_rejected_before_request(self):
+        self.client.post = Mock()
+
+        with self.assertRaisesRegex(TransferError, "идентификатор"):
+            self.client.get_track_stream("../../admin", "mp3")
+        with self.assertRaisesRegex(TransferError, "формат"):
+            self.client.get_track_stream("10_101", "dash")
+
+        self.client.post.assert_not_called()
+
