@@ -50,6 +50,7 @@ urlpatterns = [
     path("library/playlists/<uuid:playlist_id>/tracks/add/", library_views.add_track, name="library_add_track"),
     path("library/playlists/<uuid:playlist_id>/delete/", library_views.delete_playlist, name="library_delete_playlist"),
     path("library/tracks/<uuid:track_id>/delete/", library_views.delete_track, name="library_delete_track"),
+    path("api/v1/library/tracks/search/", library_views.search_library_sources, name="library_track_search"),
     path("api/v1/status/", views.api_status, name="api_status"),
     path("api/v1/transfers/", views.api_create_transfer, name="api_create_transfer"),
     path("api/v1/transfers/<uuid:job_id>/", views.api_transfer_detail, name="api_transfer_detail"),
