@@ -53,7 +53,7 @@
       </label>
       <button type="button" class="player-search-button" id="player-search-current">Найти текущий трек</button>
       <div class="player-search-results" id="player-search-results" aria-live="polite"></div>
-      <input type="hidden" id="player-csrf-token" value="{% csrf_token %}">
+      <form id="player-csrf-form" hidden>{% csrf_token %}</form>
       <ol class="player-queue-list" id="player-queue-list"></ol>
     </section>
   </aside>
