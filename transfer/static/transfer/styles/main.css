@@ -1739,3 +1739,76 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 @media(prefers-reduced-motion:reduce){
   .global-player,.player-queue-panel,.player-queue-backdrop{transition:none!important}
 }
+
+
+/* Navigation sizing: keep every item visible and let the row scroll cleanly on narrow screens */
+.site-header{min-width:0;gap:clamp(10px,2vw,24px)}
+.site-header .brand{flex:0 0 auto}
+.main-nav{
+  flex:1 1 0;
+  min-width:0;
+  max-width:100%;
+  justify-content:center;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:7px 9px;
+  margin:-7px -9px;
+  scrollbar-width:none;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.main-nav::-webkit-scrollbar{display:none}
+.main-nav a{flex:0 0 auto;white-space:nowrap}
+.header-account{flex:0 0 auto;min-width:0}
+@media(max-width:900px){
+  .main-nav{flex:1 0 100%;width:100%;max-width:100%;justify-content:flex-start;padding:8px 9px;margin:-2px -9px;scroll-padding-inline:9px}
+}
+@media(max-width:620px){
+  .site-header{min-width:0}
+  .main-nav{gap:3px}
+  .main-nav a{padding:9px 12px}
+}
+
+/* Bring back deliberate hover depth across library, dashboard and playlist surfaces */
+.playlist-card,.library-card-shell,.dashboard-tile,.feature-card,.connection-card,
+.import-card,.review-item,.content-panel,.track-table-row,.library-track-row,
+.playlist-track-row,.track-table-row[data-track-row-index]{
+  transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s ease,
+    background-color .22s ease,box-shadow .22s ease,filter .22s ease;
+}
+.playlist-card:hover,.library-card-shell:hover,.dashboard-tile:hover,
+.feature-card:hover,.connection-card:hover,.import-card:hover,.review-item:hover{
+  border-color:rgba(132,190,231,.34)!important;
+  box-shadow:0 18px 44px rgba(0,0,0,.3),0 0 26px rgba(72,151,214,.075),
+    inset 0 1px 0 rgba(255,255,255,.09)!important;
+}
+.playlist-card:hover,.library-card-shell:hover,.dashboard-tile:hover,
+.feature-card:hover,.connection-card:hover,.import-card:hover{
+  transform:translateY(-3px);
+}
+.content-panel:hover{
+  border-color:rgba(132,190,231,.3)!important;
+  box-shadow:0 25px 72px rgba(0,0,0,.27),0 0 30px rgba(72,151,214,.055),
+    inset 0 1px 0 rgba(255,255,255,.07)!important;
+}
+.track-table-row:hover,.library-track-row:hover,.playlist-track-row:hover,
+.track-table-row[data-track-row-index]:hover{
+  border-color:rgba(132,190,231,.22)!important;
+  background:linear-gradient(90deg,rgba(75,125,184,.14),rgba(39,64,96,.12))!important;
+  box-shadow:inset 3px 0 0 rgba(91,222,151,.58),0 7px 22px rgba(0,0,0,.16)!important;
+}
+.library-card-shell:focus-within,.playlist-card:focus-within,
+.dashboard-tile:focus-visible,.library-card:focus-visible,
+.main-nav a:focus-visible{
+  outline:2px solid rgba(117,235,164,.72);
+  outline-offset:3px;
+}
+@media(hover:none){
+  .library-card-play{opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .playlist-card,.library-card-shell,.dashboard-tile,.feature-card,.connection-card,
+  .import-card,.review-item,.content-panel,.track-table-row,.library-track-row,
+  .playlist-track-row{transition:none!important}
+}
