@@ -21,6 +21,7 @@ class VKAnonymousTokenProvider:
         self.http = http or requests.Session()
         self._token: str | None = None
         self._expires_at = 0
+        self.referer = "https://vk.ru/"
 
     def get_token(self):
         import time
@@ -47,12 +48,13 @@ class VKAnonymousTokenProvider:
             # login.vk.ru for an anonymous API token.
             modals = self.http.post(
                 self.MODALS_ENDPOINT,
+                params={"act": "modals"},
                 data={"act": "modals", "al": "1", "module": "audio"},
                 headers={
                     "Accept": "*/*",
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Origin": "https://vk.ru",
-                    "Referer": "https://vk.ru/",
+                    "Referer": self.referer,
                     "X-Requested-With": "XMLHttpRequest",
                 },
                 timeout=(5, 15),
@@ -172,6 +174,7 @@ class VKClient:
 
     def fetch_playlist(self, url):
         owner, playlist_id, access_key = parse_vk_playlist_url(url)
+        self.token_provider.referer = url
         entity_id = f"{owner}_{playlist_id}" + (f"_{access_key}" if access_key else "")
         ids_payload = self.post(
             "audio.getIdsBySource",
@@ -209,6 +212,7 @@ class VKClient:
 
     def fetch_track(self, url):
         owner_id, track_id = parse_vk_track_url(url)
+        self.token_provider.referer = url
         payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"})
         items, _ = self._response_items(payload)
         if not items or not isinstance(items[0], dict):
