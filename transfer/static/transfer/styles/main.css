@@ -1828,3 +1828,37 @@ button,.primary-button,.secondary-button,.nav-login,.nav-register,.account-chip{
 .site-header{width:100vw!important;max-width:none!important;box-sizing:border-box!important;margin-left:calc(50% - 50vw)!important;padding-left:max(24px,calc((100vw - 1160px)/2))!important;padding-right:max(24px,calc((100vw - 1160px)/2))!important;border-radius:0!important}
 @media(max-width:900px){.site-header{padding-left:18px!important;padding-right:18px!important}}
 @media(max-width:620px){.site-header{padding-left:14px!important;padding-right:14px!important}}
+
+
+/* Slimmer player: tuck shuffle/repeat lower and reclaim vertical space. */
+.global-player:not(.is-collapsed){
+  min-height:112px!important;
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+}
+.global-player-center{
+  gap:2px!important;
+}
+.global-player-center .player-actions{
+  min-height:24px!important;
+  height:24px!important;
+  align-items:flex-end!important;
+  padding-top:3px!important;
+  margin-bottom:-1px!important;
+}
+.player-playback-modes{
+  gap:6px!important;
+  transform:translateY(3px)!important;
+}
+.player-mode-button{
+  width:29px!important;
+  min-width:29px!important;
+  height:26px!important;
+  border-radius:9px!important;
+  font-size:16px!important;
+}
+@media(max-width:760px){
+  .global-player:not(.is-collapsed){min-height:106px!important;padding-top:7px!important;padding-bottom:7px!important}
+  .global-player-center .player-actions{height:22px!important;min-height:22px!important}
+  .player-mode-button{width:27px!important;min-width:27px!important;height:24px!important}
+}
