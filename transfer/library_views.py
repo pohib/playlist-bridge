@@ -1011,6 +1011,7 @@ def import_vk_track(request):
         LibraryTrack.objects.create(
             playlist=playlist, title=track.title[:180], artist=track.artist[:180],
             duration_ms=max(0, track.duration) * 1000,
+            cover_url=track.cover_url,
             external_id=f"{track.owner_id}_{track.track_id}",
             external_url=source_url, position=0,
         )
