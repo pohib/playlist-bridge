@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
@@ -50,7 +51,8 @@ def playlist_detail(request, playlist_id):
     tracks = list(playlist.tracks.all())
     playback_tracks = [{
         "provider": "local" if track.audio_file else (track.source_provider or playlist.provider),
-        "id": track.external_id, "url": track.external_url,
+        "id": track.external_id,
+        "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
         "title": track.title, "artist": track.artist,
         "cover": track.cover_url, "duration": track.duration_ms,
     } for track in tracks]
