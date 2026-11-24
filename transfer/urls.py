@@ -44,6 +44,7 @@ urlpatterns = [
     path("library/playlists/<uuid:playlist_id>/source/", library_views.open_playlist_source, name="library_open_playlist_source"),
     path("library/tracks/<uuid:track_id>/source/", library_views.open_track_source, name="library_open_track_source"),
     path("library/playlists/create/", library_views.create_playlist, name="library_create_playlist"),
+    path("library/playlists/merge/", library_views.merge_playlists, name="library_merge_playlists"),
     path("library/playlists/<uuid:playlist_id>/tracks/add/", library_views.add_track, name="library_add_track"),
     path("library/playlists/<uuid:playlist_id>/delete/", library_views.delete_playlist, name="library_delete_playlist"),
     path("library/tracks/<uuid:track_id>/delete/", library_views.delete_track, name="library_delete_track"),

@@ -47,7 +47,16 @@ def playlist_detail(request, playlist_id):
         pk=playlist_id,
         profile=_profile(request),
     )
-    return render(request, "transfer/playlist_detail.html", {"playlist": playlist})
+    tracks = list(playlist.tracks.all())
+    playback_tracks = [{
+        "provider": track.source_provider or playlist.provider,
+        "id": track.external_id, "url": track.external_url,
+        "title": track.title, "artist": track.artist,
+        "cover": track.cover_url, "duration": track.duration_ms,
+    } for track in tracks]
+    return render(request, "transfer/playlist_detail.html", {
+        "playlist": playlist, "playback_tracks": playback_tracks,
+    })
 
 
 @login_required

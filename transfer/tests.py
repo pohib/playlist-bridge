@@ -1088,3 +1088,43 @@ class AccountWorkspaceTests(TestCase):
             {"username": "listener_redirect", "password": TEST_PASSWORD, "next": "https://evil.example/"},
         )
         self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+
+
+class LibraryMergeTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryProfile
+
+        self.user = get_user_model().objects.create_user(username="merge_tester", password=TEST_PASSWORD)
+        self.client.force_login(self.user)
+        self.profile = LibraryProfile.objects.get(user=self.user)
+
+    def test_merge_preserves_order_deduplicates_and_keeps_sources(self):
+        from .models import LibraryPlaylist, LibraryTrack
+
+        first = LibraryPlaylist.objects.create(profile=self.profile, title="First", provider="spotify")
+        second = LibraryPlaylist.objects.create(profile=self.profile, title="Second", provider="soundcloud")
+        LibraryTrack.objects.create(playlist=first, title="Night Drive", artist="Artist", position=0, external_id="spotify-id", external_url="https://open.spotify.com/track/1234567890123456789012")
+        LibraryTrack.objects.create(playlist=second, title="night drive!", artist="ARTIST", position=0, external_id="sc-id", external_url="https://soundcloud.com/artist/night-drive")
+        LibraryTrack.objects.create(playlist=second, title="Other", artist="Singer", position=1, external_id="other-id")
+
+        response = self.client.post(reverse("library_merge_playlists"), {"title":"Merged set", "playlist_ids":[str(first.pk),str(second.pk)]})
+        self.assertEqual(response.status_code, 302)
+        merged = LibraryPlaylist.objects.get(title="Merged set")
+        tracks = list(merged.tracks.order_by("position"))
+        self.assertEqual([track.title for track in tracks], ["Night Drive", "Other"])
+        self.assertEqual(tracks[0].source_provider, "spotify")
+        self.assertEqual(tracks[1].source_provider, "soundcloud")
+        self.assertTrue(LibraryPlaylist.objects.filter(pk=first.pk).exists())
+        self.assertTrue(LibraryPlaylist.objects.filter(pk=second.pk).exists())
+
+    def test_merge_rejects_playlist_owned_by_another_user(self):
+        from django.contrib.auth import get_user_model
+        from .models import LibraryPlaylist, LibraryProfile
+
+        other = get_user_model().objects.create_user(username="other_merge_user", password=TEST_PASSWORD)
+        other_profile = LibraryProfile.objects.create(user=other, session_fingerprint="a" * 64)
+        foreign = LibraryPlaylist.objects.create(profile=other_profile, title="Foreign")
+        own = LibraryPlaylist.objects.create(profile=self.profile, title="Own")
+        self.client.post(reverse("library_merge_playlists"), {"title":"Bad merge", "playlist_ids":[str(own.pk),str(foreign.pk)]})
+        self.assertFalse(LibraryPlaylist.objects.filter(title="Bad merge").exists())

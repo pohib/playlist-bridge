@@ -110,6 +110,7 @@ class LibraryTrack(models.Model):
     cover_url = models.URLField(max_length=2048, blank=True)
     external_id = models.CharField(max_length=200, blank=True)
     external_url = models.URLField(max_length=2048, blank=True)
+    source_provider = models.CharField(max_length=24, choices=LibraryPlaylist.Provider.choices, blank=True)
     position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 

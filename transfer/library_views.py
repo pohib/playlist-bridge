@@ -154,6 +154,67 @@ def delete_playlist(request, playlist_id):
 
 
 
+def _normalized_track_key(artist, title):
+    import unicodedata
+
+    value = unicodedata.normalize("NFKD", f"{artist} {title}".casefold().replace("ё", "е"))
+    return re.sub(r"[^a-z0-9а-я]+", " ", value).strip()
+
+
+@require_POST
+def merge_playlists(request):
+    profile = _profile(request)
+    playlist_ids = list(dict.fromkeys(request.POST.getlist("playlist_ids")))
+    title = (request.POST.get("title") or "").strip()
+    if len(playlist_ids) < 2:
+        messages.error(request, "Выбери минимум два плейлиста для объединения.")
+        return redirect("library")
+    if len(playlist_ids) > 30:
+        messages.error(request, "За один раз можно объединить не более 30 плейлистов.")
+        return redirect("library")
+    if not title or len(title) > 120:
+        messages.error(request, "Укажи название новой коллекции (до 120 символов).")
+        return redirect("library")
+
+    owned = {
+        str(item.pk): item
+        for item in LibraryPlaylist.objects.filter(profile=profile, pk__in=playlist_ids)
+    }
+    if len(owned) != len(playlist_ids):
+        messages.error(request, "Один из выбранных плейлистов не найден.")
+        return redirect("library")
+
+    ordered_sources = [owned[item_id] for item_id in playlist_ids]
+    seen, merged_rows = set(), []
+    with transaction.atomic():
+        merged = LibraryPlaylist.objects.create(
+            profile=profile, title=title,
+            provider=LibraryPlaylist.Provider.MANUAL,
+            description=f"Объединено из {len(ordered_sources)} плейлистов",
+        )
+        for source in ordered_sources:
+            for track in source.tracks.all().order_by("position", "created_at"):
+                key = _normalized_track_key(track.artist, track.title)
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged_rows.append(LibraryTrack(
+                    playlist=merged, title=track.title, artist=track.artist,
+                    album=track.album, duration_ms=track.duration_ms,
+                    cover_url=track.cover_url, external_id=track.external_id,
+                    external_url=track.external_url,
+                    source_provider=track.source_provider or source.provider,
+                    position=len(merged_rows),
+                ))
+        if not merged_rows:
+            merged.delete()
+            messages.error(request, "В выбранных плейлистах нет композиций для объединения.")
+            return redirect("library")
+        LibraryTrack.objects.bulk_create(merged_rows)
+    messages.success(request, f"Создана коллекция «{merged.title}»: {len(merged_rows)} уникальных композиций.")
+    return redirect("playlist_detail", playlist_id=merged.pk)
+
+
 @require_POST
 def update_profile(request):
     profile = _profile(request)

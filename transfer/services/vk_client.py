@@ -209,14 +209,15 @@ class VKClient:
             # Keep walking nested metadata, but only treat strings as images
             # once they are under a known artwork-related key.
             for key, nested in value.items():
-                if key not in preferred_keys and key not in {
-                    "thumb", "track_covers", "covers", "artwork", "album",
-                }:
-                    if isinstance(nested, (dict, list)):
-                        collect(nested, image_context or any(
-                            marker in str(key).lower()
-                            for marker in ("cover", "thumb", "photo", "image", "artwork")
-                        ))
+                if (
+                    key not in preferred_keys
+                    and key not in {"thumb", "track_covers", "covers", "artwork", "album"}
+                    and isinstance(nested, (dict, list))
+                ):
+                    collect(nested, image_context or any(
+                        marker in str(key).lower()
+                        for marker in ("cover", "thumb", "photo", "image", "artwork")
+                    ))
 
         collect(item)
         for value in candidates:
@@ -227,9 +228,8 @@ class VKClient:
             parsed = urlparse(value)
             host = (parsed.hostname or "").lower().rstrip(".")
             trusted_host = (
-                host == "vk.com" or host.endswith(".vk.com")
-                or host == "userapi.com" or host.endswith(".userapi.com")
-                or host == "vkuseraudio.net" or host.endswith(".vkuseraudio.net")
+                host == "vk.com" or host == "userapi.com" or host == "vkuseraudio.net"
+                or host.endswith((".vk.com", ".userapi.com", ".vkuseraudio.net"))
             )
             try:
                 port = parsed.port
