@@ -1,17 +1,22 @@
 # ruff: noqa: I001
 import json
+from unittest import TestCase as UnitTestCase
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
-from hypothesis.extra.django import TestCase as HypothesisTestCase
+from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
-from hypothesis import given, settings
-from hypothesis import strategies as st
+from hypothesis import given, settings, strategies as st
 
 from .credentials import get_session_fingerprint
-from .library_views import _safe_candidate_url, _save_soundcloud_playlist, _spotify_resource_id, _validate_soundcloud_permalink
+from .library_views import (
+    _safe_candidate_url,
+    _save_soundcloud_playlist,
+    _spotify_resource_id,
+    _validate_soundcloud_permalink,
+)
 from .models import LibraryProfile
 from .services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
 
@@ -19,19 +24,8 @@ from .services.common import normalize_track_text, parse_vk_playlist_url, parse_
 FUZZ_SETTINGS = settings(max_examples=100, derandomize=True, deadline=None)
 
 
-class ProviderInputFuzzTests(HypothesisTestCase):
-    """Property-based tests for untrusted URLs and provider input boundaries."""
-
-    def setUp(self):
-        user = get_user_model().objects.create_user(
-            username="provider-fuzz-user",
-            password=get_random_string(32),
-        )
-        self.client.force_login(user)
-        self.profile, _ = LibraryProfile.objects.get_or_create(
-            user=user,
-            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
-        )
+class ProviderInputFuzzTests(UnitTestCase):
+    """Pure property-based tests; these cases do not need Django's database."""
 
     @FUZZ_SETTINGS
     @given(value=st.text(max_size=2048))
@@ -81,99 +75,6 @@ class ProviderInputFuzzTests(HypothesisTestCase):
         self.assertEqual(normalize_track_text(normalized), normalized)
 
     @FUZZ_SETTINGS
-    @given(
-        title=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=240), st.lists(st.integers(), max_size=5)),
-        artist=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=240)),
-        providers=st.one_of(
-            st.none(),
-            st.text(max_size=40),
-            st.lists(st.one_of(st.none(), st.integers(), st.text(max_size=30)), max_size=8),
-        ),
-    )
-    def test_library_search_json_fuzzer_never_returns_server_error(self, title, artist, providers):
-        payload = {"title": title, "artist": artist, "providers": providers}
-        spotify = Mock()
-        spotify.search_tracks.return_value = []
-        soundcloud = Mock()
-        soundcloud.search_tracks.return_value = []
-        with (
-            patch("transfer.library_views._spotify_access", return_value=(spotify, "test-token")),
-            patch("transfer.library_views._soundcloud_access", return_value=(soundcloud, "test-token")),
-        ):
-            response = self.client.post(
-                reverse("library_track_search"),
-                data=json.dumps(payload),
-                content_type="application/json",
-            )
-        self.assertIn(response.status_code, (200, 400))
-        self.assertIsInstance(response.json(), dict)
-
-    @FUZZ_SETTINGS
-    @given(
-        tracks=st.lists(
-            st.one_of(
-                st.none(),
-                st.booleans(),
-                st.integers(),
-                st.text(max_size=80),
-                st.dictionaries(
-                    st.text(max_size=20),
-                    st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
-                    max_size=8,
-                ),
-            ),
-            max_size=12,
-        )
-    )
-    def test_malformed_spotify_search_results_are_contained_as_provider_status(self, tracks):
-        provider = Mock()
-        provider.search_tracks.return_value = tracks
-        with patch("transfer.library_views._spotify_access", return_value=(provider, "test-token")):
-            response = self.client.post(
-                reverse("library_track_search"),
-                data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["spotify"]}),
-                content_type="application/json",
-            )
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertIsInstance(payload["results"], list)
-        self.assertIn("spotify", payload["statuses"])
-
-    @FUZZ_SETTINGS
-    @given(
-        duration=st.one_of(
-            st.none(),
-            st.booleans(),
-            st.integers(min_value=-10**12, max_value=10**12),
-            st.text(max_size=80),
-            st.floats(allow_nan=True, allow_infinity=True, width=32),
-        ),
-        user=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=40), st.dictionaries(st.text(max_size=20), st.text(max_size=40), max_size=3)),
-        artist=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80)),
-    )
-    def test_soundcloud_track_serializer_survives_malformed_duration_and_artist_shapes(self, duration, user, artist):
-        playlist, count = _save_soundcloud_playlist(
-            self.profile,
-            {"title": "Fuzz playlist"},
-            [{"id": 123, "title": "Valid title", "duration": duration, "user": user, "metadata_artist": artist}],
-            "https://soundcloud.com/artist/fuzz-playlist",
-        )
-
-        self.assertEqual(count, 1)
-        track = playlist.tracks.get()
-        self.assertEqual(track.title, "Valid title")
-        self.assertTrue(track.artist)
-        try:
-            if isinstance(duration, bool):
-                raise TypeError("Boolean duration is invalid.")
-            parsed_duration = max(0, int(duration or 0))
-            expected_duration = parsed_duration if parsed_duration <= 2_147_483_647 else None
-        except (TypeError, ValueError, OverflowError):
-            expected_duration = None
-        self.assertEqual(track.duration_ms, expected_duration)
-
-    @FUZZ_SETTINGS
     @given(value=st.text(max_size=2048))
     def test_spotify_resource_url_fuzzer_only_returns_valid_playlist_ids(self, value):
         try:
@@ -203,34 +104,161 @@ class ProviderInputFuzzTests(HypothesisTestCase):
         self.assertIsNone(parsed.username)
         self.assertIsNone(parsed.password)
 
-    @FUZZ_SETTINGS
-    @given(
-        tracks=st.lists(
-            st.one_of(
+
+class ProviderResponseFuzzTests(TestCase):
+    """Fuzz provider JSON and serializer boundaries with an isolated Django test client."""
+
+    def setUp(self):
+        user = get_user_model().objects.create_user(
+            username="provider-fuzz-" + get_random_string(12),
+            password=get_random_string(32),
+        )
+        self.client.force_login(user)
+        self.profile, _ = LibraryProfile.objects.get_or_create(
+            user=user,
+            defaults={"session_fingerprint": get_session_fingerprint(self.client)},
+        )
+
+    def test_library_search_json_fuzzer_never_returns_server_error(self):
+        @FUZZ_SETTINGS
+        @given(
+            title=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=240), st.lists(st.integers(), max_size=5)),
+            artist=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=240)),
+            providers=st.one_of(
+                st.none(),
+                st.text(max_size=40),
+                st.lists(st.one_of(st.none(), st.integers(), st.text(max_size=30)), max_size=8),
+            ),
+        )
+        def exercise(title, artist, providers):
+            spotify = Mock()
+            spotify.search_tracks.return_value = []
+            soundcloud = Mock()
+            soundcloud.search_tracks.return_value = []
+            with (
+                patch("transfer.library_views._spotify_access", return_value=(spotify, "test-token")),
+                patch("transfer.library_views._soundcloud_access", return_value=(soundcloud, "test-token")),
+            ):
+                response = self.client.post(
+                    reverse("library_track_search"),
+                    data=json.dumps({"title": title, "artist": artist, "providers": providers}),
+                    content_type="application/json",
+                )
+            self.assertIn(response.status_code, (200, 400))
+            self.assertIsInstance(response.json(), dict)
+
+        exercise()
+
+    def test_malformed_spotify_search_results_are_contained_as_provider_status(self):
+        @FUZZ_SETTINGS
+        @given(
+            tracks=st.lists(
+                st.one_of(
+                    st.none(),
+                    st.booleans(),
+                    st.integers(),
+                    st.text(max_size=80),
+                    st.dictionaries(
+                        st.text(max_size=20),
+                        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
+                        max_size=8,
+                    ),
+                ),
+                max_size=12,
+            )
+        )
+        def exercise(tracks):
+            provider = Mock()
+            provider.search_tracks.return_value = tracks
+            with patch("transfer.library_views._spotify_access", return_value=(provider, "test-token")):
+                response = self.client.post(
+                    reverse("library_track_search"),
+                    data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["spotify"]}),
+                    content_type="application/json",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIsInstance(payload["results"], list)
+            self.assertIn("spotify", payload["statuses"])
+
+        exercise()
+
+    def test_malformed_soundcloud_search_results_are_contained_as_provider_status(self):
+        @FUZZ_SETTINGS
+        @given(
+            tracks=st.lists(
+                st.one_of(
+                    st.none(),
+                    st.booleans(),
+                    st.integers(),
+                    st.text(max_size=80),
+                    st.dictionaries(
+                        st.text(max_size=20),
+                        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
+                        max_size=8,
+                    ),
+                ),
+                max_size=12,
+            )
+        )
+        def exercise(tracks):
+            provider = Mock()
+            provider.search_tracks.return_value = tracks
+            with patch("transfer.library_views._soundcloud_access", return_value=(provider, "test-token")):
+                response = self.client.post(
+                    reverse("library_track_search"),
+                    data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["soundcloud"]}),
+                    content_type="application/json",
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertIsInstance(payload["results"], list)
+            self.assertIn("soundcloud", payload["statuses"])
+
+        exercise()
+
+    def test_soundcloud_track_serializer_survives_malformed_duration_and_artist_shapes(self):
+        @FUZZ_SETTINGS
+        @given(
+            duration=st.one_of(
+                st.none(),
+                st.booleans(),
+                st.integers(min_value=-10**12, max_value=10**12),
+                st.text(max_size=80),
+                st.floats(allow_nan=True, allow_infinity=True, width=32),
+            ),
+            user=st.one_of(
                 st.none(),
                 st.booleans(),
                 st.integers(),
-                st.text(max_size=80),
-                st.dictionaries(
-                    st.text(max_size=20),
-                    st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
-                    max_size=8,
-                ),
+                st.text(max_size=40),
+                st.dictionaries(st.text(max_size=20), st.text(max_size=40), max_size=3),
             ),
-            max_size=12,
+            artist=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80)),
         )
-    )
-    def test_malformed_soundcloud_search_results_are_contained_as_provider_status(self, tracks):
-        provider = Mock()
-        provider.search_tracks.return_value = tracks
-        with patch("transfer.library_views._soundcloud_access", return_value=(provider, "test-token")):
-            response = self.client.post(
-                reverse("library_track_search"),
-                data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["soundcloud"]}),
-                content_type="application/json",
+        def exercise(duration, user, artist):
+            playlist, count = _save_soundcloud_playlist(
+                self.profile,
+                {"title": "Fuzz playlist"},
+                [{"id": 123, "title": "Valid title", "duration": duration, "user": user, "metadata_artist": artist}],
+                "https://soundcloud.com/artist/fuzz-playlist",
             )
+            try:
+                self.assertEqual(count, 1)
+                track = playlist.tracks.get()
+                self.assertEqual(track.title, "Valid title")
+                self.assertTrue(track.artist)
+                try:
+                    if isinstance(duration, bool):
+                        raise TypeError("Boolean duration is invalid.")
+                    parsed_duration = max(0, int(duration or 0))
+                    expected_duration = parsed_duration if parsed_duration <= 2_147_483_647 else None
+                except (TypeError, ValueError, OverflowError):
+                    expected_duration = None
+                self.assertEqual(track.duration_ms, expected_duration)
+            finally:
+                playlist.delete()
 
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertIsInstance(payload["results"], list)
-        self.assertIn("soundcloud", payload["statuses"])
+        exercise()
