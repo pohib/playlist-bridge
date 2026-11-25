@@ -186,7 +186,7 @@ VK не требует регистрации приложения и отдел
 
 ### 2. Установи Cloudflare Tunnel
 
-Установи Docker Desktop и дождись запуска Docker Engine. Затем установи cloudflared:
+Установите Docker Desktop и дождитесь запуска Docker Engine. Затем установите cloudflared:
 
     winget install --id Cloudflare.cloudflared -e
 
@@ -252,7 +252,7 @@ Quick Tunnel не гарантирует постоянный адрес. При
 1. Останови старый cloudflared процесс, если он ещё работает;
 2. Запусти scripts/start-tunnel.ps1 снова;
 3. Обнови callback URI в кабинетах Spotify и SoundCloud, если домен изменился;
-4. Переподключи OAuth, если провайдер использует новый Redirect URI.
+4. При изменении Redirect URI переподключите OAuth-аккаунт провайдера.
 
 Не публикуй приложение с Quick Tunnel как постоянный production-сервис: это временный туннель для разработки и проверки OAuth.
 
@@ -280,7 +280,7 @@ Quick Tunnel не гарантирует постоянный адрес. При
 
 Команда down -v удаляет PostgreSQL volume, включая сохранённые OAuth credentials и историю переносов. Не выполняй её для обычной остановки.
 
-Не теряй TOKEN_ENCRYPTION_KEY: без него сохранённые зашифрованные токены восстановить нельзя. Храни ключ отдельно в менеджере секретов и делай защищённую резервную копию.
+TOKEN_ENCRYPTION_KEY необходимо сохранить: без него восстановить зашифрованные токены невозможно. Храните ключ отдельно в менеджере секретов и создавайте защищённую резервную копию.
 
 
 ## Локальные тесты и проверки
@@ -298,26 +298,26 @@ Quick Tunnel не гарантирует постоянный адрес. При
     pytest -q transfer/tests/test_fuzzing.py
     pytest -q --cov=transfer --cov-report=term-missing
 
-Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляй DATABASE_URL в .env только ради тестов.
+Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляйте DATABASE_URL в `.env` только ради тестов.
 
 CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и OWASP ZAP baseline DAST. Результат проверки смотри во вкладке Actions соответствующего коммита.
 
 
 ## Контекст для продолжения работы другой нейросетью
 
-Этот раздел — краткая передача контекста. Перед изменениями всё равно проверь актуальный main, текущие файлы и последние GitHub Actions: README может отставать от реализации.
+Этот раздел — краткая передача контекста. Перед изменениями необходимо проверять актуальную ветку main, исходные файлы и последние запуски GitHub Actions: README может отставать от реализации.
 
 ### Как понимать короткие запросы пользователя
 
-- **«Давай доделывать плеер».** Начните с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найдите существующие CSS-селекторы и каскад — не добавляйте слепые override-блоки в конец файла. Сохраняйте доступность, reduced-motion и адаптивность.
-- **«Перенос треков в Spotify не работает».** Разделите два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверьте статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагайте причину без диагностики. Не просите пользователя присылать access/refresh token, client secret или .env.
-- **«Импорт из VK не работает / не играет».** Для импорта изучите services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверь get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
-- **«Добавь новый источник».** Сначала определите, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
-- **«Раздели/рефактори бизнес-логику».** Выберите один use case из library_views.py, найдите его зависимости и side effects, добавьте контрактные тесты, извлеките в сервис, оставив view тонким адаптером. Не меняйте одновременно поведение, структуру моделей и UI.
+- **«Продолжить работу над плеером».** Начните с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найдите существующие CSS-селекторы и каскад — не добавляйте слепые override-блоки в конец файла. Сохраняйте доступность, reduced-motion и адаптивность.
+- **«Не работает перенос треков в Spotify».** Разделите два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверьте статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагайте причину без диагностики. Не просите пользователя присылать access/refresh token, client secret или .env.
+- **«Не работает импорт или воспроизведение VK».** Для импорта изучите services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверьте get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
+- **«Добавить новый источник».** Сначала определите, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
+- **«Разделить или рефакторить бизнес-логику».** Выберите один use case из library_views.py, найдите его зависимости и side effects, добавьте контрактные тесты, извлеките в сервис, оставив view тонким адаптером. Не меняйте одновременно поведение, структуру моделей и UI.
 
 ### Обязательный рабочий порядок
 
-1. Получи актуальное дерево и прочитай затрагиваемые файлы, тесты, URL и модели. Не полагайтесь только на README или старый контекст.
+1. Получите актуальное дерево и прочитайте затрагиваемые файлы, тесты, URL и модели. Не полагайтесь только на README или устаревший контекст.
 2. Проверьте последние CI runs и их job logs. Отличайте success от queued, pending, cancelled и skipped.
 3. Сформулируйте, какой контракт должен сохраниться: URL/method, payload, ownership, DB effects, provider calls, side effects, order, retry/idempotency.
 4. Сначала добавьте regression tests (включая negative/boundary cases и Hypothesis fuzzing там, где есть недоверенный ввод), затем минимально меняйте production code.
