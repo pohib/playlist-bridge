@@ -432,7 +432,8 @@ body.app-body::before { opacity: .55; background-size: 46px 46px; }
 @keyframes ambient-drift { from { transform: translate3d(-2%, -1%, 0) scale(.92); } to { transform: translate3d(4%, 5%, 0) scale(1.12); } }
 .site-header { flex:0 0 auto; min-height: 78px; border-bottom-color: rgba(177,195,226,.13); backdrop-filter: blur(16px); }
 .brand { font-size: 15px; letter-spacing: -.045em; }
-.brand-mark { display:grid; place-items:center; width:40px; height:40px; border:1px solid rgba(116,238,166,.3); border-radius:14px; background:linear-gradient(145deg,rgba(34,215,111,.18),rgba(79,115,220,.2)); color:#a5f6bd; font-size:24px; line-height:1; transform:translateY(-1px); text-shadow:0 -1px 0 rgba(255,255,255,.08); box-shadow:0 8px 28px rgba(35,205,117,.12), inset 0 1px rgba(255,255,255,.12); }
+.brand-mark { display:grid; place-items:center; width:40px; height:40px; border:1px solid rgba(116,238,166,.3); border-radius:14px; background:linear-gradient(145deg,rgba(34,215,111,.18),rgba(79,115,220,.2)); color:#a5f6bd; font-size:24px; line-height:1; text-shadow:0 -1px 0 rgba(255,255,255,.08); box-shadow:0 8px 28px rgba(35,205,117,.12), inset 0 1px rgba(255,255,255,.12); }
+.brand-mark-glyph{display:block;line-height:1;transform:translateY(-2px)}
 .main-nav a { border-radius:999px; padding:10px 14px; }
 .nav-register { border-radius:999px; padding-inline:16px; }
 .page-content { animation: page-arrive .48s cubic-bezier(.2,.7,.2,1) both; }
