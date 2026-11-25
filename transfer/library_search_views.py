@@ -15,13 +15,9 @@ from .services import TransferError
 
 @require_GET
 def open_playlist_source(request, playlist_id):
-    from django.http import HttpResponseRedirect
-
     playlist = get_object_or_404(
         LibraryPlaylist, pk=playlist_id, profile=_profile(request)
     )
-    from urllib.parse import urlparse
-
     allowed_hosts = {
         "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
         "spotify": {"open.spotify.com", "www.open.spotify.com"},
