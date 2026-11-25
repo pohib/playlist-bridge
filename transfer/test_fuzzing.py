@@ -166,7 +166,7 @@ class ProviderInputFuzzTests(TestCase):
         self.assertTrue(track.artist)
         try:
             if isinstance(duration, bool):
-                raise ValueError("Boolean duration is invalid.")
+                raise TypeError("Boolean duration is invalid.")
             parsed_duration = max(0, int(duration or 0))
             expected_duration = parsed_duration if parsed_duration <= 2_147_483_647 else None
         except (TypeError, ValueError, OverflowError):
