@@ -20,7 +20,7 @@ Django-приложение для сбора плейлистов и треко
 Основные границы ответственности:
 
 - config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
-- transfer/site_views.py — страницы, dashboard, библиотека, страницы плейлистов и прокси обложек;
+- transfer/site_views.py — страницы, dashboard, библиотека, профиль пользователя и прокси обложек;
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
 - transfer/api_views.py — versioned API переноса, статусы и отчёты;
@@ -28,7 +28,7 @@ Django-приложение для сбора плейлистов и треко
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
-- transfer/models.py и transfer/core.py — compatibility facades; сохраняй их, пока не проверены все старые импорты;
+- transfer/models.py и transfer/core.py — compatibility facades; сохраняйте их, пока не проверены все старые импорты;
 - transfer/views.py — compatibility facade для прежних view imports; новые URL подключают специализированные view-модули напрямую;
 - transfer/templates/transfer/ — HTML-шаблоны;
 - transfer/static/transfer/js/app.js — клиентская логика переноса, глобального плеера, очереди и внутренней навигации;
@@ -65,9 +65,9 @@ Django-приложение для сбора плейлистов и треко
 
 ### Важные правила изменения архитектуры
 
-- Сохраняй Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
+- Сохраняйте Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
 - При выносе кода из library_views.py сначала зафиксируй существующий контракт тестами, затем извлекай один use case. Не переписывай весь модуль за один раз.
-- Не удаляй compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
+- Не удаляйте compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
 - Внешние API в тестах только mock-ать. Не использовать реальные OAuth tokens и не вызывать live VK/Spotify/SoundCloud из CI.
 - Не менять URL names, JSON contract, ownership filtering и очередность ручного review без явной причины и регрессионных тестов.
 
@@ -94,7 +94,7 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 - Регистрация и вход — Django Authentication с хешированием паролей штатными password hasher Django, проверкой паролей и фиксированным перенаправлением после входа в личный кабинет (параметр `next` не используется).
 - После регистрации гостевая библиотека и подключения текущей сессии привязываются к аккаунту. Для авторизованного пользователя HMAC fingerprint вычисляется от внутреннего ID пользователя, поэтому библиотека и OAuth credentials сохраняются между браузерными сессиями и устройствами.
 - Spotify и SoundCloud подключаются отдельно через OAuth. VK импортируется по публичной ссылке через анонимный API: вход в VK и пользовательская VK-авторизация не используются.
-- Разделы приложения: `/app/` — обзор, `/library/` — импорт и библиотека, `/connections/` — подключённые сервисы, `/transfers/` — история и ручная проверка, `/profile/` — настройки профиля.
+- Разделы приложения: `/app/` — обзор, `/library/` — импорт, добавление треков и перенос коллекций, `/profile/` — настройки профиля и подключения Spotify/SoundCloud, `/transfers/` — история и ручная проверка. Старый адрес `/connections/` перенаправляет в профиль.
 - Доступ к библиотеке, плейлистам и transfer review ограничен владельцем профиля. Вьюхи получают записи через фильтр `profile`; UUID сам по себе не считается контролем доступа.
 - Не найденные треки сохраняются как элементы review. Пользователь может выполнить повторный поиск по целевому сервису, выбрать конкретный результат либо пропустить трек. Сопоставление обрабатывается последовательно, чтобы сохранять исходный порядок. Выбранный ID должен присутствовать в сохранённом сервером списке кандидатов.
 - Spotify получает композиции через официальные playlist items API с вставкой в исходную позицию; SoundCloud обновляет список треков плейлиста через документированный `PUT /playlists/{playlist_id}`.
@@ -141,9 +141,9 @@ Django и приложение пишут логи в stdout и в `reports/appl
 - SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
 - версия VK API и адрес Redis.
 
-Не помещай пользовательские VK/Spotify/SoundCloud access token или refresh token в .env.
+Пользовательские VK/Spotify/SoundCloud access token и refresh token не следует помещать в `.env`.
 
-Создай приложения Spotify в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и SoundCloud в [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
+Для подключения провайдеров зарегистрируйте приложения в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
@@ -163,7 +163,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
     git switch main
     git pull --ff-only origin main
 
-Сгенерируй три независимых значения командами ниже и вставь результаты в соответствующие строки .env:
+Сгенерируйте три независимых значения командами ниже и укажите результаты в соответствующих переменных `.env`:
 
     python -c "import secrets; print(secrets.token_urlsafe(64))"
     python -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -190,7 +190,7 @@ VK не требует регистрации приложения и отдел
 
     winget install --id Cloudflare.cloudflared -e
 
-Закрой и заново открой PowerShell, чтобы обновился PATH. Проверь:
+Закройте и повторно откройте PowerShell для обновления PATH. Затем выполните проверку:
 
     cloudflared --version
 
@@ -220,7 +220,7 @@ VK не требует регистрации приложения и отдел
 
 Скопируй callback URL из вывода скрипта без изменений.
 
-В Spotify Developer Dashboard добавь Redirect URI:
+В настройках приложения Spotify укажите Redirect URI:
 
     https://<текущий-домен>.trycloudflare.com/spotify/callback/
 
@@ -230,13 +230,13 @@ VK не требует регистрации приложения и отдел
 
 Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш.
 
-### 5. Проверь приложение
+### 5. Проверка приложения
 
-Открой HTTPS URL, который напечатал скрипт. Проверь health endpoint:
+Откройте HTTPS URL, выведенный скриптом, и проверьте health endpoint:
 
     Invoke-WebRequest https://<текущий-домен>.trycloudflare.com/healthz/
 
-Проверь состояние контейнеров:
+Проверьте состояние контейнеров:
 
     docker compose ps
 
@@ -244,7 +244,7 @@ VK не требует регистрации приложения и отдел
 
     docker compose logs -f web worker
 
-Подключи Spotify. VK подключать не нужно: вставь ссылку на публичный плейлист VK и проверь импорт небольшой коллекции. Для добавления в существующий Spotify playlist используй ссылку на плейлист, принадлежащий подключённому аккаунту.
+Подключите Spotify. VK подключать не требуется: для проверки импорта достаточно ссылки на публичный плейлист VK. Для добавления треков в существующий Spotify playlist используйте ссылку на плейлист, принадлежащий подключённому аккаунту.
 
 ### 6. Повторный запуск
 
@@ -295,7 +295,7 @@ Quick Tunnel не гарантирует постоянный адрес. При
     python manage.py makemigrations --check --dry-run
     ruff check .
     pytest -q
-    pytest -q transfer/test_fuzzing.py
+    pytest -q transfer/tests/test_fuzzing.py
     pytest -q --cov=transfer --cov-report=term-missing
 
 Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляй DATABASE_URL в .env только ради тестов.
@@ -309,7 +309,7 @@ CI запускается автоматически при push в main и pull
 
 ### Как понимать короткие запросы пользователя
 
-- **«Давай доделывать плеер».** Начни с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найди существующие CSS-селекторы и каскад — не добавляй слепые override-блоки в конец файла. Сохраняй доступность, reduced-motion и адаптивность.
+- **«Давай доделывать плеер».** Начни с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найди существующие CSS-селекторы и каскад — не добавляй слепые override-блоки в конец файла. Сохраняй доступность, reduced-motion и адаптивность.
 - **«Перенос треков в Spotify не работает».** Раздели два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверь статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагай причину без диагностики. Не проси пользователя присылать access/refresh token, client secret или .env.
 - **«Импорт из VK не работает / не играет».** Для импорта изучи services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверь get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
 - **«Добавь новый источник».** Сначала определи, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
@@ -337,7 +337,7 @@ python manage.py makemigrations --check --dry-run
 pytest -q --cov=transfer --cov-report=term-missing
 
 # Только property-based fuzz tests
-pytest -q transfer/test_fuzzing.py
+pytest -q transfer/tests/test_fuzzing.py
 
 # Контейнеры / приложение / логи
 docker compose ps
@@ -356,15 +356,15 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 | Файл | Что защищает |
 |---|---|
-| transfer/tests.py | Ранние регрессионные сценарии: URL validation, API contracts, credentials, concurrency и исходные workflows |
-| transfer/test_contracts.py | URL names/paths, HTTP methods и внешние контракты |
-| transfer/test_oauth_flows.py | OAuth state, PKCE, callback, credential persistence/disconnect |
-| transfer/test_provider_clients.py | HTTP/API contracts провайдеров, pagination, redirects, ID validation, upload |
-| transfer/test_service_orchestration.py | Прямой VK → Spotify orchestration и matching decisions |
-| transfer/test_playback.py | Playback endpoints, local audio, cover proxy и VK stream behavior |
-| transfer/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
-| transfer/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
-| transfer/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
+| transfer/tests/test_legacy.py | Ранние регрессионные сценарии: URL validation, API contracts, credentials, concurrency и исходные workflows |
+| transfer/tests/test_contracts.py | URL names/paths, HTTP methods и внешние контракты |
+| transfer/tests/test_oauth_flows.py | OAuth state, PKCE, callback, credential persistence/disconnect |
+| transfer/tests/test_provider_clients.py | HTTP/API contracts провайдеров, pagination, redirects, ID validation, upload |
+| transfer/tests/test_service_orchestration.py | Прямой VK → Spotify orchestration и matching decisions |
+| transfer/tests/test_playback.py | Playback endpoints, local audio, cover proxy и VK stream behavior |
+| transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
+| transfer/tests/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
+| transfer/tests/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
 
 ### Границы покрытия и незакрытые зоны
 
@@ -408,9 +408,9 @@ API использует ту же браузерную сессию и CSRF:
 - Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
 
-Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включи ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container, dast и codeql.
+Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включите ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container, dast и codeql.
 
-SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, а CodeQL также анализирует pull request. GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверь доступность этой функции на текущем плане.
+SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, а CodeQL также анализирует pull request. GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверьте доступность этой функции на текущем плане.
 
 ## Ограничения
 
@@ -419,7 +419,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Spotify rate limits и отдельная Development Mode quota могут замедлять или временно блокировать перенос.
 - DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
 - В Spotify Development Mode владелец приложения должен иметь Premium; максимум 5 авторизованных пользователей, каждый тестировщик должен быть добавлен в Users Management allowlist. Для публичного сервиса действует отдельная процедура Extended Quota Mode.
-- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включи обе.
+- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включите обе.
 - Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
 
 ## Текущий статус и ближайшие задачи
@@ -455,3 +455,8 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.
 
 > Лимиты и поведение сторонних API могут меняться. Перед изменением интеграции сверяйся с текущими ответами API и документацией провайдера; не обходи ограничения доступа или DRM.
+
+
+## Документация API
+
+В приложении доступен справочник по API: `/api/docs/`. Машиночитаемая схема OpenAPI 3.1 находится по адресу `/api/v1/openapi.json`. Документация описывает методы, форматы запросов и ответов, CSRF и коды ошибок. API использует браузерную сессию; OAuth-токены провайдеров не передаются в теле запросов и не публикуются в документации.
