@@ -20,6 +20,14 @@ Run tests with statement and branch coverage:
 pytest -q --cov=transfer --cov-report=term-missing
 ```
 
+Run property-based fuzz tests for untrusted inputs and provider responses:
+
+```bash
+pytest -q transfer/test_fuzzing.py
+```
+
+The Hypothesis cases use a deterministic example database and bounded input sizes so failures are reproducible in CI. They exercise VK URL parsing, provider candidate URL validation, Unicode track normalization, library-search JSON validation, and malformed Spotify search results. All provider calls are mocked; fuzz tests never contact live services.
+
 Run the checks used by CI:
 
 ```bash
