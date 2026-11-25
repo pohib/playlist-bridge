@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET
 
 from .credentials import get_session_fingerprint
 from .library_views import _profile
-from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryProfile, OAuthCredential, TransferJob
+from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, OAuthCredential, TransferJob
 
 
 @never_cache
