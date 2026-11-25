@@ -99,17 +99,6 @@ def delete_playlist(request, playlist_id):
     return redirect("library")
 
 
-@require_POST
-def delete_playlist(request, playlist_id):
-    playlist = get_object_or_404(
-        LibraryPlaylist, pk=playlist_id, profile=_profile(request),
-    )
-    playlist.delete()
-    messages.success(request, "Плейлист и его локальные записи удалены.")
-    return redirect("library")
-
-
-
 def _normalized_track_key(artist, title):
     import unicodedata
 
@@ -170,6 +159,9 @@ def merge_playlists(request):
         LibraryTrack.objects.bulk_create(merged_rows)
     messages.success(request, f"Создана коллекция «{merged.title}»: {len(merged_rows)} уникальных композиций.")
     return redirect("playlist_detail", playlist_id=merged.pk)
+
+
+@require_POST
 
 
 @login_required
