@@ -15,15 +15,61 @@ Django-приложение для сбора плейлистов и треко
 
 ## Архитектура приложения
 
-Код разделён на Django-слой представлений и сервисный слой (transfer/services/). Представления отвечают за HTTP, валидацию формы/запроса, авторизацию и формирование ответа; бизнес-операции и интеграции с музыкальными платформами вынесены в сервисы:
+Это модульный Django-монолит, не набор микросервисов. Web-приложение, PostgreSQL, Redis и Celery worker запускаются через Docker Compose. Разделение на модули уже начато, но бизнес-логика библиотеки пока не полностью вынесена из views: **library_views.py остаётся крупным модулем с бизнес-операциями**, а не тонким HTTP-контроллером.
 
-- common.py — общие исключения, структуры данных и разбор ссылок;
-- vk_client.py — получение анонимного токена и адаптер публичного аудио VK; spotify_client.py и soundcloud_client.py — API/OAuth-клиенты соответствующих платформ;
-- track_matcher.py — нормализация метаданных и оценка совпадений;
-- transfer_service.py — оркестрация переноса VK → Spotify;
-- tasks.py — запуск длительных операций в Celery.
+Основные границы ответственности:
 
-transfer/core.py оставлен как слой обратной совместимости для старых импортов и тестов. Новый код должен импортировать реализации из transfer.services. Следующий этап — унифицировать провайдеры общим интерфейсом и перенести оставшуюся логику импорта/переноса библиотечных плейлистов из library_views.py в отдельные use-case сервисы.
+- config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
+- transfer/site_views.py — страницы, dashboard, библиотека, страницы плейлистов и прокси обложек;
+- transfer/auth_views.py — регистрация, вход, выход и смена пароля;
+- transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
+- transfer/api_views.py — versioned API переноса, статусы и отчёты;
+- transfer/library_views.py — пока крупный модуль: импорт/экспорт библиотеки, CRUD плейлистов, загрузка файлов, поиск, VK playback proxy и ручная проверка переноса;
+- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
+- transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
+- transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
+- transfer/models.py и transfer/core.py — compatibility facades; сохраняй их, пока не проверены все старые импорты;
+- transfer/views.py — compatibility facade для прежних view imports; новые URL подключают специализированные view-модули напрямую;
+- transfer/templates/transfer/ — HTML-шаблоны;
+- transfer/static/transfer/js/app.js — клиентская логика переноса, глобального плеера, очереди и внутренней навигации;
+- transfer/static/transfer/styles/main.css — основные стили сайта и плеера.
+
+### Карта Python-модулей
+
+| Путь | Ответственность / важные детали |
+|---|---|
+| config/settings.py | Переменные окружения, БД, cookies, security settings, logging, Celery |
+| config/security.py | Security headers и CSP/COEP; не ослаблять политики ради обхода ошибок воспроизведения без диагностики |
+| config/storage.py | Static files storage |
+| transfer/domain_models/credentials.py | OAuthCredential |
+| transfer/domain_models/jobs.py | TransferJob |
+| transfer/domain_models/library.py | LibraryProfile, LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem, cleanup audio files signal |
+| transfer/credentials.py | HMAC session fingerprint, Fernet encryption, token persistence/refresh |
+| transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
+| transfer/services/vk_client.py | Анонимный токен VK, получение плейлиста/трека и stream metadata |
+| transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
+| transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
+| transfer/services/track_matcher.py | normalize_track_text, score_candidate |
+| transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
+| transfer/api_views.py + transfer/tasks.py | API → очередь Celery → job claim/progress/result |
+| transfer/library_views.py | Основной пока неразделённый library workflow; извлекать use cases постепенно |
+| transfer/site_views.py | Page rendering, ownership-filtered querysets, playback payload, artwork proxy |
+
+### Основные бизнес-процессы
+
+1. **Импорт в библиотеку.** HTTP handler в library_views.py валидирует ссылку, получает credentials через credentials.py, вызывает соответствующий provider client и сохраняет локальную копию метаданных в LibraryPlaylist/LibraryTrack. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
+2. **Перенос библиотечного плейлиста.** transfer_library_playlist ищет совпадения в Spotify или SoundCloud, создаёт целевой плейлист из найденных треков, сохраняет локальное зеркало и создаёт LibraryTransfer/LibraryTransferItem. Ненайденные и неоднозначные элементы остаются в review.
+3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
+4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer создаёт TransferJob и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
+5. **Плеер.** site_views.py формирует playback payload, app.js управляет очередью и воспроизведением. Локальные аудиофайлы и VK воспроизводятся через HTMLAudioElement; Spotify и SoundCloud — через их embed iframe. Плеер не получает аудио Spotify/SoundCloud напрямую.
+
+### Важные правила изменения архитектуры
+
+- Сохраняй Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
+- При выносе кода из library_views.py сначала зафиксируй существующий контракт тестами, затем извлекай один use case. Не переписывай весь модуль за один раз.
+- Не удаляй compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
+- Внешние API в тестах только mock-ать. Не использовать реальные OAuth tokens и не вызывать live VK/Spotify/SoundCloud из CI.
+- Не менять URL names, JSON contract, ownership filtering и очередность ручного review без явной причины и регрессионных тестов.
 
 ## Поддерживаемые направления
 
@@ -53,6 +99,20 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 - Не найденные треки сохраняются как элементы review. Пользователь может выполнить повторный поиск по целевому сервису, выбрать конкретный результат либо пропустить трек. Сопоставление обрабатывается последовательно, чтобы сохранять исходный порядок. Выбранный ID должен присутствовать в сохранённом сервером списке кандидатов.
 - Spotify получает композиции через официальные playlist items API с вставкой в исходную позицию; SoundCloud обновляет список треков плейлиста через документированный `PUT /playlists/{playlist_id}`.
 - HTML-шаблоны используют автоэкранирование Django. Ссылки кандидатов проверяются по HTTPS и allowlist доменов провайдеров; POST-формы используют CSRF-токены.
+
+## Глобальный музыкальный плеер
+
+Плеер показывается авторизованным пользователям на всех внутренних страницах и не должен размонтироваться при переходах внутри приложения.
+
+- Playback payload формируется в site_views.py; состояние очереди/режимов хранится в браузерном localStorage под ключом playlist-bridge-player-v2.
+- Поддерживаются play/pause, предыдущий/следующий трек, очередь, перестановка/удаление треков, очистка очереди, shuffle, repeat off/all/one, громкость/mute, сворачивание/разворачивание.
+- Внутренняя навигация использует fetch + замену .page-content и History API, чтобы сохранять активный плеер и iframe между страницами; при несовместимом ответе выполняется обычная навигация.
+- Локальный файл проигрывается через same-origin /library/tracks/<uuid>/stream/; VK — через /library/tracks/<uuid>/vk-audio/ с отдельным endpoint разрешения потока /api/v1/library/tracks/<uuid>/vk-stream/.
+- Spotify track и SoundCloud track проигрываются через embed iframe. Приложение не скачивает и не проксирует их аудио.
+- Поиск текущей композиции отправляется в POST /api/v1/library/tracks/search/. Spotify/SoundCloud возвращают найденные треки; YouTube Music и Apple Music пока дают только внешнюю ссылку на поиск. Анонимный VK API не поддерживает используемый поиск каталога, поэтому VK не предлагается как поисковый провайдер.
+- Обложки выдаются через /library/cover/ с allowlist доменов, проверкой redirect target, MIME signature и лимитом размера. Не подменять прокси на произвольный внешний URL.
+- DOM IDs плеера определены в base.html и используются в app.js; изменение ID требует синхронного изменения JS. После изменения CSS/JS обновлять cache-busting query параметр в base template.
+
 
 ## Структура страниц
 
@@ -140,6 +200,8 @@ VK не требует регистрации приложения и отдел
 
     Set-ExecutionPolicy -Scope Process Bypass
     .\scripts\start-tunnel.ps1
+
+Скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
 
 Скрипт:
 1. Проверяет обязательные секреты в .env;
@@ -233,10 +295,84 @@ Quick Tunnel не гарантирует постоянный адрес. При
     python manage.py makemigrations --check --dry-run
     ruff check .
     pytest -q
+    pytest -q transfer/test_fuzzing.py
+    pytest -q --cov=transfer --cov-report=term-missing
 
 Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляй DATABASE_URL в .env только ради тестов.
 
 CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и OWASP ZAP baseline DAST. Результат проверки смотри во вкладке Actions соответствующего коммита.
+
+
+## Контекст для продолжения работы другой нейросетью
+
+Этот раздел — краткая передача контекста. Перед изменениями всё равно проверь актуальный main, текущие файлы и последние GitHub Actions: README может отставать от реализации.
+
+### Как понимать короткие запросы пользователя
+
+- **«Давай доделывать плеер».** Начни с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найди существующие CSS-селекторы и каскад — не добавляй слепые override-блоки в конец файла. Сохраняй доступность, reduced-motion и адаптивность.
+- **«Перенос треков в Spotify не работает».** Раздели два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверь статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагай причину без диагностики. Не проси пользователя присылать access/refresh token, client secret или .env.
+- **«Импорт из VK не работает / не играет».** Для импорта изучи services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверь get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
+- **«Добавь новый источник».** Сначала определи, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
+- **«Раздели/рефактори бизнес-логику».** Выбери один use case из library_views.py, найди его зависимости и side effects, добавь контрактные тесты, извлеки в сервис, оставив view тонким адаптером. Не меняй одновременно поведение, структуру моделей и UI.
+
+### Обязательный рабочий порядок
+
+1. Получи актуальное дерево и прочитай затрагиваемые файлы, тесты, URL и модели. Не полагайся только на README или старый контекст.
+2. Проверь последние CI runs и их job logs. Отличай success от queued, pending, cancelled и skipped.
+3. Сформулируй, какой контракт должен сохраниться: URL/method, payload, ownership, DB effects, provider calls, side effects, order, retry/idempotency.
+4. Сначала добавь regression tests (включая negative/boundary cases и Hypothesis fuzzing там, где есть недоверенный ввод), затем минимально меняй production code.
+5. Запусти/дождись Ruff, Django checks, migrations check, pytest+coverage, SAST/SCA, container, CodeQL и DAST. Не заявляй о прохождении job, пока не проверен её итоговый статус.
+6. В ответе укажи commit SHA, файлы, тесты, coverage scope/процент и незакрытые риски. Не заявляй о визуальном тестировании без реального браузерного прогона.
+
+### Быстрые команды разработчика
+
+```powershell
+# Windows: локальные Python checks (не требует поднятого Docker stack)
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check .
+python manage.py check
+python manage.py makemigrations --check --dry-run
+pytest -q --cov=transfer --cov-report=term-missing
+
+# Только property-based fuzz tests
+pytest -q transfer/test_fuzzing.py
+
+# Контейнеры / приложение / логи
+docker compose ps
+docker compose logs -f web worker
+docker compose exec web python manage.py check
+
+# Запуск локального HTTPS Quick Tunnel
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\start-tunnel.ps1
+
+# Остановка туннеля и Compose (volume БД сохраняется)
+.\scripts\stop-tunnel.ps1
+```
+
+### Карта тестов
+
+| Файл | Что защищает |
+|---|---|
+| transfer/tests.py | Ранние регрессионные сценарии: URL validation, API contracts, credentials, concurrency и исходные workflows |
+| transfer/test_contracts.py | URL names/paths, HTTP methods и внешние контракты |
+| transfer/test_oauth_flows.py | OAuth state, PKCE, callback, credential persistence/disconnect |
+| transfer/test_provider_clients.py | HTTP/API contracts провайдеров, pagination, redirects, ID validation, upload |
+| transfer/test_service_orchestration.py | Прямой VK → Spotify orchestration и matching decisions |
+| transfer/test_playback.py | Playback endpoints, local audio, cover proxy и VK stream behavior |
+| transfer/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
+| transfer/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
+| transfer/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
+
+### Границы покрытия и незакрытые зоны
+
+- Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
+- Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
+- Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
+- OWASP ZAP baseline DAST не авторизуется и не проверяет всю библиотеку/плеер за логином.
+- Fuzz tests ограничены по длине и числу примеров; это не бесконечный fuzz campaign и не замена security review.
 
 ## Защита Spotify API от SSRF
 
