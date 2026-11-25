@@ -20,6 +20,7 @@
         {% if user.is_authenticated %}
           <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Обзор</a>
           <a href="{% url 'library' %}" class="{% if request.resolver_match.url_name == 'library' or request.resolver_match.url_name == 'playlist_detail' %}active{% endif %}">Библиотека</a>
+          <a href="{% url 'connections' %}" class="{% if request.resolver_match.url_name == 'connections' %}active{% endif %}">Сервисы</a>
           <a href="{% url 'profile' %}" class="{% if request.resolver_match.url_name == 'profile' %}active{% endif %}">Профиль</a>
           <a href="{% url 'transfers' %}" class="{% if request.resolver_match.url_name == 'transfers' %}active{% endif %}">Переносы</a>
         {% endif %}
