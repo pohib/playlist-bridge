@@ -58,8 +58,8 @@ def _safe_optional_url(value):
 def _safe_candidate_url(value, provider):
     from urllib.parse import urlparse
 
-    parsed = urlparse((value or "").strip())
     try:
+        parsed = urlparse((value or "").strip())
         port = parsed.port
     except ValueError:
         return ""
@@ -484,7 +484,7 @@ def search_library_sources(request):
                 statuses[provider] = "Доступна ссылка на поиск; публичный API для получения результатов не подключён."
         except TransferError as exc:
             statuses[provider] = str(exc)
-        except (KeyError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError):
             statuses[provider] = "Провайдер вернул данные неизвестного формата."
     return JsonResponse({"results": results[:60], "statuses": statuses, "query": query})
 
