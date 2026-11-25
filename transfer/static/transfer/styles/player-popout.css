@@ -33,7 +33,7 @@ button,input{font:inherit}
 .popout-volume{display:flex;align-items:center;gap:11px;padding:12px 13px;border:1px solid rgba(185,207,239,.11);border-radius:13px;background:rgba(255,255,255,.035)}
 .popout-volume button{width:27px;height:27px;border:0;background:transparent;font-size:15px}
 .popout-volume input{flex:1}
-.popout-volume>span{width:35px;color:#93a3b9;font-size:9px;text-align:right;font-variant-numeric:tabular-nums}
+.popout-volume input:disabled{opacity:.35;cursor:not-allowed}.popout-volume button:disabled,.popout-play-button:disabled{opacity:.35;cursor:not-allowed}.popout-volume>span{width:35px;color:#93a3b9;font-size:9px;text-align:right;font-variant-numeric:tabular-nums}
 .popout-queue{min-height:0;margin-top:24px}
 .popout-queue>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .popout-queue>header div{display:flex;align-items:baseline;gap:9px}
