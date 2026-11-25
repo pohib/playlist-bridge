@@ -52,9 +52,6 @@ def _safe_candidate_url(value, provider):
     return parsed.geturl()
 
 
-@require_POST
-
-
 def _soundcloud_access(request):
     client = SoundCloudClient(
         settings.SOUNDCLOUD_CLIENT_ID,

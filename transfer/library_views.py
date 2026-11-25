@@ -37,6 +37,7 @@ def _safe_optional_url(value):
     return value
 
 
+@require_POST
 def create_playlist(request):
     title = (request.POST.get("title") or "").strip()
     provider = request.POST.get("provider", LibraryPlaylist.Provider.MANUAL)
@@ -938,15 +939,3 @@ def refresh_vk_artwork(request, playlist_id):
         return redirect("playlist_detail", playlist_id=playlist.pk)
     messages.success(request, f"Обновлены данные {updated} композиций. Обложки появятся там, где VK их предоставляет.")
     return redirect("playlist_detail", playlist_id=playlist.pk)
-
-
-# Backward-compatible exports; URL configuration and external imports remain stable.
-from .library_transfer_views import (
-    open_transfer_candidate,
-    open_transfer_target,
-    search_transfer_item,
-    select_transfer_candidate,
-    skip_transfer_item,
-    transfer_library_playlist,
-    transfer_review,
-)

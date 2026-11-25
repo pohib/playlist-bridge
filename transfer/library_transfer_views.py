@@ -21,10 +21,6 @@ logger = logging.getLogger(__name__)
 
 @require_POST
 def transfer_library_playlist(request, playlist_id):
-    from types import SimpleNamespace
-
-    from django.utils import timezone
-
     playlist = get_object_or_404(
         LibraryPlaylist.objects.prefetch_related("tracks"),
         pk=playlist_id,
