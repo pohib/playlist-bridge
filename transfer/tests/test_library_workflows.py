@@ -442,7 +442,7 @@ class TransferReviewStateMachineTests(TestCase):
         )
 
     def test_cannot_select_later_track_before_earlier_track(self):
-        with patch("transfer.library_views._spotify_access") as access:
+        with patch("transfer.library_transfer_views._spotify_access") as access:
             response = self.client.post(
                 reverse(
                     "select_transfer_candidate",
@@ -462,7 +462,7 @@ class TransferReviewStateMachineTests(TestCase):
         provider = Mock()
         provider.create_playlist.return_value = "spotify-playlist-id"
 
-        with patch("transfer.library_views._spotify_access", return_value=(provider, "token")):
+        with patch("transfer.library_transfer_views._spotify_access", return_value=(provider, "token")):
             response = self.client.post(
                 reverse(
                     "select_transfer_candidate",
@@ -492,7 +492,7 @@ class TransferReviewStateMachineTests(TestCase):
         provider = Mock()
         provider.create_playlist.side_effect = TransferError("Spotify unavailable")
 
-        with patch("transfer.library_views._spotify_access", return_value=(provider, "token")):
+        with patch("transfer.library_transfer_views._spotify_access", return_value=(provider, "token")):
             response = self.client.post(
                 reverse(
                     "select_transfer_candidate",
