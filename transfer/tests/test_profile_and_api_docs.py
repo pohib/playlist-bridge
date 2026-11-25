@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from ..credentials import get_session_fingerprint
 from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
 
 
