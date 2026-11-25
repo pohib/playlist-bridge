@@ -940,11 +940,11 @@ def refresh_vk_artwork(request, playlist_id):
 
 # Backward-compatible exports for URL configuration and existing imports.
 from .library_transfer_views import (
-    open_transfer_candidate,
-    open_transfer_target,
-    search_transfer_item,
-    select_transfer_candidate,
-    skip_transfer_item,
-    transfer_library_playlist,
-    transfer_review,
+    open_transfer_candidate as open_transfer_candidate,
+    open_transfer_target as open_transfer_target,
+    search_transfer_item as search_transfer_item,
+    select_transfer_candidate as select_transfer_candidate,
+    skip_transfer_item as skip_transfer_item,
+    transfer_library_playlist as transfer_library_playlist,
+    transfer_review as transfer_review,
 )
