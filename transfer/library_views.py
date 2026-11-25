@@ -12,12 +12,10 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import transaction
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
 from .services import (
-    SoundCloudClient,
-    SpotifyClient,
     TransferError,
     VKClient,
     parse_vk_playlist_url,
