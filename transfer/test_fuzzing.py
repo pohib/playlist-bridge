@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 import json
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
