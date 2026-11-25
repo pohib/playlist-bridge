@@ -1,9 +1,8 @@
-from pathlib import Path
-
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from transfer.models import LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
+from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
 
 
 TEST_STORAGE_SETTINGS = {
@@ -89,9 +88,10 @@ class PlayerAndProfileStyleRegressionTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        transfer_root = Path(__file__).resolve().parents[1]
-        cls.stylesheet = (transfer_root / "static/transfer/styles/main.css").read_text(encoding="utf-8")
-        cls.player_script = (transfer_root / "static/transfer/js/app.js").read_text(encoding="utf-8")
+        with open(finders.find("transfer/styles/main.css"), encoding="utf-8") as stylesheet:
+            cls.stylesheet = stylesheet.read()
+        with open(finders.find("transfer/js/app.js"), encoding="utf-8") as player_script:
+            cls.player_script = player_script.read()
 
     def test_collapsed_player_keeps_track_title_space_and_ellipsis(self):
         self.assertIn(".global-player.is-collapsed .global-player-meta{display:grid;flex:1 1 150px;min-width:72px;overflow:hidden}", self.stylesheet)
