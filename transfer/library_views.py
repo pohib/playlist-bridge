@@ -520,7 +520,7 @@ def _save_soundcloud_playlist(profile, resource, tracks, source_url):
         try:
             raw_duration = item.get("duration")
             if isinstance(raw_duration, bool):
-                raise ValueError("Boolean duration is invalid.")
+                raise TypeError("Boolean duration is invalid.")
             parsed_duration = max(0, int(raw_duration or 0))
             duration_ms = parsed_duration if parsed_duration <= 2_147_483_647 else None
         except (TypeError, ValueError, OverflowError):
