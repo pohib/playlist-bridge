@@ -81,11 +81,19 @@ class ProviderInputFuzzTests(TestCase):
     )
     def test_library_search_json_fuzzer_never_returns_server_error(self, title, artist, providers):
         payload = {"title": title, "artist": artist, "providers": providers}
-        response = self.client.post(
-            reverse("library_track_search"),
-            data=json.dumps(payload),
-            content_type="application/json",
-        )
+        spotify = Mock()
+        spotify.search_tracks.return_value = []
+        soundcloud = Mock()
+        soundcloud.search_tracks.return_value = []
+        with (
+            patch("transfer.library_views._spotify_access", return_value=(spotify, "test-token")),
+            patch("transfer.library_views._soundcloud_access", return_value=(soundcloud, "test-token")),
+        ):
+            response = self.client.post(
+                reverse("library_track_search"),
+                data=json.dumps(payload),
+                content_type="application/json",
+            )
         self.assertIn(response.status_code, (200, 400))
         self.assertIsInstance(response.json(), dict)
 
