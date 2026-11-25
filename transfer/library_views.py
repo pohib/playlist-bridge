@@ -27,13 +27,13 @@ from .library_support import _profile, _soundcloud_access, _spotify_access
 
 # Explicit re-exports keep existing URL and import references stable.
 from .library_transfer_views import (
-    open_transfer_candidate as open_transfer_candidate,
-    open_transfer_target as open_transfer_target,
-    search_transfer_item as search_transfer_item,
-    select_transfer_candidate as select_transfer_candidate,
-    skip_transfer_item as skip_transfer_item,
-    transfer_library_playlist as transfer_library_playlist,
-    transfer_review as transfer_review,
+    open_transfer_candidate,  # noqa: F401
+    open_transfer_target,  # noqa: F401
+    search_transfer_item,  # noqa: F401
+    select_transfer_candidate,  # noqa: F401
+    skip_transfer_item,  # noqa: F401
+    transfer_library_playlist,  # noqa: F401
+    transfer_review,  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
