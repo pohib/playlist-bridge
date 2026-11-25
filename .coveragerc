@@ -5,6 +5,7 @@ omit =
     */migrations/*
     */tests.py
     */test_*.py
+    */tests/*
 
 [report]
 show_missing = True
