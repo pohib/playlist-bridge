@@ -59,5 +59,6 @@ urlpatterns = [
     path("api/v1/transfers/", api_views.api_create_transfer, name="api_create_transfer"),
     path("api/v1/transfers/<uuid:job_id>/", api_views.api_transfer_detail, name="api_transfer_detail"),
     path("api/v1/transfers/<uuid:job_id>/report/", api_views.api_transfer_report, name="api_transfer_report"),
+    path("api/docs/", api_views.api_docs, name="api_docs"),
     path("api/v1/openapi.json", api_views.api_openapi, name="api_openapi"),
 ]
