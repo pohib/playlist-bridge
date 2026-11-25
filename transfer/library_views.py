@@ -512,12 +512,20 @@ def _save_soundcloud_playlist(profile, resource, tracks, source_url):
     for index, item in enumerate(tracks):
         if not isinstance(item, dict) or not item.get("id") or not item.get("title"):
             continue
-        user = item.get("user") or {}
+        user = item.get("user")
+        if not isinstance(user, dict):
+            user = {}
+        try:
+            duration_ms = max(0, int(item.get("duration") or 0))
+        except (TypeError, ValueError, OverflowError):
+            # A malformed duration must not leave an empty playlist behind or
+            # discard otherwise usable track metadata.
+            duration_ms = None
         rows.append(LibraryTrack(
             playlist=playlist,
             title=str(item.get("title") or "Unknown track")[:180],
             artist=str(item.get("metadata_artist") or user.get("username") or "Unknown artist")[:180],
-            duration_ms=max(0, int(item.get("duration") or 0)),
+            duration_ms=duration_ms,
             external_id=str(item.get("id"))[:200],
             external_url=str(item.get("permalink_url") or "")[:2048],
             position=index,
