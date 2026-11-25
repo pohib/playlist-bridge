@@ -23,7 +23,7 @@ from .services import (
 )
 from .models import LibraryPlaylist, LibraryTrack
 
-from .library_support import _profile, _soundcloud_access, _spotify_access
+from .library_support import _profile, _safe_candidate_url, _soundcloud_access, _spotify_access  # noqa: F401
 
 # Explicit re-exports keep existing URL and import references stable.
 from .library_transfer_views import (
