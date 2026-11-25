@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -176,3 +177,10 @@ def api_openapi(request):
         },
     }
     return JsonResponse(schema)
+
+
+@never_cache
+@require_GET
+def api_docs(request):
+    """Render the safe, user-facing API guide."""
+    return render(request, "transfer/api_docs.html")
