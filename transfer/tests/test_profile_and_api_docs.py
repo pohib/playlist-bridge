@@ -3,7 +3,6 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
-
 from transfer.models import LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
 
 
