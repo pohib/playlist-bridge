@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#080b12">
   <meta name="description" content="Playlist Bridge — собирай музыкальную библиотеку и переноси плейлисты между сервисами.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1420'/%3E%3Ctext x='32' y='45' font-size='42' text-anchor='middle' fill='%238af0a9'%3E%E2%99%AB%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261125-39">
+  <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261125-40">
   <title>{% block title %}Playlist Bridge{% endblock %}</title>
   {% block head %}{% endblock %}
 </head>
@@ -49,7 +49,7 @@
       <div class="player-queue-controls"><span id="player-queue-count">Очередь пуста</span><button type="button" id="player-queue-toggle" aria-expanded="false" aria-controls="player-queue-panel">Очередь <span id="player-queue-size">0</span></button><button type="button" id="player-clear">Очистить</button></div>
       <div class="player-window-controls" aria-label="Настройки плеера">
         <div class="player-volume-control"><button type="button" id="player-mute" aria-label="Выключить звук" title="Выключить звук">🔊</button><label class="player-volume-slider" for="player-volume"><input id="player-volume" type="range" min="0" max="1" value="0.8" step="0.01" aria-label="Громкость" title="Громкость"></label></div>
-        <button type="button" id="player-collapse" aria-label="Свернуть плеер" title="Свернуть плеер">−</button>
+        <button type="button" id="player-popout" aria-label="Открыть плеер в отдельном окне" title="Открыть плеер в отдельном окне">↗</button><button type="button" id="player-collapse" aria-label="Свернуть плеер" title="Свернуть плеер">−</button>
         <button type="button" id="player-expand" aria-label="Развернуть плеер" title="Развернуть плеер" hidden>↗</button>
       </div>
     </div>
@@ -66,6 +66,6 @@
       <ol class="player-queue-list" id="player-queue-list"></ol>
   </section>
   {% endif %}
-  <script src="{% static 'transfer/js/app.js' %}?v=20261125-21" defer></script>
+  <script src="{% static 'transfer/js/app.js' %}?v=20261125-22" defer></script>
 </body>
 </html>
