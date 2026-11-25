@@ -94,7 +94,7 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 - Регистрация и вход — Django Authentication с хешированием паролей штатными password hasher Django, проверкой паролей и фиксированным перенаправлением после входа в личный кабинет (параметр `next` не используется).
 - После регистрации гостевая библиотека и подключения текущей сессии привязываются к аккаунту. Для авторизованного пользователя HMAC fingerprint вычисляется от внутреннего ID пользователя, поэтому библиотека и OAuth credentials сохраняются между браузерными сессиями и устройствами.
 - Spotify и SoundCloud подключаются отдельно через OAuth. VK импортируется по публичной ссылке через анонимный API: вход в VK и пользовательская VK-авторизация не используются.
-- Разделы приложения: `/app/` — обзор, `/library/` — импорт, добавление треков и перенос коллекций, `/profile/` — настройки профиля и подключения Spotify/SoundCloud, `/transfers/` — история и ручная проверка. Старый адрес `/connections/` перенаправляет в профиль.
+- Разделы приложения: `/app/` — обзор, `/library/` — импорт, добавление треков и перенос коллекций, `/connections/` — подключения Spotify/SoundCloud, `/profile/` — настройки аккаунта и статистика библиотеки, `/transfers/` — история и ручная проверка. Старый адрес `/connections/` перенаправляет в профиль.
 - Доступ к библиотеке, плейлистам и transfer review ограничен владельцем профиля. Вьюхи получают записи через фильтр `profile`; UUID сам по себе не считается контролем доступа.
 - Не найденные треки сохраняются как элементы review. Пользователь может выполнить повторный поиск по целевому сервису, выбрать конкретный результат либо пропустить трек. Сопоставление обрабатывается последовательно, чтобы сохранять исходный порядок. Выбранный ID должен присутствовать в сохранённом сервером списке кандидатов.
 - Spotify получает композиции через официальные playlist items API с вставкой в исходную позицию; SoundCloud обновляет список треков плейлиста через документированный `PUT /playlists/{playlist_id}`.
@@ -124,7 +124,8 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 | `/app/` | Личный dashboard |
 | `/library/` | Импорт и коллекции |
 | `/library/<uuid>/` | Состав плейлиста и запуск переноса |
-| `/profile/` | Профиль, настройки и подключения Spotify/SoundCloud |
+| `/connections/` | Подключение и отключение Spotify/SoundCloud |
+| `/profile/` | Профиль, статистика библиотеки и настройки аккаунта |
 | `/transfers/` | История переносов |
 | `/transfers/<uuid>/review/` | Ручное сопоставление пропусков |
 | `/api/docs/` | Справочник API и правила безопасной работы |
@@ -366,7 +367,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
 | transfer/tests/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
 | transfer/tests/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
-| transfer/tests/test_profile_and_api_docs.py | Профильные подключения, API docs, безопасная публикация схемы |
+| transfer/tests/test_profile_and_api_docs.py | Профиль, сервисы, API docs и статические UI-регрессии плеера |
 
 ### Границы покрытия и незакрытые зоны
 
@@ -436,7 +437,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Отдельный асинхронный workflow VK → Spotify через API v1, Celery, Redis, статусы, прогресс и JSON-отчёт.
 - Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
 - Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
-- Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание, поиск альтернативных источников и сохранение состояния.
+- Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
 - Docker Compose для web, worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
 - CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
 - Последний тестовый job: 163 passed; покрытие Python-пакета transfer — 76.34%, library_views.py — 78.3%.
