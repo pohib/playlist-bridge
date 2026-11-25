@@ -1,0 +1,53 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <title>Playlist Bridge — Pop-out Player</title>
+  <link rel="stylesheet" href="{% static 'transfer/styles/player-popout.css' %}?v=20261125-1">
+</head>
+<body class="popout-body">
+  <main class="popout-shell">
+    <header class="popout-header">
+      <a class="popout-brand" href="{% url 'dashboard' %}" target="_blank" rel="noopener"> <span>♫</span> PLAYLIST BRIDGE</a>
+      <span class="popout-live"><i></i> PLAYER WINDOW</span>
+    </header>
+    <section class="popout-art-wrap">
+      <div class="popout-art-glow"></div>
+      <img id="popout-cover" class="popout-cover" alt="" hidden>
+      <div id="popout-placeholder" class="popout-placeholder">♫</div>
+    </section>
+    <section class="popout-track">
+      <div class="popout-track-copy"><span id="popout-provider">READY TO PLAY</span><h1 id="popout-title">Подключаем плеер…</h1><p id="popout-artist">Окно синхронизируется с Playlist Bridge</p></div>
+      <button id="popout-like" class="popout-icon-button" type="button" aria-label="Открыть сайт" title="Открыть Playlist Bridge">↗</button>
+    </section>
+    <section class="popout-timeline">
+      <input id="popout-progress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Позиция воспроизведения">
+      <div class="popout-time"><span id="popout-current">0:00</span><span id="popout-duration">0:00</span></div>
+    </section>
+    <section class="popout-controls">
+      <button id="popout-shuffle" class="popout-icon-button" type="button" title="Перемешать очередь" aria-label="Перемешать очередь">⤨</button>
+      <button id="popout-prev" class="popout-icon-button popout-skip" type="button" title="Предыдущий трек" aria-label="Предыдущий трек">‹</button>
+      <button id="popout-play" class="popout-play-button" type="button" title="Воспроизвести" aria-label="Воспроизвести">▶</button>
+      <button id="popout-next" class="popout-icon-button popout-skip" type="button" title="Следующий трек" aria-label="Следующий трек">›</button>
+      <button id="popout-repeat" class="popout-icon-button" type="button" title="Повтор выключен" aria-label="Повтор выключен">↻</button>
+    </section>
+    <section class="popout-volume">
+      <button id="popout-mute" type="button" aria-label="Выключить звук" title="Выключить звук">🔊</button>
+      <input id="popout-volume" type="range" min="0" max="1" value="0.8" step="0.01" aria-label="Громкость">
+      <span id="popout-volume-value">80%</span>
+    </section>
+    <section class="popout-queue">
+      <header><div><strong>Очередь</strong><span id="popout-queue-count">0 композиций</span></div><span class="popout-queue-note">СИНХРОНИЗИРОВАНО</span></header>
+      <ol id="popout-queue-list"></ol>
+    </section>
+    <div id="popout-status" class="popout-status" role="status" aria-live="polite">Ожидаем данные основного плеера…</div>
+    <audio id="popout-audio" preload="metadata"></audio>
+    <div id="popout-embed" class="popout-embed"></div>
+    <form id="popout-csrf" hidden>{% csrf_token %}</form>
+  </main>
+  <script src="{% static 'transfer/js/player-popout.js' %}?v=20261125-1" defer></script>
+</body>
+</html>
