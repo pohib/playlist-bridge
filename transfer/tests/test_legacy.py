@@ -873,17 +873,21 @@ class UnifiedLibraryTransferTests(TestCase):
         item = LibraryTransferItem.objects.get(transfer=review)
         self.assertEqual(item.status, LibraryTransferItem.Status.PENDING)
 
-        self.client.post(
-            reverse("search_transfer_item", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
-            {"query": "Unknown Artist Unknown Track"},
-        )
-        item.refresh_from_db()
-        self.assertEqual(item.candidates[0]["id"], "988")
+        with patch(
+            "transfer.library_transfer_views._soundcloud_access",
+            return_value=(client, "sc-token"),
+        ):
+            self.client.post(
+                reverse("search_transfer_item", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
+                {"query": "Unknown Artist Unknown Track"},
+            )
+            item.refresh_from_db()
+            self.assertEqual(item.candidates[0]["id"], "988")
 
-        response = self.client.post(
-            reverse("select_transfer_candidate", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
-            {"candidate_id": "988"},
-        )
+            response = self.client.post(
+                reverse("select_transfer_candidate", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
+                {"candidate_id": "988"},
+            )
         self.assertEqual(response.status_code, 302)
         item.refresh_from_db()
         review.refresh_from_db()
