@@ -4,7 +4,6 @@ import logging
 import re
 from pathlib import Path
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib import messages
@@ -14,7 +13,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .services import TransferError, VKClient
+from .services import TransferError
 from .models import LibraryPlaylist, LibraryTrack
 
 # Provider import handlers remain available through the legacy library module.
