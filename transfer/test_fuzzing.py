@@ -167,7 +167,8 @@ class ProviderInputFuzzTests(TestCase):
         try:
             if isinstance(duration, bool):
                 raise ValueError("Boolean duration is invalid.")
-            expected_duration = max(0, int(duration or 0))
+            parsed_duration = max(0, int(duration or 0))
+            expected_duration = parsed_duration if parsed_duration <= 2_147_483_647 else None
         except (TypeError, ValueError, OverflowError):
             expected_duration = None
         self.assertEqual(track.duration_ms, expected_duration)
