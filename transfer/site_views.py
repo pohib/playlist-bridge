@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
@@ -98,10 +98,8 @@ def playlist_detail(request, playlist_id):
 @never_cache
 @require_GET
 def connections(request):
-    return render(request, "transfer/connections.html", {
-        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
-    })
+    """Compatibility route; provider management now lives in the user profile."""
+    return redirect("profile")
 
 
 @login_required
@@ -121,7 +119,10 @@ def transfers(request):
 @never_cache
 @require_GET
 def profile(request):
-    return render(request, "transfer/profile.html")
+    return render(request, "transfer/profile.html", {
+        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
+    })
 
 
 @login_required
@@ -214,7 +215,6 @@ def library_cover_proxy(request):
         finally:
             upstream.close()
 
-        # Trust the file signature rather than a CDN's sometimes incorrect MIME header.
         detected_type = ""
         if body.startswith(bytes.fromhex("FFD8FF")):
             detected_type = "image/jpeg"
