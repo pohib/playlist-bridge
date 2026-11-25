@@ -257,3 +257,11 @@ def library_cover_proxy(request):
         return response
 
     return HttpResponseNotFound("Too many artwork redirects.")
+
+
+@login_required
+@never_cache
+@require_GET
+def player_popout(request):
+    """Render the standalone, authenticated pop-out music player."""
+    return render(request, "transfer/player_popout.html")
