@@ -11,7 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .credentials import get_session_fingerprint
-from .library_views import _safe_candidate_url, _save_soundcloud_playlist
+from .library_views import _safe_candidate_url, _save_soundcloud_playlist, _spotify_resource_id, _validate_soundcloud_permalink
 from .models import LibraryProfile
 from .services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
 
@@ -171,3 +171,65 @@ class ProviderInputFuzzTests(TestCase):
         except (TypeError, ValueError, OverflowError):
             expected_duration = None
         self.assertEqual(track.duration_ms, expected_duration)
+
+    @FUZZ_SETTINGS
+    @given(value=st.text(max_size=2048))
+    def test_spotify_resource_url_fuzzer_only_returns_valid_playlist_ids(self, value):
+        try:
+            resource_id = _spotify_resource_id(value, "playlist")
+        except ValueError:
+            return
+
+        parsed = urlparse(value.strip())
+        self.assertEqual(parsed.scheme, "https")
+        self.assertIn(parsed.hostname, {"open.spotify.com", "www.open.spotify.com"})
+        self.assertIn(parsed.port, (None, 443))
+        self.assertEqual(len(resource_id), 22)
+        self.assertRegex(resource_id, r"^[A-Za-z0-9]{22}$")
+
+    @FUZZ_SETTINGS
+    @given(value=st.text(max_size=2048))
+    def test_soundcloud_permalink_fuzzer_only_accepts_trusted_https_urls(self, value):
+        try:
+            accepted = _validate_soundcloud_permalink(value)
+        except ValueError:
+            return
+
+        parsed = urlparse(accepted)
+        self.assertEqual(parsed.scheme, "https")
+        self.assertIn(parsed.hostname, {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"})
+        self.assertIn(parsed.port, (None, 443))
+        self.assertIsNone(parsed.username)
+        self.assertIsNone(parsed.password)
+
+    @FUZZ_SETTINGS
+    @given(
+        tracks=st.lists(
+            st.one_of(
+                st.none(),
+                st.booleans(),
+                st.integers(),
+                st.text(max_size=80),
+                st.dictionaries(
+                    st.text(max_size=20),
+                    st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
+                    max_size=8,
+                ),
+            ),
+            max_size=12,
+        )
+    )
+    def test_malformed_soundcloud_search_results_are_contained_as_provider_status(self, tracks):
+        provider = Mock()
+        provider.search_tracks.return_value = tracks
+        with patch("transfer.library_views._soundcloud_access", return_value=(provider, "test-token")):
+            response = self.client.post(
+                reverse("library_track_search"),
+                data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["soundcloud"]}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsInstance(payload["results"], list)
+        self.assertIn("soundcloud", payload["statuses"])
