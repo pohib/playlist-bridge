@@ -1,5 +1,5 @@
 {% extends "transfer/base.html" %}
-{% block title %}{{ playlist.title }} — Playlist Bridge{% endblock %}
+{% block title %}{{ playlist.title }}{% endblock %}
 {% block content %}
 <section class="page-heading"><div><a class="back-link" href="{% url 'library' %}">← Библиотека</a><span class="section-kicker">{{ playlist.get_provider_display }}</span><h1>{{ playlist.title }}</h1><p>{{ playlist.description|default:"Коллекция в твоей музыкальной библиотеке." }}</p></div></section>
 <section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">ПЕРЕНОС ПЛЕЙЛИСТА</span><h2>Перенести коллекцию</h2></div></div>

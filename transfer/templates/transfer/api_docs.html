@@ -1,5 +1,5 @@
 {% extends "transfer/base.html" %}
-{% block title %}API — Playlist Bridge{% endblock %}
+{% block title %}API{% endblock %}
 {% block content %}
 <section class="page-heading"><div><span class="section-kicker">DEVELOPER REFERENCE</span><h1>Документация <span>API</span></h1><p>Справочник HTTP API Playlist Bridge. Машиночитаемая схема OpenAPI 3.1 доступна отдельно.</p></div></section>
 <section class="content-panel"><h2>Общие правила</h2><ul><li>Базовый префикс версионированного API: <code>/api/v1/</code>.</li><li>Ответы API имеют формат JSON, если не указано иное.</li><li>Запросы, изменяющие состояние, используют POST и требуют действующую браузерную сессию и CSRF-токен Django.</li><li>OAuth-токены провайдеров не передаются клиентом в API-запросах: сервер получает их из зашифрованного хранилища подключённого аккаунта.</li><li>Не передавайте пароли, access/refresh tokens, client secrets или заголовки Authorization в тикетах, логах и примерах.</li></ul><p class="muted-copy">API предназначен для работы через интерфейс приложения и браузерную сессию, а не для сторонних серверных интеграций.</p></section>

@@ -1,5 +1,5 @@
 {% extends "transfer/base.html" %}
-{% block title %}Обзор — Playlist Bridge{% endblock %}
+{% block title %}Обзор{% endblock %}
 {% block content %}
 <section class="page-heading"><div><span class="section-kicker">ТВОЁ ПРОСТРАНСТВО</span><h1>Привет, <span>{{ user.username }}</span></h1><p>Здесь начинается маршрут твоей музыки.</p></div><div class="dashboard-heading-actions"><a class="secondary-button dashboard-api-link" href="{% url 'api_docs' %}"><span aria-hidden="true">⌘</span> Документация API <span aria-hidden="true"></span></a><a class="primary-button" href="{% url 'library' %}">Открыть библиотеку <span></span></a></div></section>
 <section class="dashboard-tiles">
