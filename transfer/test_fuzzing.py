@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from .credentials import get_session_fingerprint
 from .library_views import _safe_candidate_url
