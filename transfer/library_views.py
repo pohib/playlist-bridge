@@ -1,13 +1,12 @@
 # ruff: noqa: I001
 import json
 import logging
-import mimetypes
 import re
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404, JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
