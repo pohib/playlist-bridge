@@ -155,7 +155,10 @@ class ProviderInputFuzzTests(TestCase):
         track = playlist.tracks.get()
         self.assertEqual(track.title, "Valid title")
         self.assertTrue(track.artist)
-        if isinstance(duration, (int, float)) and not isinstance(duration, bool) and duration == duration and abs(duration) < 10**12:
-            self.assertGreaterEqual(track.duration_ms, 0)
-        else:
-            self.assertIsNone(track.duration_ms)
+        try:
+            if isinstance(duration, bool):
+                raise ValueError("Boolean duration is invalid.")
+            expected_duration = max(0, int(duration or 0))
+        except (TypeError, ValueError, OverflowError):
+            expected_duration = None
+        self.assertEqual(track.duration_ms, expected_duration)
