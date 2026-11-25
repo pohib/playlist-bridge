@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from hypothesis.extra.django import TestCase as HypothesisTestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 from hypothesis import given, settings
@@ -19,7 +19,7 @@ from .services.common import normalize_track_text, parse_vk_playlist_url, parse_
 FUZZ_SETTINGS = settings(max_examples=100, derandomize=True, deadline=None)
 
 
-class ProviderInputFuzzTests(TestCase):
+class ProviderInputFuzzTests(HypothesisTestCase):
     """Property-based tests for untrusted URLs and provider input boundaries."""
 
     def setUp(self):
