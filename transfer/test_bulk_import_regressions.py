@@ -66,7 +66,7 @@ class BulkLibraryImportRegressionTests(TestCase):
                 "title": f"SoundCloud {index}",
                 "permalink_url": f"https://soundcloud.com/artist/playlist-{index}",
             }
-            for index in range(31)
+            for index in range(1, 32)
         ]
         client = Mock()
         client.my_playlists.return_value = resources
