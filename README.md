@@ -66,7 +66,7 @@ Django-приложение для сбора плейлистов и треко
 ### Важные правила изменения архитектуры
 
 - Сохраняйте Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
-- При выносе кода из library_views.py сначала зафиксируй существующий контракт тестами, затем извлекай один use case. Не переписывай весь модуль за один раз.
+- При выносе кода из library_views.py сначала зафиксируйте существующий контракт тестами, затем извлекай один use case. Не переписывай весь модуль за один раз.
 - Не удаляйте compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
 - Внешние API в тестах только mock-ать. Не использовать реальные OAuth tokens и не вызывать live VK/Spotify/SoundCloud из CI.
 - Не менять URL names, JSON contract, ownership filtering и очередность ручного review без явной причины и регрессионных тестов.
@@ -143,7 +143,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 Пользовательские VK/Spotify/SoundCloud access token и refresh token не следует помещать в `.env`.
 
-Для подключения провайдеров зарегистрируйте приложения в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. Для Spotify добавь свой аккаунт в Users Management, если приложение работает в Development Mode.
+Для подключения провайдеров зарегистрируйте приложения в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. В режиме Development Mode тестовые аккаунты необходимо добавить в Users Management приложения Spotify.
 
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
@@ -182,7 +182,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 VK не требует регистрации приложения и отдельных значений в `.env`: сервер получает анонимный токен публичного веб-клиента.
 
-Остальные значения на первом запуске оставь как в .env.example. Не добавляй DATABASE_URL: Compose формирует его из POSTGRES_PASSWORD. Не помещай в .env пользовательские access/refresh tokens.
+При первом запуске остальные значения можно оставить такими, как указано в `.env.example`. Переменная `DATABASE_URL` не требуется: Compose формирует её из `POSTGRES_PASSWORD`. Пользовательские access/refresh tokens не следует хранить в `.env`.
 
 ### 2. Установи Cloudflare Tunnel
 
@@ -309,20 +309,20 @@ CI запускается автоматически при push в main и pull
 
 ### Как понимать короткие запросы пользователя
 
-- **«Давай доделывать плеер».** Начни с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найди существующие CSS-селекторы и каскад — не добавляй слепые override-блоки в конец файла. Сохраняй доступность, reduced-motion и адаптивность.
-- **«Перенос треков в Spotify не работает».** Раздели два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверь статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагай причину без диагностики. Не проси пользователя присылать access/refresh token, client secret или .env.
-- **«Импорт из VK не работает / не играет».** Для импорта изучи services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверь get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
-- **«Добавь новый источник».** Сначала определи, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
-- **«Раздели/рефактори бизнес-логику».** Выбери один use case из library_views.py, найди его зависимости и side effects, добавь контрактные тесты, извлеки в сервис, оставив view тонким адаптером. Не меняй одновременно поведение, структуру моделей и UI.
+- **«Давай доделывать плеер».** Начните с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найдите существующие CSS-селекторы и каскад — не добавляйте слепые override-блоки в конец файла. Сохраняйте доступность, reduced-motion и адаптивность.
+- **«Перенос треков в Spotify не работает».** Разделите два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверьте статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагайте причину без диагностики. Не просите пользователя присылать access/refresh token, client secret или .env.
+- **«Импорт из VK не работает / не играет».** Для импорта изучите services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверь get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
+- **«Добавь новый источник».** Сначала определите, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
+- **«Раздели/рефактори бизнес-логику».** Выберите один use case из library_views.py, найдите его зависимости и side effects, добавьте контрактные тесты, извлеките в сервис, оставив view тонким адаптером. Не меняйте одновременно поведение, структуру моделей и UI.
 
 ### Обязательный рабочий порядок
 
-1. Получи актуальное дерево и прочитай затрагиваемые файлы, тесты, URL и модели. Не полагайся только на README или старый контекст.
-2. Проверь последние CI runs и их job logs. Отличай success от queued, pending, cancelled и skipped.
-3. Сформулируй, какой контракт должен сохраниться: URL/method, payload, ownership, DB effects, provider calls, side effects, order, retry/idempotency.
-4. Сначала добавь regression tests (включая negative/boundary cases и Hypothesis fuzzing там, где есть недоверенный ввод), затем минимально меняй production code.
-5. Запусти/дождись Ruff, Django checks, migrations check, pytest+coverage, SAST/SCA, container, CodeQL и DAST. Не заявляй о прохождении job, пока не проверен её итоговый статус.
-6. В ответе укажи commit SHA, файлы, тесты, coverage scope/процент и незакрытые риски. Не заявляй о визуальном тестировании без реального браузерного прогона.
+1. Получи актуальное дерево и прочитай затрагиваемые файлы, тесты, URL и модели. Не полагайтесь только на README или старый контекст.
+2. Проверьте последние CI runs и их job logs. Отличайте success от queued, pending, cancelled и skipped.
+3. Сформулируйте, какой контракт должен сохраниться: URL/method, payload, ownership, DB effects, provider calls, side effects, order, retry/idempotency.
+4. Сначала добавьте regression tests (включая negative/boundary cases и Hypothesis fuzzing там, где есть недоверенный ввод), затем минимально меняйте production code.
+5. Запустите/дождитесь Ruff, Django checks, migrations check, pytest+coverage, SAST/SCA, container, CodeQL и DAST. Не заявляйте о прохождении job, пока не проверен её итоговый статус.
+6. В ответе укажите commit SHA, файлы, тесты, coverage scope/процент и незакрытые риски. Не заявляйте о визуальном тестировании без реального браузерного прогона.
 
 ### Быстрые команды разработчика
 
@@ -408,7 +408,7 @@ API использует ту же браузерную сессию и CSRF:
 - Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
 
-Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включите ruleset/branch protection для main и сделай обязательными checks tests, sast-sca-secrets, container, dast и codeql.
+Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включите ruleset/branch protection для main и сделайте обязательными checks tests, sast-sca-secrets, container, dast и codeql.
 
 SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, а CodeQL также анализирует pull request. GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверьте доступность этой функции на текущем плане.
 
@@ -454,7 +454,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.
 
-> Лимиты и поведение сторонних API могут меняться. Перед изменением интеграции сверяйся с текущими ответами API и документацией провайдера; не обходи ограничения доступа или DRM.
+> Лимиты и поведение сторонних API могут меняться. Перед изменением интеграции сверяйтесь с текущими ответами API и документацией провайдера; не обходите ограничения доступа или DRM.
 
 
 ## Документация API
