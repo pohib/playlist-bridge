@@ -5,9 +5,9 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 
-from ...credentials import get_session_fingerprint
-from ...models import LibraryPlaylist, LibraryProfile
-from ...services import TransferError
+from ..credentials import get_session_fingerprint
+from ..models import LibraryPlaylist, LibraryProfile
+from ..services import TransferError
 
 
 class BulkLibraryImportRegressionTests(TestCase):

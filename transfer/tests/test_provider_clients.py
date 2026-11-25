@@ -4,9 +4,9 @@ import requests
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
 
-from ...services import ReauthorizationRequired, TransferError
-from ...services.soundcloud_client import SoundCloudClient
-from ...services.spotify_client import SpotifyClient
+from ..services import ReauthorizationRequired, TransferError
+from ..services.soundcloud_client import SoundCloudClient
+from ..services.spotify_client import SpotifyClient
 
 
 class SpotifyClientBehaviorTests(SimpleTestCase):

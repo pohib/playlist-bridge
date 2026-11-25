@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 from django.utils.crypto import get_random_string
 from requests import HTTPError
 
-from ...core import (
+from ..core import (
     ReauthorizationRequired,
     SoundCloudClient,
     SpotifyClient,
@@ -27,8 +27,8 @@ from ...core import (
     parse_vk_playlist_url,
     parse_vk_track_url,
 )
-from ...credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
-from ...models import OAuthCredential, TransferJob
+from ..credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
+from ..models import OAuthCredential, TransferJob
 
 
 TEST_PASSWORD = get_random_string(32)

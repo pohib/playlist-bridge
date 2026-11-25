@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase
 
-from ...services import TransferError
-from ...services.transfer_service import execute_transfer
+from ..services import TransferError
+from ..services.transfer_service import execute_transfer
 
 
 class ExecuteTransferTests(SimpleTestCase):
