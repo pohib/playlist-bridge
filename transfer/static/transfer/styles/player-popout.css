@@ -1,6 +1,6 @@
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#080b12;color:#f3f6fc;font-synthesis:none}
 *{box-sizing:border-box}
-body{width:100vw;height:100dvh;margin:0;min-width:0;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,rgba(77,117,179,.24),transparent 58%),#080b12}
+body{width:100%;height:100dvh;margin:0;min-width:0;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,rgba(77,117,179,.24),transparent 58%),#080b12}
 button,input{font:inherit}
 .popout-shell{position:relative;display:grid;grid-template-columns:clamp(44px,17vw,58px) minmax(0,1fr);grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto;grid-template-areas:"header header" "art track" "timeline timeline" "controls controls" "volume volume" "queue queue" "status status";align-content:stretch;gap:0;width:100%;height:100%;min-height:0;margin:0;padding:clamp(7px,2.4vw,11px);overflow:hidden;background:linear-gradient(155deg,rgba(21,31,49,.96),rgba(8,13,23,.98) 58%,rgba(13,22,34,.96));border:1px solid rgba(194,216,248,.09);box-shadow:0 12px 38px rgba(0,0,0,.32)}
 .popout-header{grid-area:header;display:flex;align-items:center;justify-content:space-between;min-height:27px;padding:0 0 8px;border-bottom:1px solid rgba(190,210,239,.1)}
