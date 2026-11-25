@@ -49,7 +49,16 @@ class ProviderInputFuzzTests(TestCase):
             self.assertTrue(all(isinstance(part, int) for part in parsed[:2]))
 
     @FUZZ_SETTINGS
-    @given(value=st.text(max_size=1024))
+    @given(
+        value=st.one_of(
+            st.none(),
+            st.booleans(),
+            st.integers(),
+            st.text(max_size=1024),
+            st.lists(st.text(max_size=20), max_size=5),
+            st.dictionaries(st.text(max_size=20), st.text(max_size=20), max_size=5),
+        )
+    )
     def test_candidate_url_fuzzer_never_accepts_an_untrusted_origin(self, value):
         for provider, allowed_hosts in (
             ("spotify", {"open.spotify.com", "www.open.spotify.com"}),
