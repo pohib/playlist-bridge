@@ -16,6 +16,7 @@ urlpatterns = [
     path("connections/", site_views.connections, name="connections"),
     path("transfers/", site_views.transfers, name="transfers"),
     path("profile/", site_views.profile, name="profile"),
+    path("player/popout/", site_views.player_popout, name="player_popout"),
     path("healthz/", views.healthz, name="healthz"),
     path("spotify/login/", oauth_views.spotify_login, name="spotify_login"),
     path("spotify/callback/", oauth_views.spotify_callback, name="spotify_callback"),
