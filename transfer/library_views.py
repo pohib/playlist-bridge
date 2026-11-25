@@ -521,7 +521,8 @@ def _save_soundcloud_playlist(profile, resource, tracks, source_url):
             raw_duration = item.get("duration")
             if isinstance(raw_duration, bool):
                 raise ValueError("Boolean duration is invalid.")
-            duration_ms = max(0, int(raw_duration or 0))
+            parsed_duration = max(0, int(raw_duration or 0))
+            duration_ms = parsed_duration if parsed_duration <= 2_147_483_647 else None
         except (TypeError, ValueError, OverflowError):
             # A malformed duration must not leave an empty playlist behind or
             # discard otherwise usable track metadata.
