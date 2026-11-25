@@ -29,7 +29,7 @@ class ProfileProviderConnectionsTests(TestCase):
         self.assertContains(response, "Профиль")
         self.assertContains(response, "Имя музыкального профиля")
         self.assertContains(response, "profile-name-form")
-        self.assertContains(response, "playlist_count")
+        self.assertContains(response, "плейлистов в библиотеке")
         self.assertContains(response, reverse("connections"))
         self.assertNotContains(response, reverse("spotify_login"))
 
