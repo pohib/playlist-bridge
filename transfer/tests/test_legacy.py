@@ -784,7 +784,7 @@ class SoundCloudIntegrationTests(TestCase):
             "not-really-audio.mp3", b"<script>alert(1)</script>",
             content_type="audio/mpeg",
         )
-        with patch("transfer.library_views._soundcloud_access") as access:
+        with patch("transfer.library_provider_upload_views._soundcloud_access") as access:
             response = self.client.post(
                 reverse("library_upload_soundcloud_track"),
                 {"title": "Fake", "artist": "Attacker", "audio_file": fake_audio},
@@ -792,7 +792,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         access.assert_not_called()
 
-    @patch("transfer.library_views._soundcloud_access")
+    @patch("transfer.library_provider_upload_views._soundcloud_access")
     def test_upload_owned_audio_file_to_soundcloud(self, access):
         client = Mock()
         client.upload_track.return_value = {
