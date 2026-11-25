@@ -124,10 +124,11 @@ SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refre
 | `/app/` | Личный dashboard |
 | `/library/` | Импорт и коллекции |
 | `/library/<uuid>/` | Состав плейлиста и запуск переноса |
-| `/connections/` | OAuth-подключения VK, Spotify, SoundCloud |
+| `/profile/` | Профиль, настройки и подключения Spotify/SoundCloud |
 | `/transfers/` | История переносов |
 | `/transfers/<uuid>/review/` | Ручное сопоставление пропусков |
-| `/profile/` | Профиль и изменение пароля |
+| `/api/docs/` | Справочник API и правила безопасной работы |
+| `/profile/` | Профиль, подключения сервисов и изменение пароля |
 
 ## Логирование
 
@@ -365,6 +366,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 | transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
 | transfer/tests/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
 | transfer/tests/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
+| transfer/tests/test_profile_and_api_docs.py | Профильные подключения, API docs, безопасная публикация схемы |
 
 ### Границы покрытия и незакрытые зоны
 
