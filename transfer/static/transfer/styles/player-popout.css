@@ -1,16 +1,16 @@
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#080b12;color:#f3f6fc;font-synthesis:none}
 *{box-sizing:border-box}
-body{margin:0;min-width:320px;min-height:100vh;background:radial-gradient(ellipse at 50% -10%,rgba(77,117,179,.24),transparent 58%),#080b12}
+body{width:100vw;height:100dvh;margin:0;min-width:0;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,rgba(77,117,179,.24),transparent 58%),#080b12}
 button,input{font:inherit}
-.popout-shell{position:relative;display:grid;grid-template-columns:68px minmax(0,1fr);grid-template-areas:"header header" "art track" "timeline timeline" "controls controls" "volume volume" "queue queue" "status status";align-content:start;gap:0;width:100%;min-height:100vh;margin:0;padding:12px 14px 10px;overflow:hidden;background:linear-gradient(155deg,rgba(21,31,49,.96),rgba(8,13,23,.98) 58%,rgba(13,22,34,.96));border:1px solid rgba(194,216,248,.09);box-shadow:0 12px 38px rgba(0,0,0,.32)}
+.popout-shell{position:relative;display:grid;grid-template-columns:clamp(44px,17vw,58px) minmax(0,1fr);grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto;grid-template-areas:"header header" "art track" "timeline timeline" "controls controls" "volume volume" "queue queue" "status status";align-content:stretch;gap:0;width:100%;height:100%;min-height:0;margin:0;padding:clamp(7px,2.4vw,11px);overflow:hidden;background:linear-gradient(155deg,rgba(21,31,49,.96),rgba(8,13,23,.98) 58%,rgba(13,22,34,.96));border:1px solid rgba(194,216,248,.09);box-shadow:0 12px 38px rgba(0,0,0,.32)}
 .popout-header{grid-area:header;display:flex;align-items:center;justify-content:space-between;min-height:27px;padding:0 0 8px;border-bottom:1px solid rgba(190,210,239,.1)}
 .popout-brand{display:flex;align-items:center;gap:7px;color:#eaf1fc;text-decoration:none;font-size:9px;font-weight:900;letter-spacing:.14em}
 .popout-brand span{display:grid;place-items:center;width:22px;height:22px;border:1px solid rgba(132,233,173,.28);border-radius:7px;background:linear-gradient(145deg,rgba(49,218,119,.18),rgba(57,110,173,.16));color:#8ff0ad;font-size:15px}
 .popout-live{display:flex;align-items:center;gap:6px;color:#8292a9;font-size:7px;font-weight:800;letter-spacing:.12em}
 .popout-live i{width:5px;height:5px;border-radius:50%;background:#75e5a1;box-shadow:0 0 10px rgba(117,229,161,.8)}
-.popout-art-wrap{grid-area:art;position:relative;display:grid;place-items:center;width:56px;height:56px;margin:10px 0 5px}
+.popout-art-wrap{grid-area:art;position:relative;display:grid;place-items:center;width:clamp(40px,16vw,54px);height:clamp(40px,16vw,54px);margin:clamp(5px,1.8vh,9px) 0 4px}
 .popout-art-glow{position:absolute;inset:12%;border-radius:12px;background:linear-gradient(135deg,rgba(49,218,119,.2),rgba(83,132,213,.2));filter:blur(14px);opacity:.7}
-.popout-cover,.popout-placeholder{position:relative;width:56px;height:56px;object-fit:cover;border:1px solid rgba(220,235,255,.17);border-radius:11px;background:linear-gradient(145deg,#243c5c,#111b2c);box-shadow:0 8px 20px rgba(0,0,0,.32)}
+.popout-cover,.popout-placeholder{position:relative;width:100%;height:100%;object-fit:cover;border:1px solid rgba(220,235,255,.17);border-radius:11px;background:linear-gradient(145deg,#243c5c,#111b2c);box-shadow:0 8px 20px rgba(0,0,0,.32)}
 .popout-placeholder{display:grid;place-items:center;color:rgba(226,241,255,.8);font-size:27px}
 .popout-track{grid-area:track;display:flex;align-items:center;justify-content:space-between;gap:9px;min-width:0;padding:8px 0 4px}
 .popout-track-copy{min-width:0}
@@ -35,13 +35,13 @@ button,input{font:inherit}
 .popout-volume button{width:23px;height:23px;border:0;background:transparent;font-size:13px}
 .popout-volume input{flex:1}
 .popout-volume>span{width:30px;color:#93a3b9;font-size:8px;text-align:right;font-variant-numeric:tabular-nums}
-.popout-queue{grid-area:queue;min-height:0;margin-top:10px}
+.popout-queue{grid-area:queue;display:flex;flex-direction:column;min-height:0;margin-top:clamp(5px,1.6vh,9px);overflow:hidden}
 .popout-queue>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .popout-queue>header div{display:flex;align-items:baseline;gap:7px}
 .popout-queue strong{font-size:10px}
 .popout-queue header span{color:#8291a7;font-size:8px}
 .popout-queue .popout-queue-note{font-size:6px;font-weight:800;letter-spacing:.1em}
-.popout-queue ol{display:flex;flex-direction:column;gap:3px;max-height:74px;margin:0;padding:0;overflow:auto;list-style:none}
+.popout-queue ol{display:flex;flex:1 1 auto;flex-direction:column;gap:3px;min-height:0;max-height:min(84px,24dvh);margin:0;padding:0;overflow:hidden;list-style:none}
 .popout-queue li{display:flex;align-items:center;gap:7px;min-width:0;padding:5px 6px;border:1px solid transparent;border-radius:8px;background:rgba(255,255,255,.025);cursor:pointer}
 .popout-queue li:hover{background:rgba(255,255,255,.055)}
 .popout-queue li.is-current{border-color:rgba(116,224,155,.2);background:linear-gradient(100deg,rgba(61,190,119,.12),rgba(81,125,190,.08))}
@@ -50,8 +50,11 @@ button,input{font:inherit}
 .popout-queue-copy strong,.popout-queue-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .popout-queue-copy strong{font-size:9px;color:#e9eff8}
 .popout-queue-copy small{font-size:8px;color:#8999b0}
-.popout-status{grid-area:status;min-height:12px;margin-top:6px;color:#8393a9;font-size:8px;text-align:center}
+.popout-status{grid-area:status;min-height:10px;margin-top:4px;color:#8393a9;font-size:8px;text-align:center}
 .popout-status[data-state=error]{color:#f1a1a1}
 .popout-embed{width:100%;height:54px;margin-top:6px;overflow:hidden;border-radius:9px}.popout-embed iframe{display:block;width:100%;height:54px;border:0;border-radius:9px}.popout-embed p{color:#e5b0b0;font-size:9px;text-align:center}
 #popout-audio{display:none}
 [hidden]{display:none!important}
+
+@media(max-height:350px){.popout-live{display:none}.popout-header{min-height:20px;padding-bottom:5px}.popout-controls{margin:4px 0;gap:8px}.popout-play-button{width:33px;height:33px}.popout-queue{margin-top:4px}.popout-queue ol{max-height:48px}.popout-status{margin-top:2px}}
+@media(max-width:300px){.popout-live{display:none}.popout-track h1{font-size:11px}.popout-controls{gap:5px}.popout-volume{gap:5px;padding:5px 6px}}

@@ -1,7 +1,7 @@
 {% extends "transfer/base.html" %}
 {% block title %}Проверка переноса — Playlist Bridge{% endblock %}
 {% block content %}
-<section class="page-heading"><div><a class="back-link" href="{% url 'transfers' %}">← Все переносы</a><span class="section-kicker">MATCH REVIEW · {{ transfer.target_provider|upper }}</span><h1>Проверим <span>совпадения.</span></h1><p>{{ transfer.source_playlist.title }} → {{ transfer.target_provider|title }} · найдено {{ transfer.matched }} из {{ transfer.total }} · пропущено {{ transfer.skipped }}</p></div>{% if transfer.target_url %}<a class="primary-button" href="{% url 'open_transfer_target' transfer.id %}" target="_blank" rel="noopener noreferrer">Открыть плейлист <span></span></a>{% endif %}</section>
+<section class="page-heading"><div><a class="back-link" href="{% url 'transfers' %}">← Все переносы</a><span class="section-kicker">MATCH REVIEW · {{ transfer.target_provider|upper }}</span><h1>Проверим <span>совпадения</span></h1><p>{{ transfer.source_playlist.title }} → {{ transfer.target_provider|title }} · найдено {{ transfer.matched }} из {{ transfer.total }} · пропущено {{ transfer.skipped }}</p></div>{% if transfer.target_url %}<a class="primary-button" href="{% url 'open_transfer_target' transfer.id %}" target="_blank" rel="noopener noreferrer">Открыть плейлист <span></span></a>{% endif %}</section>
 <section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">TRACK-BY-TRACK REVIEW</span><h2>{% if transfer.status == 'completed' %}Проверка завершена{% else %}Треки, требующие внимания{% endif %}</h2></div><span class="count-chip">{{ transfer.items.count }} треков</span></div>
 <div class="review-list">
 {% for item in items %}

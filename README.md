@@ -304,26 +304,6 @@ TOKEN_ENCRYPTION_KEY необходимо сохранить: без него в
 CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и OWASP ZAP baseline DAST. Результат проверки смотри во вкладке Actions соответствующего коммита.
 
 
-## Контекст для продолжения работы другой нейросетью
-
-Этот раздел — краткая передача контекста. Перед изменениями необходимо проверять актуальную ветку main, исходные файлы и последние запуски GitHub Actions: README может отставать от реализации.
-
-### Как понимать короткие запросы пользователя
-
-- **«Продолжить работу над плеером».** Начните с transfer/static/transfer/js/app.js, transfer/static/transfer/styles/main.css, transfer/templates/transfer/base.html, transfer/site_views.py и transfer/tests/test_playback.py. Плеер глобальный, состояние сохраняется в localStorage, внутренняя навигация специально не перезагружает shell. Сначала найдите существующие CSS-селекторы и каскад — не добавляйте слепые override-блоки в конец файла. Сохраняйте доступность, reduced-motion и адаптивность.
-- **«Не работает перенос треков в Spotify».** Разделите два пути: библиотечный transfer/library_views.py::transfer_library_playlist и прямой API/Celery api_views.py → tasks.py → services/transfer_service.py → services/spotify_client.py. Проверьте статус задачи, JSON error/report, серверные логи и точный provider response. Не предполагайте причину без диагностики. Не просите пользователя присылать access/refresh token, client secret или .env.
-- **«Не работает импорт или воспроизведение VK».** Для импорта изучите services/vk_client.py и import_vk_playlist/import_vk_track; для воспроизведения отдельно проверьте get_vk_track_stream, stream_vk_track_audio, app.js::playVkTrack и CSP в config/security.py. Ошибка endpoint resolution и ошибка CDN/HTMLAudio — разные уровни.
-- **«Добавить новый источник».** Сначала определите, нужен ли импорт в библиотеку, поиск для плеера, экспорт/создание плейлиста или playback. Это разные контракты; добавление провайдера в список само по себе не реализует интеграцию.
-- **«Разделить или рефакторить бизнес-логику».** Выберите один use case из library_views.py, найдите его зависимости и side effects, добавьте контрактные тесты, извлеките в сервис, оставив view тонким адаптером. Не меняйте одновременно поведение, структуру моделей и UI.
-
-### Обязательный рабочий порядок
-
-1. Получите актуальное дерево и прочитайте затрагиваемые файлы, тесты, URL и модели. Не полагайтесь только на README или устаревший контекст.
-2. Проверьте последние CI runs и их job logs. Отличайте success от queued, pending, cancelled и skipped.
-3. Сформулируйте, какой контракт должен сохраниться: URL/method, payload, ownership, DB effects, provider calls, side effects, order, retry/idempotency.
-4. Сначала добавьте regression tests (включая negative/boundary cases и Hypothesis fuzzing там, где есть недоверенный ввод), затем минимально меняйте production code.
-5. Запустите/дождитесь Ruff, Django checks, migrations check, pytest+coverage, SAST/SCA, container, CodeQL и DAST. Не заявляйте о прохождении job, пока не проверен её итоговый статус.
-6. В ответе укажите commit SHA, файлы, тесты, coverage scope/процент и незакрытые риски. Не заявляйте о визуальном тестировании без реального браузерного прогона.
 
 ### Быстрые команды разработчика
 
