@@ -87,8 +87,6 @@ def get_vk_track_stream(request, track_id):
 @require_GET
 def stream_vk_track_audio(request, track_id):
     """Proxy a fresh VK MP3 stream with browser-friendly audio and Range headers."""
-    import requests
-
     track = get_object_or_404(
         LibraryTrack.objects.select_related("playlist"),
         pk=track_id,
