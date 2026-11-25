@@ -1,9 +1,10 @@
 """Library source opening and cross-provider search endpoints."""
 
 import json
+from urllib.parse import urlparse
 
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -77,6 +78,9 @@ def open_track_source(request, track_id):
     ):
         return redirect("library")
     return HttpResponseRedirect(track.external_url)
+
+
+@login_required
 
 
 @require_POST
