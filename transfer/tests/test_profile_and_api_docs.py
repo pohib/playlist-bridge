@@ -58,6 +58,8 @@ class ProfileProviderConnectionsTests(TestCase):
         self.assertContains(response, reverse("soundcloud_login"))
         self.assertContains(response, "Публичный импорт")
 
+    @override_settings(SPOTIFY_CLIENT_ID="spotify-id", SPOTIFY_CLIENT_SECRET="spotify-secret",
+                       SOUNDCLOUD_CLIENT_ID="soundcloud-id", SOUNDCLOUD_CLIENT_SECRET="soundcloud-secret")
     def test_services_page_reflects_connected_provider_credentials(self):
         self.client.get(reverse("profile"))
         profile = LibraryProfile.objects.get(user=self.user)
