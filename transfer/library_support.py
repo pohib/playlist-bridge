@@ -28,8 +28,6 @@ def _profile(request):
 
 
 def _safe_candidate_url(value, provider):
-    from urllib.parse import urlparse
-
     if not isinstance(value, str) or len(value) > 2048:
         return ""
     try:
