@@ -6,9 +6,9 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
 
-from ..credentials import get_session_fingerprint
-from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
-from ..services import TransferError
+from ...credentials import get_session_fingerprint
+from ...models import LibraryPlaylist, LibraryProfile, LibraryTrack
+from ...services import TransferError
 
 
 class VKPlaybackApiTests(TestCase):
@@ -277,7 +277,7 @@ class VKPlaybackApiTests(TestCase):
 
 class VKTrackStreamValidationTests(TestCase):
     def setUp(self):
-        from .services.vk_client import VKClient
+        from ..services.vk_client import VKClient
 
         self.client = VKClient(version="5.289")
 

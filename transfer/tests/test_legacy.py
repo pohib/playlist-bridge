@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 from django.utils.crypto import get_random_string
 from requests import HTTPError
 
-from ..core import (
+from ...core import (
     ReauthorizationRequired,
     SoundCloudClient,
     SpotifyClient,
@@ -27,8 +27,8 @@ from ..core import (
     parse_vk_playlist_url,
     parse_vk_track_url,
 )
-from ..credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
-from ..models import OAuthCredential, TransferJob
+from ...credentials import decrypt_payload, get_access_token, get_session_fingerprint, store_credential
+from ...models import OAuthCredential, TransferJob
 
 
 TEST_PASSWORD = get_random_string(32)
@@ -124,7 +124,7 @@ class SpotifyApiDestinationTests(TestCase):
 
 class VKAnonymousTokenTests(TestCase):
     def test_anonymous_token_is_requested_without_user_cookie(self):
-        from .services.vk_client import VKAnonymousTokenProvider
+        from ..services.vk_client import VKAnonymousTokenProvider
 
         provider = VKAnonymousTokenProvider("app-id", http=Mock())
         response = Mock()
@@ -163,7 +163,7 @@ class VKAnonymousTokenTests(TestCase):
             )
 
     def test_anonymous_token_rejects_unexpected_response(self):
-        from .services.vk_client import VKAnonymousTokenProvider
+        from ..services.vk_client import VKAnonymousTokenProvider
 
         provider = VKAnonymousTokenProvider("app-id")
         response = Mock()
@@ -430,7 +430,7 @@ class TransferConcurrencyTests(TestCase):
     @patch("transfer.tasks.get_access_token", return_value=("test-token", {}))
     @patch("transfer.tasks.execute_transfer")
     def test_duplicate_celery_delivery_executes_transfer_once(self, execute, _get_token):
-        from .tasks import run_transfer
+        from ..tasks import run_transfer
 
         job = self.create_job()
         execute.return_value = {
@@ -555,7 +555,7 @@ class LibraryWorkspaceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
         playlist = LibraryPlaylist.objects.get(title="Night Drive")
         self.assertEqual(playlist.provider, "vk")
 
@@ -577,7 +577,7 @@ class LibraryWorkspaceTests(TestCase):
 
     @override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
     def test_user_text_is_stored_as_data_and_escaped_in_html(self):
-        from .models import LibraryPlaylist
+        from ..models import LibraryPlaylist
 
         user = get_user_model().objects.create_user(username="xss-test", password=TEST_PASSWORD)
         self.client.force_login(user)
@@ -595,7 +595,7 @@ class LibraryWorkspaceTests(TestCase):
         self.assertNotContains(page, "<script>alert(1)</script>")
 
     def test_library_objects_are_isolated_between_sessions(self):
-        from .models import LibraryPlaylist, LibraryProfile
+        from ..models import LibraryPlaylist, LibraryProfile
         self.client.post(
             reverse("library_create_playlist"),
             {"title": "Private list", "provider": "manual"},
@@ -612,7 +612,7 @@ class LibraryWorkspaceTests(TestCase):
         self.assertEqual(LibraryProfile.objects.count(), 2)
 
     def test_provider_url_validators_reject_ssrf_authority_tricks(self):
-        from .library_views import _spotify_resource_id, _validate_soundcloud_permalink
+        from ..library_views import _spotify_resource_id, _validate_soundcloud_permalink
 
         for url in (
             "https://open.spotify.com:8443/playlist/" + "A" * 22,
@@ -636,7 +636,7 @@ class LibraryWorkspaceTests(TestCase):
             {"title": "Bad link", "provider": "manual", "external_url": "javascript:alert(1)"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryPlaylist
+        from ..models import LibraryPlaylist
         self.assertFalse(LibraryPlaylist.objects.filter(title="Bad link").exists())
 
     def test_profile_name_can_be_updated(self):
@@ -645,7 +645,7 @@ class LibraryWorkspaceTests(TestCase):
             {"display_name": "My Music"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryProfile
+        from ..models import LibraryProfile
         self.assertEqual(LibraryProfile.objects.get().display_name, "My Music")
 
 
@@ -664,7 +664,7 @@ class VKLibraryImportTests(TestCase):
             {"source_url": "https://vk.ru/music/playlist/10_5_key"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryPlaylist
+        from ..models import LibraryPlaylist
         playlist = LibraryPlaylist.objects.get(title="VK imported playlist")
         tracks = list(playlist.tracks.all())
         self.assertEqual([track.title for track in tracks], ["Track A", "Track B"])
@@ -683,8 +683,8 @@ class VKLibraryImportTests(TestCase):
         get_token.assert_not_called()
 
     def test_source_redirect_rejects_unsafe_stored_url(self):
-        from .credentials import get_session_fingerprint
-        from .models import LibraryPlaylist, LibraryProfile
+        from ..credentials import get_session_fingerprint
+        from ..models import LibraryPlaylist, LibraryProfile
         profile, _ = LibraryProfile.objects.get_or_create(
             session_fingerprint=get_session_fingerprint(self.client),
         )
@@ -746,7 +746,7 @@ class SoundCloudIntegrationTests(TestCase):
             {"source_url": "https://soundcloud.com/artist/mix"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryPlaylist, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryTrack
         playlist = LibraryPlaylist.objects.get(title="SC Mix", provider="soundcloud")
         track = LibraryTrack.objects.get(playlist=playlist)
         self.assertEqual(track.external_id, "987")
@@ -771,7 +771,7 @@ class SoundCloudIntegrationTests(TestCase):
             {"source_url": "https://soundcloud.com/artist/single"},
         )
         self.assertEqual(response.status_code, 302)
-        from .models import LibraryTrack
+        from ..models import LibraryTrack
         track = LibraryTrack.objects.get(external_id="456")
         self.assertEqual(track.title, "Single")
         self.assertEqual(track.duration_ms, 90000)
@@ -808,7 +808,7 @@ class SoundCloudIntegrationTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         client.upload_track.assert_called_once()
-        from .models import LibraryTrack
+        from ..models import LibraryTrack
         track = LibraryTrack.objects.get(external_id="321")
         self.assertEqual(track.title, "Demo")
 
@@ -831,7 +831,7 @@ class SoundCloudIntegrationTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         client.track_details.assert_called_once_with("spotify-token", "1234567890123456789012")
-        from .models import LibraryTrack
+        from ..models import LibraryTrack
         track = LibraryTrack.objects.get(external_id="1234567890123456789012")
         self.assertEqual(track.artist, "Artist")
         self.assertEqual(track.album, "Album")
@@ -841,8 +841,8 @@ class UnifiedLibraryTransferTests(TestCase):
     @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
     @patch("transfer.library_views.SoundCloudClient")
     def test_unmatched_track_can_be_searched_and_added_manually(self, soundcloud_class, _token):
-        from .credentials import get_session_fingerprint
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+        from ..credentials import get_session_fingerprint
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
 
         profile, _ = LibraryProfile.objects.get_or_create(
             session_fingerprint=get_session_fingerprint(self.client),
@@ -895,8 +895,8 @@ class UnifiedLibraryTransferTests(TestCase):
     @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
     @patch("transfer.library_views.SoundCloudClient")
     def test_manual_candidate_id_not_in_server_results_is_rejected(self, soundcloud_class, _token):
-        from .credentials import get_session_fingerprint
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+        from ..credentials import get_session_fingerprint
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
 
         profile, _ = LibraryProfile.objects.get_or_create(
             session_fingerprint=get_session_fingerprint(self.client),
@@ -927,8 +927,8 @@ class UnifiedLibraryTransferTests(TestCase):
     @patch("transfer.library_views.get_access_token", return_value=("sc-token", {}))
     @patch("transfer.library_views.SoundCloudClient")
     def test_transfer_library_playlist_to_soundcloud(self, soundcloud_class, _token):
-        from .credentials import get_session_fingerprint
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+        from ..credentials import get_session_fingerprint
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
         profile, _ = LibraryProfile.objects.get_or_create(
             session_fingerprint=get_session_fingerprint(self.client),
@@ -978,7 +978,7 @@ class AccountWorkspaceTests(TestCase):
     def test_account_library_is_persistent_across_browser_sessions(self):
         from django.contrib.auth import get_user_model
 
-        from .models import LibraryPlaylist, LibraryProfile
+        from ..models import LibraryPlaylist, LibraryProfile
 
         user = get_user_model().objects.create_user(
             username="persistent_listener",
@@ -1000,7 +1000,7 @@ class AccountWorkspaceTests(TestCase):
 
 
     def test_registration_attaches_existing_guest_library_to_account(self):
-        from .models import LibraryProfile
+        from ..models import LibraryProfile
 
         self.client.post(
             reverse("library_create_playlist"),
@@ -1027,7 +1027,7 @@ class AccountWorkspaceTests(TestCase):
     def test_account_libraries_are_isolated_between_users(self):
         from django.contrib.auth import get_user_model
 
-        from .models import LibraryPlaylist, LibraryProfile
+        from ..models import LibraryPlaylist, LibraryProfile
 
         user_model = get_user_model()
         first = user_model.objects.create_user(
@@ -1056,7 +1056,7 @@ class AccountWorkspaceTests(TestCase):
     def test_all_authenticated_pages_and_transfer_review_render(self):
         from django.contrib.auth import get_user_model
 
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
 
         user = get_user_model().objects.create_user(
             username="page_tester",
@@ -1109,7 +1109,7 @@ class AccountWorkspaceTests(TestCase):
 class LibraryMergeTests(TestCase):
     def setUp(self):
         from django.contrib.auth import get_user_model
-        from .models import LibraryProfile
+        from ..models import LibraryProfile
 
         self.user = get_user_model().objects.create_user(username="merge_tester", password=TEST_PASSWORD)
         self.client.force_login(self.user)
@@ -1119,7 +1119,7 @@ class LibraryMergeTests(TestCase):
         )
 
     def test_merge_preserves_order_deduplicates_and_keeps_sources(self):
-        from .models import LibraryPlaylist, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryTrack
 
         first = LibraryPlaylist.objects.create(profile=self.profile, title="First", provider="spotify")
         second = LibraryPlaylist.objects.create(profile=self.profile, title="Second", provider="soundcloud")
@@ -1139,7 +1139,7 @@ class LibraryMergeTests(TestCase):
 
     def test_merge_rejects_playlist_owned_by_another_user(self):
         from django.contrib.auth import get_user_model
-        from .models import LibraryPlaylist, LibraryProfile
+        from ..models import LibraryPlaylist, LibraryProfile
 
         other = get_user_model().objects.create_user(username="other_merge_user", password=TEST_PASSWORD)
         other_profile = LibraryProfile.objects.create(user=other, session_fingerprint="a" * 64)
@@ -1152,7 +1152,7 @@ class LibraryMergeTests(TestCase):
 class LocalAudioPlayerTests(TestCase):
     def setUp(self):
         from django.contrib.auth import get_user_model
-        from .models import LibraryProfile
+        from ..models import LibraryProfile
 
         self.user = get_user_model().objects.create_user(username="audio_tester", password=TEST_PASSWORD)
         self.client.force_login(self.user)
@@ -1165,7 +1165,7 @@ class LocalAudioPlayerTests(TestCase):
         import tempfile
         from django.test import override_settings
         from django.core.files.uploadedfile import SimpleUploadedFile
-        from .models import LibraryTrack
+        from ..models import LibraryTrack
 
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
             upload = SimpleUploadedFile("demo.mp3", b"ID3" + b"\x00" * 40, content_type="audio/mpeg")
@@ -1184,7 +1184,7 @@ class LocalAudioPlayerTests(TestCase):
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     })
     def test_playlist_page_includes_playback_metadata(self):
-        from .models import LibraryPlaylist, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryTrack
 
         playlist = LibraryPlaylist.objects.create(profile=self.profile, title="Player test", provider="spotify")
         LibraryTrack.objects.create(
@@ -1199,7 +1199,7 @@ class LocalAudioPlayerTests(TestCase):
 
 class LibraryCoverProxyTests(TestCase):
     def setUp(self):
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
         user_model = get_user_model()
         self.user = user_model.objects.create_user(username="cover-proxy-user", password=TEST_PASSWORD)
@@ -1249,7 +1249,7 @@ class LibraryCoverProxyTests(TestCase):
         upstream.close.assert_called_once()
 
     def test_cover_proxy_cannot_fetch_another_users_track(self):
-        from .models import LibraryPlaylist, LibraryProfile, LibraryTrack
+        from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
 
         other = get_user_model().objects.create_user(username="other-cover-owner", password=TEST_PASSWORD)
         other_profile = LibraryProfile.objects.create(user=other, session_fingerprint="b" * 64)

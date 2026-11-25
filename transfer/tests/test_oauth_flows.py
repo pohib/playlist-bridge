@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from ..services import TransferError
+from ...services import TransferError
 
 
 class OAuthFlowTests(TestCase):
@@ -152,14 +152,14 @@ class OAuthFlowTests(TestCase):
 
     @override_settings(SPOTIFY_CLIENT_ID="", SPOTIFY_CLIENT_SECRET="")
     def test_spotify_client_requires_server_credentials(self):
-        from .oauth_views import spotify_client
+        from ..oauth_views import spotify_client
 
         with self.assertRaisesRegex(TransferError, "не настроен"):
             spotify_client()
 
     @override_settings(SOUNDCLOUD_CLIENT_ID="", SOUNDCLOUD_CLIENT_SECRET="")
     def test_soundcloud_client_requires_server_credentials(self):
-        from .oauth_views import soundcloud_client
+        from ..oauth_views import soundcloud_client
 
         with self.assertRaisesRegex(TransferError, "не настроен"):
             soundcloud_client()

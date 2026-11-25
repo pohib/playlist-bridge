@@ -3,6 +3,13 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+    WHITENOISE_MANIFEST_STRICT=False,
+)
 class ProfileProviderConnectionsTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="profile-provider-user", password="test-password")
@@ -30,6 +37,13 @@ class ProfileProviderConnectionsTests(TestCase):
         self.assertContains(response, reverse("library_import_soundcloud_track"))
 
 
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+    WHITENOISE_MANIFEST_STRICT=False,
+)
 class ApiDocumentationTests(TestCase):
     def test_api_docs_page_is_readable_without_login(self):
         response = self.client.get(reverse("api_docs"))
