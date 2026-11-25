@@ -10,15 +10,15 @@ from django.urls import reverse
 from django.utils.crypto import get_random_string
 from hypothesis import given, settings, strategies as st
 
-from .credentials import get_session_fingerprint
-from .library_views import (
+from ..credentials import get_session_fingerprint
+from ..library_views import (
     _safe_candidate_url,
     _save_soundcloud_playlist,
     _spotify_resource_id,
     _validate_soundcloud_permalink,
 )
-from .models import LibraryProfile
-from .services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
+from ..models import LibraryProfile
+from ..services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
 
 
 FUZZ_SETTINGS = settings(max_examples=100, derandomize=True, deadline=None)

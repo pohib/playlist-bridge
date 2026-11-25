@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .services import TransferError
+from ..services import TransferError
 
 
 class OAuthFlowTests(TestCase):
