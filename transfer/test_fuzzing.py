@@ -1,6 +1,6 @@
 import json
-from urllib.parse import urlparse
 from unittest.mock import Mock, patch
+from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
