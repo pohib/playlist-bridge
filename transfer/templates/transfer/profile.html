@@ -1,14 +1,65 @@
 {% extends "transfer/base.html" %}
 {% block title %}Профиль — Playlist Bridge{% endblock %}
 {% block content %}
-<section class="page-heading"><div><span class="section-kicker">ACCOUNT SETTINGS</span><h1>Профиль <span>аккаунта.</span></h1><p>Настройки учётной записи и подключения музыкальных сервисов.</p></div></section>
-<section class="content-panel profile-settings"><div class="profile-avatar large-avatar">{{ user.username|first|upper }}</div><div><span class="section-kicker">USERNAME</span><h2>{{ user.username }}</h2><p>{{ user.email|default:"Электронная почта не указана" }}</p><span class="muted-copy">Аккаунт создан {{ user.date_joined|date:"d.m.Y" }}</span></div></section>
-<section class="content-panel"><div class="panel-title-row"><div><span class="section-kicker">МУЗЫКАЛЬНЫЕ СЕРВИСЫ</span><h2>Подключения аккаунтов</h2></div><a class="subtle-link" href="{% url 'api_docs' %}">Документация API</a></div>
-<div class="connection-grid">
-<article class="connection-card"><div class="connection-card-head"><span class="provider-chip vk-chip">VK</span><span class="connection-status connected">Публичный импорт</span></div><h3>ВКонтакте</h3><p>Публичные плейлисты и отдельные треки импортируются по ссылке. Подключение аккаунта VK не требуется.</p><span class="muted-copy">Анонимный доступ к публичным данным</span></article>
-<article class="connection-card"><div class="connection-card-head"><span class="provider-chip spotify-chip">●</span><span class="connection-status {% if library_spotify_connected %}connected{% endif %}">{% if library_spotify_connected %}Подключён{% else %}Не подключён{% endif %}</span></div><h3>Spotify</h3><p>Импорт плейлистов, поиск композиций и создание плейлистов при переносе.</p>{% if library_spotify_connected %}<form method="post" action="{% url 'disconnect_spotify' %}">{% csrf_token %}<button class="danger-button" type="submit">Отключить Spotify</button></form>{% elif spotify_configured %}<a class="primary-button" href="{% url 'spotify_login' %}">Подключить Spotify <span></span></a>{% else %}<span class="muted-copy">OAuth Spotify не настроен на сервере.</span>{% endif %}</article>
-<article class="connection-card"><div class="connection-card-head"><span class="provider-chip sc-chip">SC</span><span class="connection-status {% if library_soundcloud_connected %}connected{% endif %}">{% if library_soundcloud_connected %}Подключён{% else %}Не подключён{% endif %}</span></div><h3>SoundCloud</h3><p>Импорт и перенос плейлистов, поиск композиций и загрузка пользовательских аудиофайлов.</p>{% if library_soundcloud_connected %}<form method="post" action="{% url 'disconnect_soundcloud' %}">{% csrf_token %}<button class="danger-button" type="submit">Отключить SoundCloud</button></form>{% elif soundcloud_configured %}<a class="primary-button" href="{% url 'soundcloud_login' %}">Подключить SoundCloud <span></span></a>{% else %}<span class="muted-copy">OAuth SoundCloud не настроен на сервере.</span>{% endif %}</article>
-</div><p class="muted-copy">OAuth-токены хранятся в зашифрованном виде на сервере. Не передавайте токены, client secret или файлы конфигурации третьим лицам.</p></section>
-<section class="content-panel"><h2>Имя музыкального профиля</h2><form method="post" action="{% url 'library_update_profile' %}" class="create-inline">{% csrf_token %}<input name="display_name" maxlength="60" value="{{ library_profile.display_name }}" required><button class="secondary-button" type="submit">Сохранить имя</button></form></section>
-<section class="content-panel"><h2>Безопасность аккаунта</h2><p class="muted-copy">Пароль хранится с использованием встроенного механизма хеширования Django. OAuth-токены музыкальных сервисов хранятся отдельно в зашифрованном виде.</p><a class="secondary-button" href="{% url 'password_change' %}">Изменить пароль</a></section>
+<section class="page-heading">
+  <div>
+    <span class="section-kicker">ACCOUNT OVERVIEW</span>
+    <h1>Профиль <span>аккаунта.</span></h1>
+    <p>Личные данные, состояние музыкальной библиотеки и настройки аккаунта.</p>
+  </div>
+  <a class="secondary-button" href="{% url 'connections' %}">Управление сервисами</a>
+</section>
+
+<section class="content-panel profile-settings">
+  <div class="profile-avatar large-avatar">{{ user.username|first|upper }}</div>
+  <div class="profile-identity">
+    <span class="section-kicker">АККАУНТ PLAYLIST BRIDGE</span>
+    <h2>{{ user.username }}</h2>
+    <p>{{ user.email|default:"Электронная почта не указана" }}</p>
+    <span class="muted-copy">Участник с {{ user.date_joined|date:"d.m.Y" }}</span>
+  </div>
+  <div class="profile-identity-actions">
+    <a class="subtle-link" href="{% url 'password_change' %}">Изменить пароль</a>
+  </div>
+</section>
+
+<section class="profile-stat-grid" aria-label="Статистика библиотеки">
+  <article class="content-panel profile-stat-card"><span class="section-kicker">КОЛЛЕКЦИИ</span><strong>{{ playlist_count }}</strong><span>плейлистов в библиотеке</span></article>
+  <article class="content-panel profile-stat-card"><span class="section-kicker">КОМПОЗИЦИИ</span><strong>{{ track_count }}</strong><span>сохранённых треков</span></article>
+  <article class="content-panel profile-stat-card"><span class="section-kicker">ПЕРЕНОСЫ</span><strong>{{ transfer_count }}</strong><span>операций с библиотекой</span></article>
+</section>
+
+<section class="content-panel profile-library-panel">
+  <div class="profile-section-heading">
+    <div><span class="section-kicker">НАЗВАНИЕ БИБЛИОТЕКИ</span><h2>Имя музыкального профиля</h2></div>
+    <span class="muted-copy">Отображается в личной библиотеке</span>
+  </div>
+  <form method="post" action="{% url 'library_update_profile' %}" class="create-inline profile-name-form">
+    {% csrf_token %}
+    <input name="display_name" maxlength="60" value="{{ library_profile.display_name }}" aria-label="Имя музыкального профиля" required>
+    <button class="secondary-button" type="submit">Сохранить название</button>
+  </form>
+</section>
+
+<section class="content-panel">
+  <div class="panel-title-row"><div><span class="section-kicker">ПОСЛЕДНИЕ ИЗМЕНЕНИЯ</span><h2>Недавно обновлённые плейлисты</h2></div><a class="subtle-link" href="{% url 'library' %}">Открыть библиотеку</a></div>
+  {% if recent_playlists %}
+    <div class="profile-recent-list">
+      {% for playlist in recent_playlists %}
+        <a class="profile-recent-item" href="{% url 'playlist_detail' playlist.pk %}">
+          <span class="profile-recent-icon">♫</span>
+          <span><strong>{{ playlist.title }}</strong><small>{{ playlist.get_provider_display }} · {{ playlist.tracks.count }} треков</small></span>
+          <time datetime="{{ playlist.updated_at|date:'c' }}">{{ playlist.updated_at|date:"d.m.Y" }}</time>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="profile-empty-state"><strong>Библиотека пока пуста</strong><p>Добавьте первый плейлист или импортируйте коллекцию из музыкального сервиса.</p><a class="secondary-button" href="{% url 'library' %}">Перейти в библиотеку</a></div>
+  {% endif %}
+</section>
+
+<section class="content-panel profile-security-panel">
+  <div><span class="section-kicker">ACCOUNT SECURITY</span><h2>Безопасность аккаунта</h2><p class="muted-copy">Пароль обрабатывается средствами Django. Токены подключённых музыкальных сервисов хранятся отдельно в зашифрованном виде.</p></div>
+  <a class="secondary-button" href="{% url 'password_change' %}">Изменить пароль</a>
+</section>
 {% endblock %}
