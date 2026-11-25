@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET
 
 from .credentials import get_session_fingerprint
 from .library_views import _profile
-from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, TransferJob
+from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryProfile, OAuthCredential, TransferJob
 
 
 @never_cache
@@ -98,8 +98,20 @@ def playlist_detail(request, playlist_id):
 @never_cache
 @require_GET
 def connections(request):
-    """Compatibility route; provider management now lives in the user profile."""
-    return redirect("profile")
+    """Manage external music-service authorizations for the current account."""
+    fingerprint = get_session_fingerprint(request)
+    connected = set(
+        OAuthCredential.objects.filter(session_fingerprint=fingerprint)
+        .values_list("provider", flat=True)
+    )
+    return render(request, "transfer/connections.html", {
+        "library_spotify_connected": "spotify" in connected,
+        "library_soundcloud_connected": "soundcloud" in connected,
+        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
+        "oauth_success": request.session.pop("oauth_success", ""),
+        "oauth_error": request.session.pop("oauth_error", ""),
+    })
 
 
 @login_required
@@ -119,9 +131,20 @@ def transfers(request):
 @never_cache
 @require_GET
 def profile(request):
+    profile = _profile(request)
+    playlists = LibraryPlaylist.objects.filter(profile=profile)
+    connected = set(
+        OAuthCredential.objects.filter(session_fingerprint=get_session_fingerprint(request))
+        .values_list("provider", flat=True)
+    )
     return render(request, "transfer/profile.html", {
-        "spotify_configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
-        "soundcloud_configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET),
+        "library_profile": profile,
+        "playlist_count": playlists.count(),
+        "track_count": LibraryTrack.objects.filter(playlist__profile=profile).count(),
+        "transfer_count": LibraryTransfer.objects.filter(profile=profile).count(),
+        "recent_playlists": playlists.order_by("-updated_at")[:4],
+        "spotify_connected": "spotify" in connected,
+        "soundcloud_connected": "soundcloud" in connected,
     })
 
 
