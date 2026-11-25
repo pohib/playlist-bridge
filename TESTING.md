@@ -53,7 +53,7 @@ CI enforces at least **60% combined statement and branch coverage** for the `tra
 
 All Django tests are grouped in `transfer/tests/`; production modules remain separate from test code. The legacy suite is retained as `transfer/tests/test_legacy.py`. Pytest discovers the package through the `test_*.py` pattern.
 
-The profile/API documentation tests verify that Spotify and SoundCloud connection controls are available from the profile, the old connections URL redirects safely, library import endpoints remain on the library page, and the public API reference does not disclose provider credentials.\n\n## Test boundaries
+The profile/API documentation tests verify profile statistics and recent playlists, the dedicated Services page and its OAuth controls, library import endpoints, and that the public API reference does not disclose provider credentials. Static UI regression tests also guard the player FLIP animation, collapsed track-title layout, profile form spacing, and the account-chip box geometry.\n\n## Test boundaries
 
 - Provider API and OAuth tests must use mocked HTTP responses. The suite must not require real VK, Spotify, or SoundCloud credentials.
 - Tests should assert externally observable contracts: URL names, HTTP methods, response status and payload, session ownership, database effects, and provider request parameters.
