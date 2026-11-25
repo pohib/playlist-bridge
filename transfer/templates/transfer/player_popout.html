@@ -44,8 +44,6 @@
       <ol id="popout-queue-list"></ol>
     </section>
     <div id="popout-status" class="popout-status" role="status" aria-live="polite">Ожидаем данные основного плеера…</div>
-    <audio id="popout-audio" preload="metadata"></audio>
-    <div id="popout-embed" class="popout-embed"></div>
     <form id="popout-csrf" hidden>{% csrf_token %}</form>
   </main>
   <script src="{% static 'transfer/js/player-popout.js' %}?v=20261125-4" defer></script>
