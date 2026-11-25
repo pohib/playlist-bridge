@@ -1,8 +1,10 @@
 """Local library management endpoints."""
 
+import re
 from pathlib import Path
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import transaction
