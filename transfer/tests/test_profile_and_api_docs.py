@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model  # noqa: I001
 from django.contrib.staticfiles import finders
 from django.test import TestCase, override_settings
 from django.urls import reverse
