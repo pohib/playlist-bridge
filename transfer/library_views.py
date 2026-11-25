@@ -58,8 +58,10 @@ def _safe_optional_url(value):
 def _safe_candidate_url(value, provider):
     from urllib.parse import urlparse
 
+    if not isinstance(value, str) or len(value) > 2048:
+        return ""
     try:
-        parsed = urlparse((value or "").strip())
+        parsed = urlparse(value.strip())
         port = parsed.port
     except ValueError:
         return ""
