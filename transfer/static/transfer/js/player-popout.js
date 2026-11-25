@@ -43,7 +43,7 @@
     if(provider==="spotify"||provider==="soundcloud"){
       audio.pause();audio.removeAttribute("src");ui.progress.disabled=true;
       const frame=document.createElement("iframe");frame.title=provider==="spotify"?"Spotify player":"SoundCloud player";
-      frame.src=provider==="spotify"?"https://open.spotify.com/embed/track/"+encodeURIComponent(track.id||"")+"?utm_source=generator&theme=0":"https://w.soundcloud.com/player/?url="+encodeURIComponent(track.url)+"&auto_play="+(autoplay?"true":"false")+"&hide_related=true&show_comments=false&show_user=true&visual=false";
+      const spotifyId=String(track.id||track.url||"").match(/[A-Za-z0-9]{22}/)?.[0]||"";frame.src=provider==="spotify"?"https://open.spotify.com/embed/track/"+spotifyId+"?utm_source=generator&theme=0":"https://w.soundcloud.com/player/?url="+encodeURIComponent(track.url)+"&auto_play="+(autoplay?"true":"false")+"&hide_related=true&show_comments=false&show_user=true&visual=false";
       frame.allow="autoplay; encrypted-media";frame.referrerPolicy="strict-origin-when-cross-origin";ui.embed.append(frame);
       status("Для "+(provider==="spotify"?"Spotify":"SoundCloud")+" используй встроенные элементы управления; громкость регулируется в самом сервисе.");
     }else if(provider==="local"||provider==="vk"){
@@ -69,7 +69,7 @@
   ui.repeat.addEventListener("click",()=>{state.repeat=state.repeat==="off"?"all":state.repeat==="all"?"one":"off";syncModes();save();});
   audio.addEventListener("timeupdate",updateTime);audio.addEventListener("loadedmetadata",updateTime);audio.addEventListener("play",()=>{updateTime();save();});audio.addEventListener("pause",()=>{updateTime();save();});audio.addEventListener("ended",()=>{if(state.repeat==="one"){audio.currentTime=0;audio.play().catch(()=>{});}else next();});
   $("popout-like").addEventListener("click",()=>window.open("/app/","_blank","noopener"));
-  channel?.addEventListener("message",event=>{const message=event.data;if(!message||message.type!=="state"||message.source==="popout")return;const old=currentTrack()?currentTrack()._queueKey:null;const nextState=message.state;if(!nextState||!Array.isArray(nextState.queue))return;const newKey=nextState.queue[nextState.index]?. _queueKey||null;state={...state,...nextState};state.queue=state.queue.filter(validTrack);state.index=Math.max(0,Math.min(state.index,state.queue.length-1));syncVolume();syncModes();renderQueue();if(old!==newKey)startTrack(Boolean(message.playing));});
+  channel?.addEventListener("message",event=>{const message=event.data;if(!message||message.type!=="state"||message.source==="popout")return;const old=currentTrack()?currentTrack()._queueKey:null;const nextState=message.state;if(!nextState||!Array.isArray(nextState.queue))return;const newKey=nextState.queue[nextState.index]?nextState.queue[nextState.index]._queueKey||null:null;state={...state,...nextState};state.queue=state.queue.filter(validTrack);state.index=Math.max(0,Math.min(state.index,state.queue.length-1));syncVolume();syncModes();renderQueue();if(old!==newKey)startTrack(Boolean(message.playing));});
   window.addEventListener("storage",event=>{if(event.key!==KEY||!event.newValue)return;try{const nextState=JSON.parse(event.newValue);applyState(nextState,false);}catch(_){}});
   try{const saved=JSON.parse(localStorage.getItem(KEY)||"null");if(saved&&Array.isArray(saved.queue))applyState(saved,false);else status("Открой плеер из Playlist Bridge, чтобы загрузить очередь.");}catch(_){status("Не удалось прочитать очередь основного плеера.",true);}
   channel?.postMessage({type:"ready"});
