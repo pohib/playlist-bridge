@@ -37,7 +37,7 @@ class VKPlaybackApiTests(TestCase):
         self.audio_url = reverse("library_vk_track_audio", kwargs={"track_id": self.track.pk})
 
     def test_stream_resolution_returns_fresh_mp3_url_without_cache(self):
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             client = client_class.return_value
             client.resolve_playlist_audio_id.return_value = "10_101"
             client.get_track_stream.return_value = {
@@ -57,7 +57,7 @@ class VKPlaybackApiTests(TestCase):
         client.get_track_stream.assert_called_once_with("10_101", "mp3")
 
     def test_stream_resolution_returns_422_when_vk_has_no_mp3_stream(self):
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             client_class.return_value.get_track_stream.side_effect = TransferError(
                 "VK не предоставил поток в формате mp3."
             )
@@ -89,7 +89,7 @@ class VKPlaybackApiTests(TestCase):
         self.track.source_provider = LibraryPlaylist.Provider.SPOTIFY
         self.track.save(update_fields=["source_provider"])
 
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             response = self.client.post(
                 self.stream_url,
                 data=json.dumps({"format": "mp3"}),
@@ -139,7 +139,7 @@ class VKPlaybackApiTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test_audio_proxy_returns_structured_422_when_mp3_is_unavailable(self):
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             client_class.return_value.get_track_stream.side_effect = TransferError(
                 "VK не предоставил поток в формате mp3."
             )
@@ -162,7 +162,7 @@ class VKPlaybackApiTests(TestCase):
         upstream_response.iter_content.return_value = [b"audio", b""]
 
         with (
-            patch("transfer.library_views.VKClient") as client_class,
+            patch("transfer.library_playback_views.VKClient") as client_class,
             patch("requests.get", return_value=upstream_response) as upstream,
         ):
             api = client_class.return_value
@@ -189,7 +189,7 @@ class VKPlaybackApiTests(TestCase):
     def test_audio_proxy_rejects_partial_response_without_content_range(self):
         upstream_response = Mock(status_code=206, headers={})
         with (
-            patch("transfer.library_views.VKClient") as client_class,
+            patch("transfer.library_playback_views.VKClient") as client_class,
             patch("requests.get", return_value=upstream_response),
         ):
             client_class.return_value.token_provider.BROWSER_HEADERS = {}
@@ -206,7 +206,7 @@ class VKPlaybackApiTests(TestCase):
         import requests
 
         with (
-            patch("transfer.library_views.VKClient") as client_class,
+            patch("transfer.library_playback_views.VKClient") as client_class,
             patch("requests.get", side_effect=requests.RequestException("connection failed")),
         ):
             client_class.return_value.token_provider.BROWSER_HEADERS = {}
@@ -222,7 +222,7 @@ class VKPlaybackApiTests(TestCase):
     def test_audio_proxy_closes_unusable_upstream_response(self):
         upstream_response = Mock(status_code=403, headers={})
         with (
-            patch("transfer.library_views.VKClient") as client_class,
+            patch("transfer.library_playback_views.VKClient") as client_class,
             patch("requests.get", return_value=upstream_response),
         ):
             client_class.return_value.token_provider.BROWSER_HEADERS = {}
@@ -239,7 +239,7 @@ class VKPlaybackApiTests(TestCase):
         self.track.source_provider = LibraryPlaylist.Provider.SPOTIFY
         self.track.save(update_fields=["source_provider"])
 
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             response = self.client.get(self.audio_url)
 
         self.assertEqual(response.status_code, 404)
@@ -262,7 +262,7 @@ class VKPlaybackApiTests(TestCase):
             source_provider=LibraryPlaylist.Provider.VK,
         )
 
-        with patch("transfer.library_views.VKClient") as client_class:
+        with patch("transfer.library_playback_views.VKClient") as client_class:
             response = self.client.get(
                 reverse("library_vk_track_audio", kwargs={"track_id": other_track.pk})
             )
