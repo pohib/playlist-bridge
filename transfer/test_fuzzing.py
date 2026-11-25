@@ -11,7 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .credentials import get_session_fingerprint
-from .library_views import _safe_candidate_url
+from .library_views import _safe_candidate_url, _save_soundcloud_playlist
 from .models import LibraryProfile
 from .services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
 
@@ -130,3 +130,32 @@ class ProviderInputFuzzTests(TestCase):
         payload = response.json()
         self.assertIsInstance(payload["results"], list)
         self.assertIn("spotify", payload["statuses"])
+
+    @FUZZ_SETTINGS
+    @given(
+        duration=st.one_of(
+            st.none(),
+            st.booleans(),
+            st.integers(min_value=-10**12, max_value=10**12),
+            st.text(max_size=80),
+            st.floats(allow_nan=True, allow_infinity=True, width=32),
+        ),
+        user=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=40), st.dictionaries(st.text(max_size=20), st.text(max_size=40), max_size=3)),
+        artist=st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80)),
+    )
+    def test_soundcloud_track_serializer_survives_malformed_duration_and_artist_shapes(self, duration, user, artist):
+        playlist, count = _save_soundcloud_playlist(
+            self.profile,
+            {"title": "Fuzz playlist"},
+            [{"id": 123, "title": "Valid title", "duration": duration, "user": user, "metadata_artist": artist}],
+            "https://soundcloud.com/artist/fuzz-playlist",
+        )
+
+        self.assertEqual(count, 1)
+        track = playlist.tracks.get()
+        self.assertEqual(track.title, "Valid title")
+        self.assertTrue(track.artist)
+        if isinstance(duration, (int, float)) and not isinstance(duration, bool) and duration == duration and abs(duration) < 10**12:
+            self.assertGreaterEqual(track.duration_ms, 0)
+        else:
+            self.assertIsNone(track.duration_ms)
