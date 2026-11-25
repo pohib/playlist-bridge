@@ -1,42 +1,42 @@
-# Testing
+# Тестирование
 
-## Local checks
+## Локальные проверки
 
-Install development dependencies:
+Установите зависимости для разработки:
 
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-Run the full automated test suite:
+Запустите полный набор автоматизированных тестов:
 
 ```bash
 pytest -q
 ```
 
-Run tests with statement and branch coverage:
+Запустите тесты с измерением покрытия операторов и ветвлений:
 
 ```bash
 pytest -q --cov=transfer --cov-report=term-missing
 ```
 
-Run property-based fuzz tests for untrusted inputs and provider responses:
+Запустите фаззинг-тесты на основе свойств для проверки недоверенных входных данных и ответов внешних сервисов:
 
 ```bash
 pytest -q transfer/tests/test_fuzzing.py
 ```
 
-The Hypothesis cases use deterministic generation and bounded input sizes so failures are reproducible in CI. They exercise VK URL parsing, Spotify resource URLs, SoundCloud permalinks, provider candidate URL validation, Unicode track normalization, library-search JSON validation, malformed Spotify/SoundCloud search results, and SoundCloud track metadata serialization. All provider calls are mocked; fuzz tests never contact live services.
+Тесты Hypothesis используют детерминированную генерацию и ограниченный размер входных данных, поэтому сбои можно воспроизвести в CI. Проверяются разбор URL VK, URL ресурсов Spotify, постоянные ссылки SoundCloud, проверка URL-кандидатов от провайдеров, нормализация названий треков с поддержкой Unicode, проверка JSON для поиска по библиотеке, некорректные результаты поиска Spotify/SoundCloud и сериализация метаданных треков SoundCloud. Все обращения к API провайдеров подменяются mock-объектами: фаззинг-тесты не обращаются к реальным сервисам.
 
-Run the bulk-import regression tests:
+Запустите регрессионные тесты массового импорта:
 
 ```bash
 pytest -q transfer/tests/test_bulk_import_regressions.py
 ```
 
-These tests cover the 30-playlist import cap, continuation after an unavailable Spotify playlist, and preservation of already imported SoundCloud data when a later playlist fails.
+Эти тесты проверяют ограничение импорта до 30 плейлистов, продолжение импорта после обнаружения недоступного плейлиста Spotify и сохранение уже импортированных данных SoundCloud, если при обработке следующего плейлиста возникает ошибка.
 
-Run the checks used by CI:
+Запустите проверки, используемые в CI:
 
 ```bash
 ruff check .
@@ -45,19 +45,21 @@ python manage.py makemigrations --check --dry-run
 pytest -q --cov=transfer --cov-report=term-missing --cov-fail-under=60
 ```
 
-## Coverage policy
+## Политика покрытия тестами
 
-CI enforces at least **60% combined statement and branch coverage** for the `transfer` application. Migrations and test modules are excluded from the measured application coverage. The threshold is an initial floor, not a target. Critical business paths should receive direct unit and integration coverage even when the global percentage is already satisfied.
+CI требует не менее **60% совокупного покрытия операторов и ветвлений** для приложения `transfer`. Миграции и тестовые модули исключены из расчёта покрытия приложения. Этот порог — начальный минимальный уровень, а не целевой показатель. Критически важные бизнес-сценарии должны иметь прямое покрытие модульными и интеграционными тестами, даже если общий процент уже достигнут.
 
-## Test package layout
+## Структура пакета тестов
 
-All Django tests are grouped in `transfer/tests/`; production modules remain separate from test code. The legacy suite is retained as `transfer/tests/test_legacy.py`. Pytest discovers the package through the `test_*.py` pattern.
+Все тесты Django сгруппированы в каталоге `transfer/tests/`; рабочие модули приложения хранятся отдельно от тестового кода. Старый набор тестов сохранён в файле `transfer/tests/test_legacy.py`. Pytest обнаруживает тесты по шаблону `test_*.py`.
 
-The profile/API documentation tests verify profile statistics and recent playlists, the dedicated Services page and its OAuth controls, library import endpoints, and that the public API reference does not disclose provider credentials. Static UI regression tests also guard the player FLIP animation, collapsed track-title layout, profile form spacing, and the account-chip box geometry.\n\n## Test boundaries
+Тесты документации профиля и API проверяют статистику профиля и список недавних плейлистов, отдельную страницу подключённых сервисов и элементы управления OAuth, эндпоинты импорта библиотеки, а также отсутствие учётных данных провайдеров в публичной документации API. Статические регрессионные тесты интерфейса дополнительно контролируют FLIP-анимацию плеера, расположение названия трека в свёрнутом состоянии, интервалы между полями формы профиля и геометрию блока с данными аккаунта.
 
-- Provider API and OAuth tests must use mocked HTTP responses. The suite must not require real VK, Spotify, or SoundCloud credentials.
-- Tests should assert externally observable contracts: URL names, HTTP methods, response status and payload, session ownership, database effects, and provider request parameters.
-- Security-sensitive cases should include invalid input, unauthorized ownership, redirects, untrusted URLs, missing provider data, and partial upstream failures.
-- For Celery-backed workflows, test job claiming, duplicate delivery, progress persistence, successful completion, and failure handling.
-- For playback, test stream discovery separately from CDN proxy behavior, including Range requests and resource cleanup.
-- Keep DAST/container checks in CI as complementary checks; they do not replace application-level tests.
+## Границы тестирования
+
+- В тестах API провайдеров и OAuth необходимо использовать подменённые HTTP-ответы. Для запуска набора тестов не должны требоваться реальные учётные данные VK, Spotify или SoundCloud.
+- Тесты должны проверять внешне наблюдаемые контракты: имена URL-маршрутов, HTTP-методы, HTTP-статусы и содержимое ответов, принадлежность данных пользователю в сессии, изменения в базе данных и параметры запросов к провайдерам.
+- Сценарии, связанные с безопасностью, должны охватывать некорректные входные данные, попытки доступа к чужим объектам без разрешения, перенаправления, недоверенные URL, отсутствие данных от провайдера и частичные сбои внешних сервисов.
+- Для процессов, выполняемых через Celery, необходимо проверять получение задач в обработку, повторную доставку, сохранение прогресса, успешное завершение и обработку ошибок.
+- Для воспроизведения необходимо отдельно тестировать обнаружение потоков и работу CDN-прокси, включая Range-запросы и освобождение ресурсов.
+- Проверки DAST и контейнеров следует сохранять в CI как дополнительные меры контроля: они не заменяют тестирование на уровне приложения.
