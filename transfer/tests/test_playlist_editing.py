@@ -173,3 +173,52 @@ class PlaylistEditingWorkflowTests(TestCase):
             )
         self.assertEqual(response.status_code, 404)
         vk.assert_not_called()
+
+
+    def test_single_spotify_track_can_be_added_to_existing_playlist(self):
+        track = {
+            "id": "A" * 22,
+            "name": "Spotify imported",
+            "artists": [{"name": "Spotify artist"}],
+            "album": {"name": "Album", "images": []},
+            "duration_ms": 180000,
+            "external_urls": {"spotify": "https://open.spotify.com/track/" + "A" * 22},
+        }
+        client = Mock()
+        client.track_details.return_value = track
+        with patch("transfer.library_spotify_import_views._spotify_access", return_value=(client, "token")):
+            response = self.client.post(
+                reverse("library_import_spotify_track"),
+                {
+                    "source_url": "https://open.spotify.com/track/" + "A" * 22,
+                    "playlist_id": str(self.playlist.pk),
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        added = self.playlist.tracks.get(title="Spotify imported")
+        self.assertEqual(added.position, 2)
+        self.assertEqual(added.source_provider, LibraryPlaylist.Provider.SPOTIFY)
+
+    def test_single_soundcloud_track_can_be_added_to_existing_playlist(self):
+        client = Mock()
+        client.resolve.return_value = {
+            "kind": "track",
+            "id": 12345,
+            "title": "SoundCloud imported",
+            "metadata_artist": "SC artist",
+            "duration": 195000,
+            "permalink_url": "https://soundcloud.com/artist/track",
+            "user": {"username": "Uploader"},
+        }
+        with patch("transfer.library_soundcloud_import_views._soundcloud_access", return_value=(client, "token")):
+            response = self.client.post(
+                reverse("library_import_soundcloud_track"),
+                {
+                    "source_url": "https://soundcloud.com/artist/track",
+                    "playlist_id": str(self.playlist.pk),
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        added = self.playlist.tracks.get(title="SoundCloud imported")
+        self.assertEqual(added.position, 2)
+        self.assertEqual(added.source_provider, LibraryPlaylist.Provider.SOUNDCLOUD)
