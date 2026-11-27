@@ -76,14 +76,16 @@ class LibraryTransferWorkflowTests(TestCase):
         get_token.assert_called_once_with("fingerprint", "soundcloud", client)
 
     def test_invalid_provider_is_rejected_before_authorization(self):
-        with patch("transfer.services.library_transfer_workflow.get_access_token") as get_token:
-            with self.assertRaisesMessage(TransferError, "Выбери поддерживаемый целевой сервис."):
-                create_library_transfer_workflow(
-                    playlist=self.playlist,
-                    target_provider="invalid",
-                    fingerprint="fingerprint",
-                    safe_candidate_url=self.safe_url,
-                )
+        with (
+            patch("transfer.services.library_transfer_workflow.get_access_token") as get_token,
+            self.assertRaisesMessage(TransferError, "Выбери поддерживаемый целевой сервис."),
+        ):
+            create_library_transfer_workflow(
+                playlist=self.playlist,
+                target_provider="invalid",
+                fingerprint="fingerprint",
+                safe_candidate_url=self.safe_url,
+            )
         get_token.assert_not_called()
 
     def test_empty_playlist_is_rejected(self):
@@ -108,15 +110,17 @@ class LibraryTransferWorkflowTests(TestCase):
             for index in range(100)
         ])
 
-        with patch("transfer.services.library_transfer_workflow.get_access_token") as get_token:
-            with self.assertRaisesMessage(
+        with (
+            patch("transfer.services.library_transfer_workflow.get_access_token") as get_token,
+            self.assertRaisesMessage(
                 TransferError,
                 "Пока можно переносить не более 100 композиций за один запуск.",
-            ):
-                create_library_transfer_workflow(
-                    playlist=self.playlist,
-                    target_provider=LibraryPlaylist.Provider.SPOTIFY,
-                    fingerprint="fingerprint",
-                    safe_candidate_url=self.safe_url,
-                )
+            ),
+        ):
+            create_library_transfer_workflow(
+                playlist=self.playlist,
+                target_provider=LibraryPlaylist.Provider.SPOTIFY,
+                fingerprint="fingerprint",
+                safe_candidate_url=self.safe_url,
+            )
         get_token.assert_not_called()
