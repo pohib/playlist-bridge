@@ -3,10 +3,11 @@
 New routes should import their handlers from oauth_views or api_views.
 """
 
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
-from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST
+from django.http import HttpResponse
+from django.views.decorators.http import require_POST
+
+from .landing_views import home
+from .system_views import healthz
 
 __all__ = [
     "SpotifyClient",
@@ -57,18 +58,6 @@ from .oauth_views import (
     spotify_login,
 )
 from .services import SpotifyClient
-
-
-@never_cache
-@require_GET
-def home(request):
-    return render(request, "transfer/landing.html")
-
-
-@never_cache
-@require_GET
-def healthz(request):
-    return JsonResponse({"status": "ok"})
 
 
 @require_POST
