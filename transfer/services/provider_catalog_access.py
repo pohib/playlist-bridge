@@ -37,7 +37,7 @@ def get_catalog_access(provider):
         )
 
     credential_fingerprint = sha256(
-        f"{provider}:{client_id}:{client_secret}".encode("utf-8")
+        f"{provider}:{client_id}:{client_secret}".encode()
     ).hexdigest()[:20]
     cache_key = f"catalog_token:{credential_fingerprint}"
     cached_value = cache.get(cache_key)
