@@ -3,13 +3,18 @@ from types import SimpleNamespace
 from django.test import TestCase
 
 from ..models import LibraryPlaylist, LibraryProfile
-from ..services import TransferError
-from ..services import library_import_soundcloud, library_import_spotify, library_import_vk
+from ..services import (
+    TransferError,
+    library_import_soundcloud,
+    library_import_spotify,
+    library_import_vk,
+)
 from ..services.library_imports import (
     refresh_vk_track_metadata,
     save_soundcloud_playlist,
     save_spotify_playlist,
     save_vk_playlist,
+    save_vk_track,
     spotify_resource_id,
     validate_soundcloud_permalink,
 )
