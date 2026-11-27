@@ -7,7 +7,6 @@ from .library_source_search import (
     spotify_library_search_results,
 )
 
-
 ALLOWED_SEARCH_PROVIDERS = {
     "auto", "vk", "spotify", "soundcloud", "youtube_music", "apple_music",
 }
