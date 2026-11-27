@@ -10,7 +10,7 @@ from .library_support import (
     _soundcloud_access,
     _spotify_access,
 )
-from .services import TransferError
+from .services.common import TransferError
 from .services.library_transfer_review import (
     select_transfer_candidate as apply_transfer_candidate,
 )
