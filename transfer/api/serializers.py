@@ -13,7 +13,8 @@ def serialize_job(job):
         "not_found": job.not_found,
         "ambiguous": job.ambiguous,
         "error": (
-            "Перенос не выполнен. Проверь подключение к сервисам и повтори попытку."
+            "Перенос не выполнен. Перед повтором проверь целевой плейлист: "
+            "часть композиций могла уже добавиться."
             if job.status == TransferJob.Status.FAILED
             else None
         ),

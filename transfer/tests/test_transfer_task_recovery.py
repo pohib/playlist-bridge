@@ -7,6 +7,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
+from transfer.api.serializers import serialize_job
 from transfer.models import TransferJob
 from transfer.tasks import run_transfer
 
@@ -193,3 +194,18 @@ class RunTransferTaskHeartbeatTests(TestCase):
         execute_transfer.assert_called_once()
         get_access_token.assert_called_once()
         spotify_factory.assert_called_once()
+
+
+class TransferJobSerializerSafetyTests(TestCase):
+    def test_failed_job_warns_before_manual_retry(self):
+        job = TransferJob.objects.create(
+            session_fingerprint="g" * 64,
+            source_url="https://vk.com/music/playlist/1_2",
+            status=TransferJob.Status.FAILED,
+            error="worker interrupted",
+        )
+
+        payload = serialize_job(job)
+
+        self.assertIn("проверь целевой плейлист", payload["error"])
+        self.assertIsNone(payload["target_playlist_id"])
