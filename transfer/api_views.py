@@ -5,10 +5,8 @@ import re
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
-from django.db import IntegrityError, transaction
 from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import render
-from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
@@ -16,6 +14,7 @@ from .credentials import get_session_fingerprint
 from .models import OAuthCredential, TransferJob
 from .oauth_views import connected_providers, encryption_key_is_valid
 from .services import parse_vk_playlist_url
+from .services.api_transfer_service import create_or_reuse_transfer_job
 
 logger = logging.getLogger(__name__)
 
@@ -90,40 +89,14 @@ def api_create_transfer(request):
     )
     if "spotify" not in connected:
         return api_error("Сначала подключи Spotify.", 401)
-    active = TransferJob.objects.filter(
+    job, status, error = create_or_reuse_transfer_job(
         session_fingerprint=fingerprint,
-        status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
-    ).first()
-    if active:
-        return JsonResponse({"job": serialize_job(active)}, status=202)
-
-    try:
-        with transaction.atomic():
-            job = TransferJob.objects.create(
-                session_fingerprint=fingerprint,
-                source_url=source_url,
-                target_playlist=normalized_target,
-            )
-    except IntegrityError:
-        # The partial unique constraint closes the race between simultaneous POSTs.
-        active = TransferJob.objects.filter(
-            session_fingerprint=fingerprint,
-            status__in=[TransferJob.Status.QUEUED, TransferJob.Status.RUNNING],
-        ).first()
-        if active:
-            return JsonResponse({"job": serialize_job(active)}, status=202)
-        raise
-    try:
-        from .tasks import run_transfer
-        run_transfer.delay(str(job.pk))
-    except Exception:
-        logger.exception("Could not enqueue transfer job %s", job.pk)
-        job.status = TransferJob.Status.FAILED
-        job.error = "Очередь задач недоступна. Проверь Redis и Celery worker."
-        job.finished_at = timezone.now()
-        job.save(update_fields=["status", "error", "finished_at"])
-        return api_error(job.error, 503)
-    return JsonResponse({"job": serialize_job(job)}, status=202)
+        source_url=source_url,
+        target_playlist=normalized_target,
+    )
+    if error:
+        return api_error(error, status)
+    return JsonResponse({"job": serialize_job(job)}, status=status)
 
 
 @never_cache
