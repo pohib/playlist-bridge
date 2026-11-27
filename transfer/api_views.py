@@ -1,5 +1,4 @@
 import json
-import logging
 import re
 
 from django.conf import settings
@@ -15,8 +14,6 @@ from .models import OAuthCredential, TransferJob
 from .oauth_views import connected_providers, encryption_key_is_valid
 from .services import parse_vk_playlist_url
 from .services.api_transfer_service import create_or_reuse_transfer_job
-
-logger = logging.getLogger(__name__)
 
 
 def api_error(message, status=400):
