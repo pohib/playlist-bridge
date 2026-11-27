@@ -79,10 +79,9 @@ def create_library_transfer(
         target_url=target_url,
     )
     logger.info(
-        "Library transfer created transfer_id=%s profile_id=%s target=%s total=%s matched=%s pending=%s",
+        "Library transfer created transfer_id=%s profile_id=%s total=%s matched=%s pending=%s",
         review.pk,
         playlist.profile_id,
-        target_provider,
         len(tracks),
         len(matched),
         len(unmatched),
