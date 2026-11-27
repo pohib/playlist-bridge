@@ -1,8 +1,5 @@
 """Authenticated provider artwork proxy with strict upstream URL validation."""
 
-from urllib.parse import urljoin, urlsplit
-
-import requests
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
@@ -10,35 +7,13 @@ from django.views.decorators.http import require_GET
 
 from .library_support import _profile
 from .models import LibraryTrack
+from .services.library_artwork_proxy import ArtworkProxyError, fetch_provider_artwork
 
 
 @login_required
 @require_GET
 def library_cover_proxy(request):
     """Serve approved provider artwork from our origin to honor the strict image CSP."""
-    allowed_domains = (
-        "userapi.com", "mycdn.me", "vk.com", "vk.ru", "vk.me", "vkuserphoto.ru", "vkuseraudio.net", "okcdn.ru",
-        "scdn.co", "sndcdn.com", "spotifycdn.com", "spotify.com",
-    )
-
-    def allowed_url(value):
-        if not isinstance(value, str) or not value or len(value) > 2048:
-            return False
-        try:
-            parsed = urlsplit(value)
-            port = parsed.port
-        except ValueError:
-            return False
-        host = (parsed.hostname or "").lower().rstrip(".")
-        return (
-            parsed.scheme == "https"
-            and port in (None, 443)
-            and bool(host)
-            and not parsed.username
-            and not parsed.password
-            and any(host == domain or host.endswith("." + domain) for domain in allowed_domains)
-        )
-
     track_id = request.GET.get("track_id", "")
     if not track_id or len(track_id) > 36:
         return HttpResponseBadRequest("Invalid artwork reference.")
@@ -47,77 +22,16 @@ def library_cover_proxy(request):
         pk=track_id,
         playlist__profile=_profile(request),
     )
-    current_url = track.cover_url
-    if not allowed_url(current_url):
-        return HttpResponseNotFound("Artwork source is not supported.")
+    try:
+        body, content_type = fetch_provider_artwork(track.cover_url)
+    except ArtworkProxyError as exc:
+        response_class = (
+            HttpResponseBadRequest if exc.status_code == 400
+            else HttpResponseNotFound
+        )
+        return response_class(str(exc))
 
-    for _ in range(8):
-        if not allowed_url(current_url):
-            return HttpResponseBadRequest("Unsupported artwork redirect.")
-        try:
-            upstream = requests.get(
-                current_url,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36 PlaylistBridge/1.0",
-                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-                    "Referer": "https://vk.ru/",
-                    "Origin": "https://vk.ru",
-                },
-                timeout=(5, 15),
-                stream=True,
-                allow_redirects=False,
-            )
-        except requests.RequestException:
-            return HttpResponseNotFound("Artwork is temporarily unavailable.")
-
-        if upstream.status_code in {301, 302, 303, 307, 308}:
-            location = upstream.headers.get("Location")
-            upstream.close()
-            if not location:
-                return HttpResponseNotFound("Artwork redirect is invalid.")
-            current_url = urljoin(current_url, location)
-            continue
-        if upstream.status_code != 200:
-            upstream.close()
-            return HttpResponseNotFound("Artwork is unavailable.")
-
-        content_length = upstream.headers.get("Content-Length", "")
-        if content_length.isdigit() and int(content_length) > 6 * 1024 * 1024:
-            upstream.close()
-            return HttpResponseBadRequest("Artwork is too large.")
-
-        content_type = upstream.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-        if content_type == "image/jpg":
-            content_type = "image/jpeg"
-        body = bytearray()
-        try:
-            for chunk in upstream.iter_content(chunk_size=64 * 1024):
-                if not chunk:
-                    continue
-                body.extend(chunk)
-                if len(body) > 6 * 1024 * 1024:
-                    return HttpResponseBadRequest("Artwork is too large.")
-        except requests.RequestException:
-            return HttpResponseNotFound("Artwork is temporarily unavailable.")
-        finally:
-            upstream.close()
-
-        detected_type = ""
-        if body.startswith(bytes.fromhex("FFD8FF")):
-            detected_type = "image/jpeg"
-        elif body.startswith(bytes.fromhex("89504E470D0A1A0A")):
-            detected_type = "image/png"
-        elif body.startswith((b"GIF87a", b"GIF89a")):
-            detected_type = "image/gif"
-        elif len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP":
-            detected_type = "image/webp"
-        elif len(body) >= 12 and body[4:8] == b"ftyp" and body[8:12] in {b"avif", b"avis"}:
-            detected_type = "image/avif"
-        if not detected_type:
-            return HttpResponseNotFound("Artwork response is not a supported image.")
-        response = HttpResponse(bytes(body), content_type=detected_type)
-        response["Cache-Control"] = "private, max-age=3600"
-        response["X-Content-Type-Options"] = "nosniff"
-        return response
-
-    return HttpResponseNotFound("Too many artwork redirects.")
+    response = HttpResponse(body, content_type=content_type)
+    response["Cache-Control"] = "private, max-age=3600"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
