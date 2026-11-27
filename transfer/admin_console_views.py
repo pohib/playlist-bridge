@@ -10,6 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob
@@ -20,7 +21,7 @@ def _staff(view):
     @staff_member_required(login_url="login")
     def wrapped(request, *args, **kwargs):
         return view(request, *args, **kwargs)
-    return wrapped
+    return never_cache(wrapped)
 
 
 @_staff
