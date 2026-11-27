@@ -40,6 +40,10 @@ def create_playlist(profile, *, title, provider, description="", external_url=""
     )
 
 
+def delete_playlist(playlist):
+    playlist.delete()
+
+
 def _normalized_track_key(artist, title):
     value = unicodedata.normalize(
         "NFKD", f"{artist} {title}".casefold().replace("ё", "е")
