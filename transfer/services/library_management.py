@@ -9,6 +9,7 @@ from .library_playlist_management import (
     _normalized_track_key,
     _safe_optional_url,
     create_playlist,
+    delete_playlist,
     merge_playlists,
 )
 from .library_profile_management import update_profile
@@ -25,6 +26,7 @@ __all__ = [
     "_safe_optional_url",
     "add_track",
     "create_playlist",
+    "delete_playlist",
     "delete_track",
     "merge_playlists",
     "update_profile",
