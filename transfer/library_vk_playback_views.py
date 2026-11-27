@@ -1,11 +1,8 @@
-"""VK-specific playback endpoints and bounded upstream audio proxy."""
+"""VK-specific playback HTTP endpoints."""
 
 import json
 import logging
-import re
-import time
 
-import requests
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse, StreamingHttpResponse
@@ -14,7 +11,12 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack
-from .services import TransferError, VKClient
+from .services import VKClient
+from .services.library_vk_playback import (
+    VKPlaybackError,
+    open_vk_track_audio,
+    resolve_vk_track_stream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,30 +41,17 @@ def get_vk_track_stream(request, track_id):
         return JsonResponse({"error": "Неподдерживаемый формат потока."}, status=400)
     api = VKClient(version=settings.VK_API_VERSION)
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
-    audio_id = track.external_id
-    if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
-        try:
-            audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
-        except (ValueError, TransferError) as exc:
-            response = JsonResponse({"error": str(exc)}, status=422)
-            response["Cache-Control"] = "private, no-store"
-            return response
-    last_error = None
-    for attempt in range(2):
-        try:
-            stream = api.get_track_stream(audio_id, stream_format)
-            response = JsonResponse(stream)
-            response["Cache-Control"] = "private, no-store"
-            response["Pragma"] = "no-cache"
-            return response
-        except TransferError as exc:
-            last_error = exc
-            if "ограничение доступа" in str(exc).lower() or "не предоставил" in str(exc).lower():
-                break
-            if attempt == 0:
-                time.sleep(0.35)
-    response = JsonResponse({"error": str(last_error or "VK временно не выдал аудиопоток.")}, status=422)
+    try:
+        stream = resolve_vk_track_stream(
+            api, track.playlist, track.external_id, stream_format
+        )
+    except VKPlaybackError as exc:
+        response = JsonResponse({"error": str(exc)}, status=exc.status_code)
+        response["Cache-Control"] = "private, no-store"
+        return response
+    response = JsonResponse(stream)
     response["Cache-Control"] = "private, no-store"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -80,42 +69,19 @@ def stream_vk_track_audio(request, track_id):
 
     api = VKClient(version=settings.VK_API_VERSION)
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
-    audio_id = track.external_id
     try:
-        if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
-            audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
-        stream = api.get_track_stream(audio_id, "mp3")
-    except (TransferError, ValueError) as exc:
-        logger.info("VK MP3 stream unavailable for track %s: %s", track.pk, exc)
-        response = JsonResponse({"error": str(exc)}, status=422)
+        upstream = open_vk_track_audio(
+            api,
+            track.playlist,
+            track.external_id,
+            request.headers.get("Range", ""),
+        )
+    except VKPlaybackError as exc:
+        if exc.status_code == 422:
+            logger.info("VK MP3 stream unavailable for track %s: %s", track.pk, exc)
+        response = JsonResponse({"error": str(exc)}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
         return response
-    headers = {
-        **api.token_provider.BROWSER_HEADERS,
-        "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
-        "Referer": api.token_provider.referer,
-    }
-    requested_range = request.headers.get("Range")
-    if requested_range:
-        headers["Range"] = requested_range
-    try:
-        upstream = requests.get(
-            stream["url"], headers=headers, stream=True,
-            timeout=(8, 45), allow_redirects=False,
-        )
-    except requests.RequestException:
-        logger.exception("VK CDN stream request failed for track %s", track.pk)
-        return JsonResponse(
-            {"error": "Не удалось подключиться к CDN VK. Попробуй запустить трек ещё раз."},
-            status=502,
-        )
-    if upstream.status_code not in {200, 206}:
-        upstream.close()
-        return JsonResponse({"error": "VK CDN не смог отдать аудиопоток."}, status=502)
-    content_range = upstream.headers.get("Content-Range")
-    if upstream.status_code == 206 and not content_range:
-        upstream.close()
-        return JsonResponse({"error": "VK CDN вернул некорректный диапазон аудио."}, status=502)
 
     def chunks():
         try:
@@ -129,6 +95,7 @@ def stream_vk_track_audio(request, track_id):
         chunks(), status=upstream.status_code, content_type="audio/mpeg"
     )
     response["Accept-Ranges"] = upstream.headers.get("Accept-Ranges", "bytes")
+    content_range = upstream.headers.get("Content-Range")
     if content_range:
         response["Content-Range"] = content_range
     content_length = upstream.headers.get("Content-Length")
