@@ -2,7 +2,6 @@
 
 import urllib.parse
 
-
 _PROVIDER_HOSTS = {
     "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
     "spotify": {"open.spotify.com", "www.open.spotify.com"},
