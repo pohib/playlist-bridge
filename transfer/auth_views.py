@@ -5,7 +5,7 @@ from django.contrib.auth import login, logout
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from .credentials import get_session_fingerprint
+from .services.credential_service import get_session_fingerprint
 from .forms import AccountCreationForm, AccountLoginForm
 from .services.account_workspace import attach_anonymous_workspace
 
