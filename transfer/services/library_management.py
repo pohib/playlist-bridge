@@ -28,7 +28,7 @@ __all__ = [
     "create_playlist",
     "delete_playlist",
     "delete_track",
-    "merge_playlists",
+    "merge_playlists",\n    "move_track",\n    "update_playlist",
     "update_profile",
     "upload_local_track",
 ]
