@@ -222,3 +222,34 @@ class PlaylistEditingWorkflowTests(TestCase):
         added = self.playlist.tracks.get(title="SoundCloud imported")
         self.assertEqual(added.position, 2)
         self.assertEqual(added.source_provider, LibraryPlaylist.Provider.SOUNDCLOUD)
+
+
+    def test_track_metadata_can_be_edited(self):
+        response = self.client.post(
+            reverse(
+                "library_update_track",
+                kwargs={"playlist_id": self.playlist.pk, "track_id": self.first.pk},
+            ),
+            {"title": "  Edited title ", "artist": " New artist ", "album": " New album "},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.title, "Edited title")
+        self.assertEqual(self.first.artist, "New artist")
+        self.assertEqual(self.first.album, "New album")
+
+    def test_track_metadata_edit_rejects_foreign_playlist(self):
+        other_profile = LibraryProfile.objects.create(
+            session_fingerprint="c" * 64,
+        )
+        foreign = LibraryPlaylist.objects.create(profile=other_profile, title="Private")
+        response = self.client.post(
+            reverse(
+                "library_update_track",
+                kwargs={"playlist_id": foreign.pk, "track_id": self.first.pk},
+            ),
+            {"title": "Injected", "artist": "Attacker"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.title, "First")
