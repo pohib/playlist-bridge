@@ -316,7 +316,7 @@ TOKEN_ENCRYPTION_KEY необходимо сохранить: без него в
 
 Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляйте DATABASE_URL в `.env` только ради тестов.
 
-CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и OWASP ZAP baseline DAST. Результат проверки смотри во вкладке Actions соответствующего коммита.
+CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и два OWASP ZAP DAST-сканирования: authenticated full scan веб-приложения и active API scan по OpenAPI. Перед сканированием создаются два временных пользователя, проверяется изоляция чужих transfer jobs, а ZAP получает отдельную сессию первого пользователя. HTML/JSON/Markdown отчёты сохраняются как артефакт Actions.
 
 
 
@@ -366,10 +366,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### Границы покрытия и незакрытые зоны
 
 - Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
-- Последний подтверждённый успешный tests job на commit `8ab7b24689e590726fe51a0915cc46faf11055b6`: **176 passed**, **26 subtests passed**, **76.46%** coverage для `transfer`. Это результат тестового job; после изменений Nginx и URL routing требуется дождаться нового полного CI.
+- Последний подтверждённый успешный tests job на commit `16bbcc6e3adc8897304cbb483e913ee683c7aacf`: **176 passed**, **26 subtests passed**, **76.53%** coverage для `transfer`. Это результат тестового job, а не всего CI; DAST на этом commit отдельно упал из-за прав записи отчётов ZAP, исправление находится в текущем PR.
 - Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
 - Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
-- OWASP ZAP baseline DAST не авторизуется и не проверяет всю библиотеку/плеер за логином.
+- Authenticated ZAP DAST использует CI-пользователя и проверяет доступные ему страницы/API; отдельный smoke-check проверяет, что пользователь не читает transfer job и отчёт другого пользователя. Это не исчерпывающий IDOR-аудит всех объектов библиотеки и не browser E2E.
 - Fuzz tests ограничены по длине и числу примеров; это не бесконечный fuzz campaign и не замена security review.
 
 ## Защита Spotify API от SSRF
@@ -400,7 +400,7 @@ API использует ту же браузерную сессию и CSRF:
 - pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
 - Bandit, Semgrep и CodeQL (security-extended) как обязательные jobs CI с SARIF публикацией в GitHub Code Scanning;
 - pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
-- OWASP ZAP baseline DAST против запущенного приложения;
+- OWASP ZAP authenticated full DAST против запущенного приложения и active API DAST по OpenAPI; временные учётные записи создаются только в изолированном CI;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
 - Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
@@ -414,7 +414,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Импорт публичного аудио зависит от доступности внутренних VK web API и анонимной выдачи токена; VK может менять этот механизм или ограничивать его. Сейчас список ID запрашивается одним вызовом `audio.getIdsBySource`; пагинация этого метода не установлена, поэтому очень большие плейлисты могут быть ограничены самим VK. Метаданные загружаются пакетами по 50 записей. Название коллекции пока сохраняется как `VK playlist`, поскольку исследованный ответ со списком ID не содержал названия.
 - Spotify access token обновляется через refresh token; refresh token Spotify истекает через 6 месяцев после исходной авторизации, после чего пользователь должен подключить аккаунт заново.
 - Spotify rate limits и отдельная Development Mode quota могут замедлять или временно блокировать перенос.
-- DAST baseline выполняется без OAuth-аутентификации и не покрывает авторизованные пользовательские сценарии.
+- DAST использует временную локальную Django-сессию, но не подключает реальные Spotify/SoundCloud OAuth-аккаунты. Провайдерские OAuth callback, импорт/перенос с реальными API и воспроизведение аудио требуют отдельных интеграционных/E2E проверок.
 - В Spotify Development Mode владелец приложения должен иметь Premium; максимум 5 авторизованных пользователей, каждый тестировщик должен быть добавлен в Users Management allowlist. Для публичного сервиса действует отдельная процедура Extended Quota Mode.
 - Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включите обе.
 - Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
