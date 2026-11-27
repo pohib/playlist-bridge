@@ -9,7 +9,9 @@ from transfer import (
     library_profile_management_views,
     library_support,
     library_track_management_views,
+    landing_views,
     site_views,
+    system_views,
     views,
 )
 from transfer.services import (
@@ -23,6 +25,8 @@ from transfer.services import (
 class SitePageModuleBoundaryTests(SimpleTestCase):
     def test_site_routes_resolve_to_page_specific_modules(self):
         expected = {
+            "home": ("transfer.landing_views", {}),
+            "healthz": ("transfer.system_views", {}),
             "dashboard": ("transfer.dashboard_views", {}),
             "library": ("transfer.library_page_views", {}),
             "playlist_detail": ("transfer.library_page_views", {"playlist_id": "00000000-0000-0000-0000-000000000001"}),
@@ -37,6 +41,8 @@ class SitePageModuleBoundaryTests(SimpleTestCase):
                 self.assertEqual(resolve(url).func.__module__, module_name)
 
     def test_legacy_site_facade_reexports_page_handlers(self):
+        self.assertIs(views.home, landing_views.home)
+        self.assertIs(views.healthz, system_views.healthz)
         expected = {
             "landing": views.home,
             "dashboard": dashboard_views.dashboard,
