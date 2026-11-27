@@ -1,5 +1,7 @@
 # Development overlay. Keep compose.yaml as the production-like/Quick Tunnel stack.
 # Start with: docker compose -f compose.yaml -f compose.dev.yaml up --build
+# A distinct project name keeps development databases/volumes separate.
+name: playlist-bridge-dev
 services:
   web:
     environment:
