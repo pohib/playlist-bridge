@@ -54,12 +54,11 @@ def create_or_reuse_transfer_job(*, session_fingerprint, source_url, target_play
     return job, 202, None
 
 
-
 def has_spotify_connection(session_fingerprint):
     """Check whether the current session has a persisted Spotify credential."""
     return OAuthCredential.objects.filter(
         session_fingerprint=session_fingerprint,
-        provider="spotify",
+        provider=OAuthCredential.Provider.SPOTIFY,
     ).exists()
 
 

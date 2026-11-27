@@ -5,7 +5,7 @@ import re
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
-from . import parse_vk_playlist_url
+from .common import parse_vk_playlist_url
 
 
 class TransferRequestValidationError(ValueError):

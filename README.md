@@ -70,9 +70,12 @@ View-слой библиотеки разделён на специализир�
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
 | transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
 | transfer/services/library_transfer_matching.py | Поиск и ранжирование Spotify/SoundCloud кандидатов для переноса библиотечных плейлистов; разделяет автоматические совпадения и кандидатов ручной проверки |
-| transfer/services/library_imports.py | Проверка ссылок Spotify/SoundCloud, нормализация payload и атомарное сохранение плейлистов/треков VK, Spotify и SoundCloud; обновление VK-метаданных |
+| transfer/services/library_imports.py | Compatibility facade для provider-specific import workflows; сохранение плейлистов/треков и обновление VK-метаданных реализованы в профильных сервисах |
+| transfer/services/library_import_spotify.py | Валидация Spotify URL, получение и сохранение плейлистов и отдельных треков, пакетный импорт библиотеки |
+| transfer/services/library_import_soundcloud.py | Валидация SoundCloud permalink, получение и сохранение плейлистов и отдельных треков, пакетный импорт библиотеки |
 | transfer/services/library_presentation.py | Подготовка обложек и playback payload для страниц библиотеки |
-| transfer/api/transfer_views.py | HTTP validation, session ownership и JSON endpoints для TransferJob |
+| transfer/api/transfer_views.py | HTTP content-type/JSON decoding, session-bound JSON endpoints и response formatting для TransferJob |
+| transfer/services/api_transfer_validation.py | Проверка payload переноса: VK playlist URL, Spotify playlist ID, типы и ограничения длины полей |
 | transfer/api/status_views.py | Provider connection/configuration status endpoint |
 | transfer/api/docs_views.py | OpenAPI schema, public API guide и JSON 404 fallback |
 | transfer/api/serializers.py + common.py | Стабильный JSON job serializer и общий error envelope |
