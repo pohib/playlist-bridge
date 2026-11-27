@@ -1,8 +1,13 @@
 from django.test import SimpleTestCase
 from django.urls import resolve, reverse
 
-from transfer import account_page_views, dashboard_views, library_page_views
-from transfer import library_support, site_views
+from transfer import (
+    account_page_views,
+    dashboard_views,
+    library_page_views,
+    library_support,
+    site_views,
+)
 from transfer.services import library_request_context, library_source_links
 
 
