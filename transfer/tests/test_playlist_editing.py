@@ -52,6 +52,53 @@ class VKTrackURLTests(TestCase):
         )
 
 
+class VKClientPlaylistMetadataAndPlaybackTests(TestCase):
+    def test_playlist_import_uses_vk_playlist_title(self):
+        client = VKClient()
+        client.post = Mock(side_effect=[
+            {"response": {"audios": [{"audio_id": "241688629_456241110_access"}]}},
+            {"response": [{
+                "owner_id": 241688629, "id": 456241110,
+                "artist": "Artist", "title": "Track", "duration": 120,
+            }]},
+            {"response": {"title": "My VK playlist"}},
+        ])
+
+        title, tracks = client.fetch_playlist(
+            "https://vk.ru/music/playlist/241688629_40_941bcddb919ded249e"
+        )
+
+        self.assertEqual(title, "My VK playlist")
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual(client.post.call_args_list[-1].args[0], "audio.getPlaylistById")
+        self.assertEqual(client.post.call_args_list[-1].kwargs["data"], {
+            "owner_id": 241688629, "playlist_id": 40,
+            "extended": 1, "access_key": "941bcddb919ded249e",
+        })
+
+    def test_vk_client_uses_legacy_direct_mp3_url_when_stream_list_is_missing(self):
+        client = VKClient()
+        client.post = Mock(return_value={"response": [{
+            "owner_id": 241688629, "id": 456241110,
+            "url": "https://cs1.userapi.com/audio.mp3",
+        }]})
+
+        result = client.get_track_stream("241688629_456241110", "mp3")
+
+        self.assertEqual(result, {
+            "url": "https://cs1.userapi.com/audio.mp3", "format": "mp3",
+        })
+
+    def test_vk_client_rejects_untrusted_legacy_mp3_url(self):
+        client = VKClient()
+        client.post = Mock(return_value={"response": [{
+            "owner_id": 241688629, "id": 456241110,
+            "url": "https://attacker.example/audio.mp3",
+        }]})
+
+        with self.assertRaisesRegex(Exception, "небезопасный адрес"):
+            client.get_track_stream("241688629_456241110", "mp3")
+
 class PlaylistEditingWorkflowTests(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_user(
