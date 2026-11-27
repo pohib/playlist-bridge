@@ -119,3 +119,32 @@ def save_spotify_track(profile, track, source_url, *, playlist=None, fallback_tr
         cover_url=cover_url,
     )
     return playlist
+
+
+
+def import_spotify_library(profile, client, token, *, limit=30):
+    """Import a bounded batch of the user's Spotify playlists."""
+    resources = client.my_playlists(token)
+    imported = 0
+    track_count = 0
+    skipped = 0
+    for resource in resources[:limit]:
+        playlist_id = resource.get("id")
+        if not playlist_id:
+            continue
+        try:
+            entries = client.get_playlist_items(token, playlist_id)
+            count = len(entries)
+            if count:
+                external_urls = resource.get("external_urls") or {}
+                save_spotify_playlist(
+                    profile,
+                    resource,
+                    entries,
+                    external_urls.get("spotify", ""),
+                )
+                imported += 1
+                track_count += count
+        except TransferError:
+            skipped += 1
+    return imported, track_count, skipped
