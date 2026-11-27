@@ -59,6 +59,7 @@ class VKPlaybackApiTests(TestCase):
 
     def test_hls_fallback_resolution_returns_same_origin_proxy_url(self):
         with patch("transfer.library_vk_playback_views.VKClient") as client_class:
+            client_class.return_value.resolve_playlist_audio_id.return_value = "10_101"
             client_class.return_value.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.ts",
                 "format": "hls_ts",
@@ -221,6 +222,7 @@ class VKPlaybackApiTests(TestCase):
         ):
             api = client_class.return_value
             api.token_provider.BROWSER_HEADERS = {"User-Agent": "test-agent"}
+            api.resolve_playlist_audio_id.return_value = "10_101"
             api.get_track_stream.return_value = {
                 "url": "https://cdn.okcdn.ru/audio.ts",
                 "format": "hls_ts",
