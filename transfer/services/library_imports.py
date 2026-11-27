@@ -15,6 +15,9 @@ from .library_import_spotify import (
     spotify_resource_id,
 )
 from .library_import_vk import (
+    import_vk_playlist,
+    import_vk_track,
+    refresh_vk_playlist_artwork,
     refresh_vk_track_metadata,
     save_vk_playlist,
     save_vk_track,
@@ -25,6 +28,9 @@ __all__ = [
     "import_soundcloud_playlist",
     "import_spotify_library",
     "import_spotify_playlist",
+    "import_vk_playlist",
+    "import_vk_track",
+    "refresh_vk_playlist_artwork",
     "refresh_vk_track_metadata",
     "save_soundcloud_playlist",
     "save_soundcloud_track",
