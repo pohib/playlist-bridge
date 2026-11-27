@@ -17,9 +17,6 @@ from .library_management_views import (
     upload_local_track,  # noqa: F401
 )
 from .library_provider_upload_views import upload_track_to_soundcloud  # noqa: F401
-from .services.audio_file_validation import (
-    has_audio_file_signature as _has_audio_file_signature,  # noqa: F401
-)
 from .library_search_views import (
     open_playlist_source,  # noqa: F401
     open_track_source,  # noqa: F401
@@ -62,4 +59,8 @@ from .library_vk_import_views import (
 from .library_vk_playback_views import (
     get_vk_track_stream,  # noqa: F401
     stream_vk_track_audio,  # noqa: F401
+)
+
+from .services.audio_file_validation import (
+    has_audio_file_signature as _has_audio_file_signature,  # noqa: F401
 )
