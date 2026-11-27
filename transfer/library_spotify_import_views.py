@@ -7,19 +7,11 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile, _spotify_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
-from .services.library_imports import (
-    import_spotify_library as import_spotify_library_service,
-    import_spotify_playlist as import_spotify_playlist_service,
-)
-from .services.library_imports import (
-    save_spotify_playlist,
-    save_spotify_track,
-    spotify_resource_id,
-)
+from .services import library_import_spotify
 
 # Keep the previous private helper names importable for compatibility.
-_spotify_resource_id = spotify_resource_id
-_save_spotify_playlist = save_spotify_playlist
+_spotify_resource_id = library_import_spotify.spotify_resource_id
+_save_spotify_playlist = library_import_spotify.save_spotify_playlist
 
 
 @require_POST
@@ -28,7 +20,7 @@ def import_spotify_playlist(request):
     try:
         playlist_id = _spotify_resource_id(source_url, "playlist")
         client, token = _spotify_access(request)
-        playlist, count = import_spotify_playlist_service(
+        playlist, count = library_import_spotify.import_spotify_playlist(
             _profile(request),
             client,
             token,
@@ -55,7 +47,7 @@ def import_spotify_track(request):
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        playlist = save_spotify_track(
+        playlist = library_import_spotify.save_spotify_track(
             profile,
             track,
             source_url,
@@ -73,7 +65,7 @@ def import_spotify_track(request):
 def import_spotify_library(request):
     try:
         client, token = _spotify_access(request)
-        imported, track_count, skipped = import_spotify_library_service(
+        imported, track_count, skipped = library_import_spotify.import_spotify_library(
             _profile(request),
             client,
             token,
