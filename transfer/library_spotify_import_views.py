@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _spotify_access
 from .models import LibraryPlaylist
-from .services import TransferError
+from .services.common import TransferError
 from .services.library_imports import save_spotify_playlist, spotify_resource_id
 from .services.library_management import append_provider_track
 
