@@ -2,9 +2,16 @@ from django.test import TestCase
 from django.urls import resolve, reverse
 
 from transfer import api_views
-from transfer.api import api_error, serialize_job
-from transfer.api import api_create_transfer, api_docs, api_openapi, api_status
-from transfer.api import api_transfer_detail, api_transfer_report
+from transfer.api import (
+    api_create_transfer,
+    api_docs,
+    api_error,
+    api_openapi,
+    api_status,
+    api_transfer_detail,
+    api_transfer_report,
+    serialize_job,
+)
 from transfer.models import TransferJob
 
 
