@@ -64,7 +64,7 @@ def transfer_review(request, transfer_id):
 @require_POST
 def search_transfer_item(request, transfer_id, item_id):
     try:
-        review, item, candidates = search_pending_transfer_item(
+        review, _item, candidates = search_pending_transfer_item(
             profile=_profile(request),
             transfer_id=transfer_id,
             item_id=item_id,
