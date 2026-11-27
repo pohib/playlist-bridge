@@ -1,12 +1,13 @@
-"""Application services for the manual library-transfer review workflow."""
+""""Application services for the manual library-transfer review workflow."""
 
 import logging
 
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem
+from ..models import LibraryTrack, LibraryTransfer, LibraryTransferItem
 from .common import TransferError
+from .library_transfer_review_provider import apply_review_candidate_to_provider
 
 logger = logging.getLogger(__name__)
 
@@ -70,62 +71,17 @@ def select_transfer_candidate(
             "Выбранный вариант отсутствует в результатах поиска. Выполни поиск повторно."
         )
 
-    if review.target_provider == LibraryPlaylist.Provider.SPOTIFY:
-        client, token = spotify_access()
-        if not candidate.get("uri"):
-            raise TransferError("Spotify не вернул URI выбранной композиции.")
-        if not review.provider_playlist_id:
-            review.provider_playlist_id = client.create_playlist(
-                token,
-                review.source_playlist.title,
-            )
-            review.target_url = (
-                f"https://open.spotify.com/playlist/{review.provider_playlist_id}"
-            )
-            client.add_items(token, review.provider_playlist_id, [candidate["uri"]])
-        else:
-            insert_position = review.items.filter(
-                status=LibraryTransferItem.Status.MATCHED,
-                position__lt=item.position,
-            ).count()
-            client.add_items(
-                token,
-                review.provider_playlist_id,
-                [candidate["uri"]],
-                position=insert_position,
-            )
-    elif review.target_provider == LibraryPlaylist.Provider.SOUNDCLOUD:
-        client, token = soundcloud_access()
-        existing = list(
-            review.items.filter(status=LibraryTransferItem.Status.MATCHED)
-            .exclude(target_external_id="")
-            .order_by("position")
-            .values_list("position", "target_external_id")
-        )
-        ordered = sorted(
-            existing + [(item.position, candidate_id)],
-            key=lambda value: value[0],
-        )
-        ordered_ids = [track_id for _, track_id in ordered]
-        if not review.provider_playlist_id:
-            result = client.create_playlist(
-                token,
-                review.source_playlist.title,
-                ordered_ids,
-            )
-            review.provider_playlist_id = str(result["id"])
-            review.target_url = (
-                safe_candidate_url(result.get("permalink_url"), "soundcloud")
-                or "https://soundcloud.com"
-            )
-        else:
-            client.update_playlist_tracks(
-                token,
-                review.provider_playlist_id,
-                ordered_ids,
-            )
-    else:
-        raise TransferError("Неизвестный целевой музыкальный сервис.")
+    playlist_id, target_url = apply_review_candidate_to_provider(
+        review=review,
+        item=item,
+        candidate=candidate,
+        candidate_id=candidate_id,
+        spotify_access=spotify_access,
+        soundcloud_access=soundcloud_access,
+        safe_candidate_url=safe_candidate_url,
+    )
+    review.provider_playlist_id = playlist_id
+    review.target_url = target_url
 
     if review.target_playlist:
         review.target_playlist.external_url = review.target_url
