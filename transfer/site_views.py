@@ -8,6 +8,10 @@ from django.views.decorators.http import require_GET
 from .credentials import get_session_fingerprint
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, OAuthCredential, TransferJob
+from .services.library_presentation import (
+    build_playlist_playback_tracks,
+    prepare_library_playlist,
+)
 
 
 @never_cache
@@ -37,27 +41,7 @@ def library(request):
     profile = _profile(request)
     playlists = list(LibraryPlaylist.objects.filter(profile=profile).prefetch_related("tracks"))
     for playlist in playlists:
-        playlist.playback_id = f"library-playback-{playlist.pk}"
-        tracks = list(playlist.tracks.all())
-        for track in tracks:
-            track.cover_proxy_url = (
-                reverse("library_cover_proxy") + "?track_id=" + str(track.pk)
-                if track.cover_url else ""
-            )
-        playlist.cover_proxy_url = next(
-            (track.cover_proxy_url for track in tracks if track.cover_proxy_url), ""
-        )
-        playlist.playback_data = [{
-            "provider": "local" if track.audio_file else (track.source_provider or playlist.provider),
-            "id": track.external_id,
-            "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
-            "title": track.title, "artist": track.artist, "cover": track.cover_proxy_url,
-            "duration": track.duration_ms,
-            "stream_url": reverse("library_vk_track_audio", kwargs={"track_id": track.pk})
-                if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
-            "stream_resolve_url": reverse("library_vk_track_stream", kwargs={"track_id": track.pk})
-                if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
-        } for track in tracks]
+        prepare_library_playlist(playlist)
     return render(request, "transfer/library.html", {"playlists": playlists})
 
 
@@ -70,21 +54,7 @@ def playlist_detail(request, playlist_id):
         pk=playlist_id,
         profile=_profile(request),
     )
-    tracks = list(playlist.tracks.all())
-    for track in tracks:
-        track.cover_proxy_url = (
-            reverse("library_cover_proxy") + "?track_id=" + str(track.pk)
-            if track.cover_url else ""
-        )
-    playback_tracks = [{
-        "provider": "local" if track.audio_file else (track.source_provider or playlist.provider),
-        "id": track.external_id,
-        "url": reverse("library_stream_local_track", kwargs={"track_id": track.pk}) if track.audio_file else track.external_url,
-        "title": track.title, "artist": track.artist,
-        "cover": track.cover_proxy_url, "duration": track.duration_ms,
-        "stream_url": reverse("library_vk_track_audio", kwargs={"track_id": track.pk}) if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
-        "stream_resolve_url": reverse("library_vk_track_stream", kwargs={"track_id": track.pk}) if (track.source_provider or playlist.provider) == LibraryPlaylist.Provider.VK and not track.audio_file else "",
-    } for track in tracks]
+    playback_tracks = build_playlist_playback_tracks(playlist)
     return render(request, "transfer/playlist_detail.html", {
         "playlist": playlist, "playback_tracks": playback_tracks,
     })
