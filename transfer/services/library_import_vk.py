@@ -37,15 +37,19 @@ def save_vk_playlist(profile, title, tracks, source_url):
     return playlist, len(tracks)
 
 
-def save_vk_track(profile, track, source_url):
+def save_vk_track(profile, track, source_url, playlist=None):
+    """Save a VK track as a standalone playlist or append it to an owned one."""
     with transaction.atomic():
-        playlist = LibraryPlaylist.objects.create(
-            profile=profile,
-            title=f"VK — {track.artist} — {track.title}"[:120],
-            provider=LibraryPlaylist.Provider.VK,
-            external_url=source_url,
-            description="Импортирована отдельная аудиозапись VK",
-        )
+        if playlist is None:
+            playlist = LibraryPlaylist.objects.create(
+                profile=profile,
+                title=f"VK — {track.artist} — {track.title}"[:120],
+                provider=LibraryPlaylist.Provider.VK,
+                external_url=source_url,
+                description="Импортирована отдельная аудиозапись VK",
+            )
+        elif playlist.profile_id != profile.pk:
+            raise TransferError("Нельзя добавлять композицию в чужой плейлист.")
         LibraryTrack.objects.create(
             playlist=playlist,
             title=track.title[:180],
@@ -55,10 +59,10 @@ def save_vk_track(profile, track, source_url):
             external_id=track.audio_id or f"{track.owner_id}_{track.track_id}",
             external_url=source_url,
             source_provider=LibraryPlaylist.Provider.VK,
-            position=0,
+            position=playlist.tracks.count(),
         )
+        playlist.save(update_fields=["updated_at"])
     return playlist
-
 
 def refresh_vk_track_metadata(playlist, vk_tracks):
     indexed = {f"{item.owner_id}_{item.track_id}": item for item in vk_tracks}
