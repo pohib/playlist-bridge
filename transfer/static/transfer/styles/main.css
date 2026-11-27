@@ -494,7 +494,8 @@ button,.secondary-button,.primary-button { border-radius:13px; }
 .back-link { display:inline-block; margin-bottom:13px; color:#8eabcf; font-size:11px; font-weight:750; text-decoration:none; }
 .back-link:hover { color:#a8f2bd; }
 .site-footer { border-top-color:rgba(174,194,226,.13); }
-.landing-copy h1 span,.auth-aside h1 span,.page-heading h1 span { background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; text-shadow:none; }
+.landing-copy h1 span { display:inline-block; padding-right:.12em; margin-right:-.12em; background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; filter:drop-shadow(0 4px 12px rgba(30,215,96,.28)); }
+.auth-aside h1 span,.page-heading h1 span { background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; text-shadow:none; }
 .landing-hero { min-height:590px; }
 .landing-copy { animation:copy-enter .75s cubic-bezier(.18,.72,.22,1) both; }
 .music-orbit { animation:orbit-enter .9s .1s cubic-bezier(.18,.72,.22,1) both; }
@@ -1706,3 +1707,25 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
 .subtle-action:hover{border-color:rgba(135,224,170,.42);background:linear-gradient(135deg,rgba(86,130,205,.22),rgba(30,215,96,.13));color:#c4f4d2;transform:translateY(-1px)}
 .panel-title-row form{display:flex;align-items:center;margin:0}
 @media(max-width:620px){.panel-title-row{flex-wrap:wrap}.panel-title-row form{max-width:100%}.subtle-action{white-space:normal;text-align:center}}
+
+
+/* Playlist editing controls */
+.track-table-row { grid-template-columns:28px 54px minmax(0,1fr) 54px auto; }
+.track-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:5px; min-width:0; }
+.track-order-controls { display:flex; align-items:center; gap:2px; }
+.track-order-controls button { width:24px; height:26px; border:1px solid rgba(174,194,226,.13); border-radius:7px; background:rgba(255,255,255,.035); color:#aab8ca; cursor:pointer; }
+.track-order-controls button:disabled { opacity:.28; cursor:default; }
+.track-edit { margin-top:5px; }
+.track-edit summary { width:max-content; color:#8debad; font-size:10px; cursor:pointer; }
+.track-edit form { display:grid; grid-template-columns:repeat(3,minmax(90px,1fr)) auto; gap:6px; margin-top:7px; }
+.track-edit input { min-width:0; width:100%; min-height:30px; padding:0 8px; border:1px solid rgba(165,188,222,.17); border-radius:8px; background:rgba(3,8,15,.52); color:#edf4ff; font:inherit; font-size:10px; }
+.track-edit button { border:1px solid rgba(104,232,150,.25); border-radius:8px; padding:0 9px; background:rgba(30,215,96,.08); color:#a7f2bd; font-size:10px; cursor:pointer; }
+@media (max-width:700px) {
+  .track-table-row { grid-template-columns:20px 44px minmax(0,1fr) 30px auto; gap:6px; }
+  .track-row-actions { gap:2px; }
+  .track-edit form { grid-template-columns:1fr 1fr; }
+  .track-edit input:first-of-type { grid-column:1 / -1; }
+}
+/* Keep the missing-cover glyph centered independently of inherited span rules. */
+.library-card-shell .library-art:not(.library-art-image){display:grid;place-items:center;text-align:center}
+.library-card-shell .library-art:not(.library-art-image)>span{position:static;display:block;margin:0;line-height:1;transform:none}

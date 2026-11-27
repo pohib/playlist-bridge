@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -183,14 +183,34 @@ jobs:
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
 
+  # Authenticated OWASP ZAP scans run after tests and container validation.
   dast:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [tests, container]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - name: Validate DAST helper scripts
+        run: |
+          bash -n scripts/security/dast_auth_check.sh
+          python -m py_compile scripts/security/dast_bootstrap.py
+      - name: Prepare DAST environment
+        run: |
+          mkdir -p reports "$RUNNER_TEMP/zap-reports"
+          chmod 777 reports "$RUNNER_TEMP/zap-reports"
+          DAST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$DAST_PASSWORD"
+          echo "DAST_PASSWORD=$DAST_PASSWORD" >> "$GITHUB_ENV"
       - name: Prepare integration environment
         run: |
-          printf 'DJANGO_SECRET_KEY=ci-only-secret\nDJANGO_DEBUG=false\nDJANGO_ALLOWED_HOSTS=localhost,127.0.0.1\nPOSTGRES_PASSWORD=ci-db-password\nSESSION_COOKIE_SECURE=false\nCSRF_COOKIE_SECURE=false\n' > .env
+          cat > .env <<'EOF'
+          DJANGO_SECRET_KEY=ci-only-secret
+          DJANGO_DEBUG=false
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+          POSTGRES_PASSWORD=ci-db-password
+          SESSION_COOKIE_SECURE=false
+          CSRF_COOKIE_SECURE=false
+          EOF
       - name: Start application stack
         run: |
           if ! docker compose up -d --build; then
@@ -204,11 +224,42 @@ jobs:
           done
           docker compose logs
           exit 1
-      - uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+      - name: Create isolated DAST users and IDOR fixtures
+        run: |
+          docker compose exec -T -e DAST_PASSWORD="$DAST_PASSWORD" web python manage.py shell -c "exec(open('scripts/security/dast_bootstrap.py').read())"
+      - name: Verify authenticated access control and prepare ZAP session
+        run: bash scripts/security/dast_auth_check.sh http://127.0.0.1:8000 "$DAST_PASSWORD" "$RUNNER_TEMP/zap-reports"
+      - name: Run OWASP ZAP authenticated full DAST scan
+        id: zap_full
+        continue-on-error: true
+        run: |
+          docker run --rm --network=host -v "$PWD/.zap:/zap/config:ro" -v "$RUNNER_TEMP/zap-reports:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c /zap/config/rules.tsv -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md -z "-configfile /zap/wrk/zap-auth.conf"
+      - name: Run OWASP ZAP authenticated API DAST scan
+        id: zap_api
+        continue-on-error: true
+        run: |
+          docker run --rm --network=host -v "$PWD/.zap:/zap/config:ro" -v "$RUNNER_TEMP/zap-reports:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c /zap/config/rules.tsv -I -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md -z "-configfile /zap/wrk/zap-auth.conf"
+      - name: Upload OWASP ZAP reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          target: http://127.0.0.1:8000
-          fail_action: true
-          cmd_options: "-I"
-          allow_issue_writing: false
+          name: zap-authenticated-dast
+          path: ${{ runner.temp }}/zap-reports/zap-*-report.*
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Enforce DAST scan results
+        if: always()
+        env:
+          FULL_SCAN_OUTCOME: ${{ steps.zap_full.outcome }}
+          API_SCAN_OUTCOME: ${{ steps.zap_api.outcome }}
+        run: |
+          if [ "$FULL_SCAN_OUTCOME" != "success" ] || [ "$API_SCAN_OUTCOME" != "success" ]; then
+            echo "Authenticated OWASP ZAP scan failed: full=$FULL_SCAN_OUTCOME api=$API_SCAN_OUTCOME"
+            echo "Review the uploaded reports to distinguish security findings from scanner errors."
+            exit 1
+          fi
+      - name: Show application logs on failure
+        if: failure()
+        run: docker compose logs --no-color
       - if: always()
         run: docker compose down -v

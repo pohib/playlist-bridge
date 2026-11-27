@@ -51,12 +51,20 @@ def parse_vk_playlist_url(value):
     return int(owner), int(playlist), key or ""
 
 
-def parse_vk_track_url(value):
+def parse_vk_track_reference(value):
+    """Parse a VK audio URL, including its optional per-track access key."""
     parsed = _validated_vk_url(value, "Укажи ссылку на аудиозапись VK.")
-    match = re.fullmatch(r"/audio(-?\d+)_(\d+)/?", parsed.path)
+    match = re.fullmatch(r"/audio(-?\d+)_(\d+)(?:_([A-Za-z0-9]+))?/?", parsed.path)
     if not match:
         raise ValueError("Формат ссылки на аудиозапись VK не распознан.")
-    return int(match.group(1)), int(match.group(2))
+    owner_id, track_id, access_key = match.groups()
+    return int(owner_id), int(track_id), access_key or ""
+
+
+def parse_vk_track_url(value):
+    owner_id, track_id, _access_key = parse_vk_track_reference(value)
+    return owner_id, track_id
+
 
 def normalize_track_text(value):
     value = (value or "").casefold().replace("ё", "е")

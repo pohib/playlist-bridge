@@ -1,0 +1,399 @@
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+from django.test import TestCase
+
+from ..models import LibraryPlaylist, LibraryProfile
+from ..services import (
+    TransferError,
+    library_import_soundcloud,
+    library_import_spotify,
+    library_import_vk,
+)
+from ..services.library_imports import (
+    import_soundcloud_library,
+    import_soundcloud_playlist,
+    import_spotify_library,
+    import_spotify_playlist,
+    import_vk_playlist,
+    import_vk_track,
+    refresh_vk_playlist_artwork,
+    refresh_vk_track_metadata,
+    save_soundcloud_playlist,
+    save_soundcloud_track,
+    save_spotify_playlist,
+    save_spotify_track,
+    save_vk_playlist,
+    save_vk_track,
+    spotify_resource_id,
+    validate_soundcloud_permalink,
+)
+
+
+class LibraryImportServiceTests(TestCase):
+    def test_compatibility_facade_reexports_provider_specific_services(self):
+        self.assertIs(import_spotify_library, library_import_spotify.import_spotify_library)
+        self.assertIs(import_spotify_playlist, library_import_spotify.import_spotify_playlist)
+        self.assertIs(import_soundcloud_library, library_import_soundcloud.import_soundcloud_library)
+        self.assertIs(import_soundcloud_playlist, library_import_soundcloud.import_soundcloud_playlist)
+        self.assertIs(save_spotify_playlist, library_import_spotify.save_spotify_playlist)
+        self.assertIs(save_spotify_track, library_import_spotify.save_spotify_track)
+        self.assertIs(spotify_resource_id, library_import_spotify.spotify_resource_id)
+        self.assertIs(save_soundcloud_playlist, library_import_soundcloud.save_soundcloud_playlist)
+        self.assertIs(save_soundcloud_track, library_import_soundcloud.save_soundcloud_track)
+        self.assertIs(validate_soundcloud_permalink, library_import_soundcloud.validate_soundcloud_permalink)
+        self.assertIs(save_vk_playlist, library_import_vk.save_vk_playlist)
+        self.assertIs(save_vk_track, library_import_vk.save_vk_track)
+        self.assertIs(import_vk_playlist, library_import_vk.import_vk_playlist)
+        self.assertIs(import_vk_track, library_import_vk.import_vk_track)
+        self.assertIs(refresh_vk_playlist_artwork, library_import_vk.refresh_vk_playlist_artwork)
+        self.assertIs(refresh_vk_track_metadata, library_import_vk.refresh_vk_track_metadata)
+
+    def setUp(self):
+        self.profile = LibraryProfile.objects.create(session_fingerprint="f" * 64)
+
+    def test_spotify_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        playlist_id = "A" * 22
+        source_url = f"https://open.spotify.com/playlist/{playlist_id}"
+        client.api.return_value = {"name": "Fetched playlist"}
+        client.get_playlist_items.return_value = [
+            {
+                "item": {
+                    "id": "spotify-track",
+                    "type": "track",
+                    "name": "Track",
+                    "artists": [{"name": "Artist"}],
+                    "duration_ms": 1000,
+                    "external_urls": {"spotify": "https://open.spotify.com/track/" + "B" * 22},
+                }
+            }
+        ]
+
+        playlist, count = import_spotify_playlist(
+            self.profile,
+            client,
+            "access-token",
+            playlist_id,
+            source_url,
+        )
+
+        client.api.assert_called_once_with(
+            "playlist_details",
+            "access-token",
+            playlist_id=playlist_id,
+        )
+        client.get_playlist_items.assert_called_once_with("access-token", playlist_id)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "spotify-track")
+
+    def test_soundcloud_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://soundcloud.com/artist/playlist"
+        client.resolve.return_value = {
+            "kind": "playlist",
+            "id": 77,
+            "title": "Fetched playlist",
+        }
+        client.playlist_tracks.return_value = [
+            {
+                "id": 88,
+                "title": "Track",
+                "duration": 120000,
+                "permalink_url": "https://soundcloud.com/artist/track",
+                "user": {"username": "Artist"},
+            }
+        ]
+
+        playlist, count = import_soundcloud_playlist(
+            self.profile,
+            client,
+            "access-token",
+            source_url,
+        )
+
+        client.resolve.assert_called_once_with("access-token", source_url)
+        client.playlist_tracks.assert_called_once_with("access-token", 77)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "88")
+
+    def test_soundcloud_playlist_workflow_rejects_non_playlist_resources(self):
+        client = Mock()
+        client.resolve.return_value = {"kind": "track"}
+        before = self.profile.playlists.count()
+
+        with self.assertRaises(TransferError):
+            import_soundcloud_playlist(
+                self.profile,
+                client,
+                "access-token",
+                "https://soundcloud.com/artist/track",
+            )
+
+        client.playlist_tracks.assert_not_called()
+        self.assertEqual(self.profile.playlists.count(), before)
+
+    def test_spotify_resource_id_accepts_only_expected_resource_links(self):
+        resource_id = "A" * 22
+        self.assertEqual(
+            spotify_resource_id(f"https://open.spotify.com/playlist/{resource_id}", "playlist"),
+            resource_id,
+        )
+        with self.assertRaises(ValueError):
+            spotify_resource_id(f"https://open.spotify.com.attacker.example/playlist/{resource_id}", "playlist")
+        with self.assertRaises(ValueError):
+            spotify_resource_id(f"https://open.spotify.com:8443/playlist/{resource_id}", "playlist")
+
+
+    def test_spotify_track_service_appends_normalized_metadata_to_existing_playlist(self):
+        playlist = LibraryPlaylist.objects.create(
+            profile=self.profile,
+            title="Existing",
+            provider=LibraryPlaylist.Provider.MANUAL,
+        )
+        source_url = "https://open.spotify.com/track/" + "A" * 22
+        saved_playlist = save_spotify_track(
+            self.profile,
+            {
+                "id": "spotify-track",
+                "name": "Imported track",
+                "artists": [{"name": "Artist A"}, {"name": "Artist B"}],
+                "album": {"name": "Album", "images": []},
+                "duration_ms": 123000,
+                "external_urls": {"spotify": source_url},
+            },
+            source_url,
+            playlist=playlist,
+        )
+
+        self.assertIs(saved_playlist, playlist)
+        track = playlist.tracks.get()
+        self.assertEqual(track.title, "Imported track")
+        self.assertEqual(track.artist, "Artist A, Artist B")
+        self.assertEqual(track.album, "Album")
+        self.assertEqual(track.external_id, "spotify-track")
+        self.assertEqual(track.duration_ms, 123000)
+        self.assertEqual(track.source_provider, LibraryPlaylist.Provider.SPOTIFY)
+
+    def test_spotify_track_service_creates_a_single_track_playlist(self):
+        source_url = "https://open.spotify.com/track/" + "B" * 22
+        playlist = save_spotify_track(
+            self.profile,
+            {
+                "id": "spotify-single",
+                "name": "Single",
+                "type": "track",
+                "artists": [{"name": "Artist"}],
+                "duration_ms": 90000,
+            },
+            source_url,
+        )
+
+        self.assertEqual(playlist.provider, LibraryPlaylist.Provider.SPOTIFY)
+        self.assertEqual(playlist.tracks.get().external_id, "spotify-single")
+
+    def test_soundcloud_track_service_appends_provider_metadata_to_existing_playlist(self):
+        playlist = LibraryPlaylist.objects.create(
+            profile=self.profile,
+            title="Existing",
+            provider=LibraryPlaylist.Provider.MANUAL,
+        )
+        source_url = "https://soundcloud.com/artist/track"
+        saved_playlist = save_soundcloud_track(
+            self.profile,
+            {
+                "id": 42,
+                "title": "SoundCloud track",
+                "metadata_artist": "Original artist",
+                "user": {"username": "Uploader"},
+                "duration": 120000,
+                "permalink_url": source_url,
+                "artwork_url": "",
+            },
+            source_url,
+            playlist=playlist,
+        )
+
+        self.assertIs(saved_playlist, playlist)
+        track = playlist.tracks.get()
+        self.assertEqual(track.title, "SoundCloud track")
+        self.assertEqual(track.artist, "Original artist")
+        self.assertEqual(track.external_id, "42")
+        self.assertEqual(track.duration_ms, 120000)
+        self.assertEqual(track.source_provider, LibraryPlaylist.Provider.SOUNDCLOUD)
+
+    def test_soundcloud_track_service_creates_a_single_track_playlist(self):
+        source_url = "https://soundcloud.com/artist/single"
+        playlist = save_soundcloud_track(
+            self.profile,
+            {
+                "id": 43,
+                "title": "Single",
+                "duration": 60000,
+                "permalink_url": source_url,
+            },
+            source_url,
+        )
+
+        self.assertEqual(playlist.provider, LibraryPlaylist.Provider.SOUNDCLOUD)
+        self.assertEqual(playlist.tracks.get().external_id, "43")
+
+    def test_soundcloud_permalink_rejects_host_suffix_and_invalid_port(self):
+        valid = "https://soundcloud.com/artist/track"
+        self.assertEqual(validate_soundcloud_permalink(valid), valid)
+        with self.assertRaises(ValueError):
+            validate_soundcloud_permalink("https://soundcloud.com.attacker.example/artist/track")
+        with self.assertRaises(ValueError):
+            validate_soundcloud_permalink("https://soundcloud.com:8443/artist/track")
+
+    def test_empty_spotify_payload_rolls_back_playlist_creation(self):
+        before = self.profile.playlists.count()
+        with self.assertRaises(TransferError):
+            save_spotify_playlist(self.profile, {"name": "Empty"}, [], "https://open.spotify.com/playlist/" + "A" * 22)
+        self.assertEqual(self.profile.playlists.count(), before)
+
+    def test_empty_soundcloud_payload_rolls_back_playlist_creation(self):
+        before = self.profile.playlists.count()
+        with self.assertRaises(TransferError):
+            save_soundcloud_playlist(
+                self.profile,
+                {"title": "Empty"},
+                [{"id": 1, "title": ""}],
+                "https://soundcloud.com/artist/empty",
+            )
+        self.assertEqual(self.profile.playlists.count(), before)
+
+    def test_soundcloud_payload_keeps_track_when_duration_is_malformed(self):
+        playlist, count = save_soundcloud_playlist(
+            self.profile,
+            {"title": "Imported"},
+            [{
+                "id": 42,
+                "title": "Usable track",
+                "duration": True,
+                "user": {"username": "Uploader"},
+            }],
+            "https://soundcloud.com/artist/track",
+        )
+        track = playlist.tracks.get()
+        self.assertEqual(count, 1)
+        self.assertEqual(track.duration_ms, None)
+        self.assertEqual(track.artist, "Uploader")
+
+    def test_vk_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://vk.ru/music/playlist/10_20"
+        track = SimpleNamespace(
+            title="VK track",
+            artist="Artist",
+            duration=120,
+            cover_url="",
+            audio_id="10_30",
+            owner_id=10,
+            track_id=30,
+        )
+        client.fetch_playlist.return_value = ("Fetched VK playlist", [track])
+
+        playlist, count = import_vk_playlist(
+            self.profile,
+            client,
+            source_url,
+        )
+
+        client.fetch_playlist.assert_called_once_with(source_url)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched VK playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "10_30")
+
+    def test_vk_track_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://vk.ru/audio10_31"
+        track = SimpleNamespace(
+            title="VK single",
+            artist="Artist",
+            duration=90,
+            cover_url="",
+            audio_id="10_31",
+            owner_id=10,
+            track_id=31,
+        )
+        client.fetch_track.return_value = track
+
+        playlist, saved_track = import_vk_track(
+            self.profile,
+            client,
+            source_url,
+        )
+
+        client.fetch_track.assert_called_once_with(source_url)
+        self.assertIs(saved_track, track)
+        self.assertEqual(playlist.tracks.get().external_id, "10_31")
+
+    def test_vk_artwork_refresh_workflow_uses_playlist_source_url(self):
+        playlist, _count = save_vk_playlist(
+            self.profile,
+            "VK playlist",
+            [
+                SimpleNamespace(
+                    title="Track",
+                    artist="Artist",
+                    duration=90,
+                    cover_url="",
+                    audio_id="10_32",
+                    owner_id=10,
+                    track_id=32,
+                )
+            ],
+            "https://vk.ru/music/playlist/10_20",
+        )
+        client = Mock()
+        client.fetch_playlist.return_value = (
+            "VK playlist",
+            [
+                SimpleNamespace(
+                    title="Track",
+                    artist="Artist",
+                    duration=90,
+                    cover_url="https://cdn.example/cover.jpg",
+                    audio_id="10_32",
+                    owner_id=10,
+                    track_id=32,
+                )
+            ],
+        )
+
+        updated = refresh_vk_playlist_artwork(playlist, client)
+
+        client.fetch_playlist.assert_called_once_with(playlist.external_url)
+        self.assertEqual(updated, 1)
+        self.assertEqual(playlist.tracks.get().cover_url, "https://cdn.example/cover.jpg")
+
+    def test_vk_playlist_persists_order_and_provider_metadata(self):
+        tracks = [
+            SimpleNamespace(
+                title="First",
+                artist="Artist",
+                duration=120,
+                cover_url="https://cdn.example/cover.jpg",
+                audio_id="10_1",
+                owner_id=10,
+                track_id=1,
+            ),
+            SimpleNamespace(
+                title="Second",
+                artist="Artist",
+                duration=90,
+                cover_url="",
+                audio_id="",
+                owner_id=10,
+                track_id=2,
+            ),
+        ]
+        playlist, count = save_vk_playlist(self.profile, "VK list", tracks, "https://vk.ru/music")
+        saved = list(playlist.tracks.all())
+        self.assertEqual(count, 2)
+        self.assertEqual([track.position for track in saved], [0, 1])
+        self.assertEqual(saved[0].external_id, "10_1")
+        self.assertEqual(saved[0].source_provider, LibraryPlaylist.Provider.VK)

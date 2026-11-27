@@ -4,6 +4,7 @@ from .common import (
     TransferError,
     VKTrack,
     parse_vk_playlist_url,
+    parse_vk_track_reference,
     parse_vk_track_url,
 )
 from .soundcloud_client import SoundCloudClient
@@ -16,5 +17,5 @@ __all__ = [
     "ReauthorizationRequired", "SoundCloudClient", "SpotifyClient",
     "TransferError", "VKClient", "VKTrack",
     "execute_transfer", "normalize_track_text", "parse_vk_playlist_url",
-    "parse_vk_track_url", "score_candidate",
+    "parse_vk_track_reference", "parse_vk_track_url", "score_candidate",
 ]

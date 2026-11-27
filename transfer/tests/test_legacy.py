@@ -195,6 +195,7 @@ class VKPlaylistBatchTests(TestCase):
         with patch.object(client, "post", side_effect=[
             {"response": {"audios": audio_refs}},
             {"response": audio_items},
+            {"response": {"title": "VK playlist"}},
         ]) as post:
             name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9_testkey")
 
@@ -222,10 +223,11 @@ class VKPlaylistBatchTests(TestCase):
             ]}
             for start in (1, 51, 101)
         )
+        responses.append({"response": {"title": "VK playlist"}})
         with patch.object(client, "post", side_effect=responses) as post:
             _name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9")
         self.assertEqual(len(tracks), 101)
-        self.assertEqual(post.call_count, 4)
+        self.assertEqual(post.call_count, 5)
 
     def test_fetch_playlist_rejects_empty_playlist(self):
         client = self.make_client()
@@ -650,7 +652,7 @@ class LibraryWorkspaceTests(TestCase):
 
 
 class VKLibraryImportTests(TestCase):
-    @patch("transfer.library_import_views.VKClient.fetch_playlist", return_value=(
+    @patch("transfer.library_vk_import_views.VKClient.fetch_playlist", return_value=(
         "VK imported playlist",
         [
             VKTrack(10, 101, "Artist A", "Track A", 185),
@@ -729,7 +731,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(query["code_challenge_method"], ["S256"])
         self.assertEqual(query["state"], ["state-value"])
 
-    @patch("transfer.library_import_views._soundcloud_access")
+    @patch("transfer.library_soundcloud_import_views._soundcloud_access")
     def test_import_soundcloud_playlist_preserves_track_metadata(self, access):
         client = Mock()
         client.resolve.return_value = {"kind": "playlist", "id": 123, "title": "SC Mix"}
@@ -754,7 +756,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(track.artist, "Artist One")
         client.playlist_tracks.assert_called_once_with("sc-token", 123)
 
-    @patch("transfer.library_import_views._soundcloud_access")
+    @patch("transfer.library_soundcloud_import_views._soundcloud_access")
     def test_import_soundcloud_track_creates_single_track_collection(self, access):
         client = Mock()
         client.resolve.return_value = {
@@ -784,7 +786,7 @@ class SoundCloudIntegrationTests(TestCase):
             "not-really-audio.mp3", b"<script>alert(1)</script>",
             content_type="audio/mpeg",
         )
-        with patch("transfer.library_views._soundcloud_access") as access:
+        with patch("transfer.library_provider_upload_views._soundcloud_access") as access:
             response = self.client.post(
                 reverse("library_upload_soundcloud_track"),
                 {"title": "Fake", "artist": "Attacker", "audio_file": fake_audio},
@@ -792,7 +794,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         access.assert_not_called()
 
-    @patch("transfer.library_views._soundcloud_access")
+    @patch("transfer.library_provider_upload_views._soundcloud_access")
     def test_upload_owned_audio_file_to_soundcloud(self, access):
         client = Mock()
         client.upload_track.return_value = {
@@ -812,7 +814,7 @@ class SoundCloudIntegrationTests(TestCase):
         track = LibraryTrack.objects.get(external_id="321")
         self.assertEqual(track.title, "Demo")
 
-    @patch("transfer.library_import_views._spotify_access")
+    @patch("transfer.library_spotify_import_views._spotify_access")
     def test_import_spotify_track_uses_official_track_endpoint(self, access):
         client = Mock()
         client.track_details.return_value = {
@@ -838,8 +840,8 @@ class SoundCloudIntegrationTests(TestCase):
 
 
 class UnifiedLibraryTransferTests(TestCase):
-    @patch("transfer.library_transfer_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_unmatched_track_can_be_searched_and_added_manually(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
@@ -874,7 +876,7 @@ class UnifiedLibraryTransferTests(TestCase):
         self.assertEqual(item.status, LibraryTransferItem.Status.PENDING)
 
         with patch(
-            "transfer.library_transfer_views._soundcloud_access",
+            "transfer.library_transfer_review_views._soundcloud_access",
             return_value=(client, "sc-token"),
         ):
             self.client.post(
@@ -896,8 +898,8 @@ class UnifiedLibraryTransferTests(TestCase):
         client.create_playlist.assert_called_once_with("sc-token", "Unmatched", ["988"])
         self.assertEqual(review.target_playlist.tracks.get().external_id, "988")
 
-    @patch("transfer.library_transfer_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_manual_candidate_id_not_in_server_results_is_rejected(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
@@ -928,8 +930,8 @@ class UnifiedLibraryTransferTests(TestCase):
         client.update_playlist_tracks.assert_not_called()
 
 
-    @patch("transfer.library_transfer_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_transfer_library_playlist_to_soundcloud(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack

@@ -132,7 +132,7 @@ try {
     }
     if (-not $healthy) {
         docker compose ps
-        docker compose logs --tail=100 web
+        docker compose logs --tail=100 proxy web
         throw "Django did not return a valid local HTTP 200 health response."
     }
     Write-Host "Local Django health check passed." -ForegroundColor Green
@@ -204,7 +204,7 @@ try {
         Start-Sleep -Seconds 2
     }
     if (-not $healthy) {
-        docker compose logs --tail=100 web
+        docker compose logs --tail=100 proxy web
         throw "Local Django health check failed after applying HTTPS settings."
     }
 
@@ -222,12 +222,12 @@ try {
         Start-Sleep -Seconds 2
     }
     if (-not $publicHealthy) {
-        docker compose logs --tail=100 web
+        docker compose logs --tail=100 proxy web
         throw ("The public HTTPS health check did not return HTTP 200. URL: $origin. Check Cloudflare connectivity and Django logs.")
     }
 
     if (-not (Test-HttpEndpoint -Url "$origin/" -ExpectedStatus 200)) {
-        docker compose logs --tail=100 web
+        docker compose logs --tail=100 proxy web
         throw "The public health endpoint works, but the homepage did not return HTTP 200."
     }
 

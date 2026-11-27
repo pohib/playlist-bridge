@@ -2,62 +2,14 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth import login, logout
-from django.db import transaction
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from .credentials import get_session_fingerprint
 from .forms import AccountCreationForm, AccountLoginForm
-from .models import LibraryProfile, OAuthCredential, TransferJob
+from .services.account_workspace import attach_anonymous_workspace
+from .services.credential_service import get_session_fingerprint
 
 logger = logging.getLogger(__name__)
-
-
-def _attach_anonymous_workspace(request, previous_fingerprint):
-    current_fingerprint = get_session_fingerprint(request)
-    if previous_fingerprint == current_fingerprint:
-        return
-
-    with transaction.atomic():
-        anonymous_profile = LibraryProfile.objects.filter(
-            session_fingerprint=previous_fingerprint,
-            user__isnull=True,
-        ).first()
-        account_profile = LibraryProfile.objects.filter(user=request.user).first()
-
-        if anonymous_profile:
-            if account_profile:
-                anonymous_profile.playlists.update(profile=account_profile)
-                anonymous_profile.transfers.update(profile=account_profile)
-                anonymous_profile.delete()
-            else:
-                anonymous_profile.user = request.user
-                anonymous_profile.session_fingerprint = current_fingerprint
-                anonymous_profile.save(update_fields=["user", "session_fingerprint", "updated_at"])
-
-        for credential in OAuthCredential.objects.filter(session_fingerprint=previous_fingerprint):
-            duplicate = OAuthCredential.objects.filter(
-                session_fingerprint=current_fingerprint,
-                provider=credential.provider,
-            ).exclude(pk=credential.pk).exists()
-            if duplicate:
-                credential.delete()
-            else:
-                credential.session_fingerprint = current_fingerprint
-                credential.save(update_fields=["session_fingerprint", "updated_at"])
-
-        # Preserve finished reports; avoid violating the one-active-job-per-owner constraint.
-        active_exists = TransferJob.objects.filter(
-            session_fingerprint=current_fingerprint,
-            status__in=(TransferJob.Status.QUEUED, TransferJob.Status.RUNNING),
-        ).exists()
-        old_jobs = TransferJob.objects.filter(session_fingerprint=previous_fingerprint)
-        if active_exists:
-            old_jobs.exclude(status__in=(TransferJob.Status.QUEUED, TransferJob.Status.RUNNING)).update(
-                session_fingerprint=current_fingerprint
-            )
-        else:
-            old_jobs.update(session_fingerprint=current_fingerprint)
 
 
 def register(request):
@@ -69,7 +21,11 @@ def register(request):
             previous_fingerprint = get_session_fingerprint(request)
             user = form.save()
             login(request, user)
-            _attach_anonymous_workspace(request, previous_fingerprint)
+            attach_anonymous_workspace(
+                user=user,
+                previous_fingerprint=previous_fingerprint,
+                current_fingerprint=get_session_fingerprint(request),
+            )
             logger.info("New user account created: user_id=%s", user.pk)
             messages.success(request, "Аккаунт создан. Твоя библиотека теперь привязана к профилю.")
             return redirect("dashboard")
@@ -87,7 +43,11 @@ def sign_in(request):
             previous_fingerprint = get_session_fingerprint(request)
             user = form.get_user()
             login(request, user)
-            _attach_anonymous_workspace(request, previous_fingerprint)
+            attach_anonymous_workspace(
+                user=user,
+                previous_fingerprint=previous_fingerprint,
+                current_fingerprint=get_session_fingerprint(request),
+            )
             logger.info("User signed in: user_id=%s", user.pk)
             return redirect("dashboard")
     else:
