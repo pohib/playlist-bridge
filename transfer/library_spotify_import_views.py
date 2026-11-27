@@ -9,6 +9,7 @@ from .models import LibraryPlaylist
 from .services.common import TransferError
 from .services.library_imports import (
     import_spotify_library as import_spotify_library_service,
+    import_spotify_playlist as import_spotify_playlist_service,
 )
 from .services.library_imports import (
     save_spotify_playlist,
@@ -27,9 +28,13 @@ def import_spotify_playlist(request):
     try:
         playlist_id = _spotify_resource_id(source_url, "playlist")
         client, token = _spotify_access(request)
-        resource = client.api("playlist_details", token, playlist_id=playlist_id)
-        entries = client.get_playlist_items(token, playlist_id)
-        playlist, count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
+        playlist, count = import_spotify_playlist_service(
+            _profile(request),
+            client,
+            token,
+            playlist_id,
+            source_url,
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
