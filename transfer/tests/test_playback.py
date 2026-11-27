@@ -52,6 +52,7 @@ class VKPlaybackApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["format"], "mp3")
+        self.assertEqual(response.json()["url"], self.audio_url + "?format=mp3")
         self.assertEqual(response["Cache-Control"], "private, no-store")
         self.assertEqual(response["Pragma"], "no-cache")
         client.get_track_stream.assert_called_once_with("10_101", "mp3")
@@ -185,6 +186,47 @@ class VKPlaybackApiTests(TestCase):
         self.assertEqual(upstream.call_args.kwargs["headers"]["Range"], "bytes=0-4")
         self.assertIs(upstream.call_args.kwargs["allow_redirects"], False)
         upstream_response.close.assert_called_once()
+
+    def test_audio_proxy_streams_hls_fallback_through_same_origin(self):
+        upstream_response = Mock(status_code=200, headers={
+            "Content-Type": "video/mp2t",
+            "Content-Length": "5",
+        })
+        upstream_response.iter_content.return_value = [b"audio", b""]
+
+        with (
+            patch("transfer.library_vk_playback_views.VKClient") as client_class,
+            patch("requests.get", return_value=upstream_response) as upstream,
+        ):
+            api = client_class.return_value
+            api.token_provider.BROWSER_HEADERS = {"User-Agent": "test-agent"}
+            api.get_track_stream.return_value = {
+                "url": "https://cdn.okcdn.ru/audio.ts",
+                "format": "hls_ts",
+            }
+            response = self.client.get(self.audio_url + "?format=hls_ts")
+            content = b"".join(response.streaming_content)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "video/mp2t")
+        self.assertEqual(response["Content-Length"], "5")
+        self.assertEqual(content, b"audio")
+        self.assertEqual(
+            api.get_track_stream.call_args.args,
+            ("10_101", "hls_ts"),
+        )
+        self.assertEqual(
+            upstream.call_args.args[0],
+            "https://cdn.okcdn.ru/audio.ts",
+        )
+        upstream_response.close.assert_called_once()
+
+    def test_audio_proxy_rejects_unknown_stream_format(self):
+        with patch("transfer.library_vk_playback_views.VKClient") as client_class:
+            response = self.client.get(self.audio_url + "?format=dash")
+
+        self.assertEqual(response.status_code, 400)
+        client_class.assert_not_called()
 
     def test_audio_proxy_rejects_partial_response_without_content_range(self):
         upstream_response = Mock(status_code=206, headers={})
