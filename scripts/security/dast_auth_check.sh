@@ -11,14 +11,15 @@ JOB_ONE="10000000-0000-4000-8000-000000000001"
 JOB_TWO="20000000-0000-4000-8000-000000000002"
 
 login() {
-  local username="$1" jar="$2" csrf status session
+  local username="$1" jar="$2" csrf login_csrf status session
   curl --silent --show-error --fail --cookie-jar "$jar" "$BASE_URL/accounts/login/" --output /dev/null
-  csrf="$(awk '$6 == "csrftoken" { value=$7 } END { print value }' "$jar")"
-  if [[ -z "$csrf" ]]; then echo "Could not obtain CSRF cookie for $username" >&2; return 1; fi
-  status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" --header "Referer: $BASE_URL/accounts/login/" --data-urlencode "username=$username" --data-urlencode "password=$DAST_PASSWORD" --data-urlencode "csrfmiddlewaretoken=$csrf" "$BASE_URL/accounts/login/")"
+  login_csrf="$(awk '$6 == "csrftoken" { value=$7 } END { print value }' "$jar")"
+  if [[ -z "$login_csrf" ]]; then echo "Could not obtain CSRF cookie for $username" >&2; return 1; fi
+  status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --cookie "$jar" --cookie-jar "$jar" --header "Referer: $BASE_URL/accounts/login/" --data-urlencode "username=$username" --data-urlencode "password=$DAST_PASSWORD" --data-urlencode "csrfmiddlewaretoken=$login_csrf" "$BASE_URL/accounts/login/")"
   if [[ "$status" != "302" ]]; then echo "Login failed for $username (HTTP $status)" >&2; return 1; fi
+  csrf="$(awk '$6 == "csrftoken" { value=$7 } END { print value }' "$jar")"
   session="$(awk '$6 == "sessionid" { value=$7 } END { print value }' "$jar")"
-  if [[ -z "$session" ]]; then echo "No authenticated session cookie for $username" >&2; return 1; fi
+  if [[ -z "$csrf" || -z "$session" ]]; then echo "No authenticated CSRF/session cookies for $username" >&2; return 1; fi
   status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --cookie "$jar" "$BASE_URL/app/")"
   if [[ "$status" != "200" ]]; then echo "Authenticated dashboard check failed for $username (HTTP $status)" >&2; return 1; fi
   printf '%s|%s' "$csrf" "$session"
