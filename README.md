@@ -42,7 +42,7 @@ View-слой библиотеки разделён на специализир�
 - transfer/library_transfer_review_views.py — HTTP-обработчики ручного поиска, выбора и пропуска совпадений при переносе; нормализация ответов провайдеров вынесена в `services/library_transfer_search.py`;
 - transfer/library_support.py — compatibility facade общих функций доступа к профилю, токенам и безопасным ссылкам;
 - nginx/default.conf — конфигурация локального reverse proxy;
-- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, compatibility facade `library_imports.py`, provider-specific `library_import_spotify.py`, `library_import_soundcloud.py` и `library_import_vk.py`, `library_soundcloud_upload.py`, `audio_file_validation.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
+- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, compatibility facade `library_imports.py`, provider-specific `library_import_spotify.py`, `library_import_soundcloud.py` и `library_import_vk.py`, `library_soundcloud_upload.py`, `audio_file_validation.py`, `vk_audio_metadata.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
 - transfer/models.py и transfer/core.py — compatibility facades; сохраняйте их, пока не проверены все старые импорты;
@@ -64,7 +64,7 @@ View-слой библиотеки разделён на специализир�
 | transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh | 
 | transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
 | transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
-| transfer/services/vk_client.py | Анонимный токен VK, получение плейлиста/трека и stream metadata |
+| transfer/services/vk_client.py | VK API transport, получение плейлиста/трека и разрешение аудиопотоков |\n| transfer/services/vk_anonymous_token.py | Получение и кеширование анонимного токена веб-клиента VK |\n| transfer/services/vk_audio_metadata.py | Извлечение доверенной обложки и нормализация VK audio payload в VKTrack |
 | transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
 | transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
