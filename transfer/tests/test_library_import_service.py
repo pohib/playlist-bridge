@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from django.test import TestCase
 
@@ -12,7 +13,9 @@ from ..services import (
 from ..services.library_imports import (
     import_soundcloud_library,
     import_soundcloud_playlist,
+    import_soundcloud_playlist,
     import_spotify_library,
+    import_spotify_playlist,
     import_spotify_playlist,
     refresh_vk_track_metadata,
     save_soundcloud_playlist,
@@ -44,6 +47,89 @@ class LibraryImportServiceTests(TestCase):
 
     def setUp(self):
         self.profile = LibraryProfile.objects.create(session_fingerprint="f" * 64)
+
+    def test_spotify_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        playlist_id = "A" * 22
+        source_url = f"https://open.spotify.com/playlist/{playlist_id}"
+        client.api.return_value = {"name": "Fetched playlist"}
+        client.get_playlist_items.return_value = [
+            {
+                "item": {
+                    "id": "spotify-track",
+                    "type": "track",
+                    "name": "Track",
+                    "artists": [{"name": "Artist"}],
+                    "duration_ms": 1000,
+                    "external_urls": {"spotify": "https://open.spotify.com/track/" + "B" * 22},
+                }
+            }
+        ]
+
+        playlist, count = import_spotify_playlist(
+            self.profile,
+            client,
+            "access-token",
+            playlist_id,
+            source_url,
+        )
+
+        client.api.assert_called_once_with(
+            "playlist_details",
+            "access-token",
+            playlist_id=playlist_id,
+        )
+        client.get_playlist_items.assert_called_once_with("access-token", playlist_id)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "spotify-track")
+
+    def test_soundcloud_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://soundcloud.com/artist/playlist"
+        client.resolve.return_value = {
+            "kind": "playlist",
+            "id": 77,
+            "title": "Fetched playlist",
+        }
+        client.playlist_tracks.return_value = [
+            {
+                "id": 88,
+                "title": "Track",
+                "duration": 120000,
+                "permalink_url": "https://soundcloud.com/artist/track",
+                "user": {"username": "Artist"},
+            }
+        ]
+
+        playlist, count = import_soundcloud_playlist(
+            self.profile,
+            client,
+            "access-token",
+            source_url,
+        )
+
+        client.resolve.assert_called_once_with("access-token", source_url)
+        client.playlist_tracks.assert_called_once_with("access-token", 77)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "88")
+
+    def test_soundcloud_playlist_workflow_rejects_non_playlist_resources(self):
+        client = Mock()
+        client.resolve.return_value = {"kind": "track"}
+        before = self.profile.playlists.count()
+
+        with self.assertRaises(TransferError):
+            import_soundcloud_playlist(
+                self.profile,
+                client,
+                "access-token",
+                "https://soundcloud.com/artist/track",
+            )
+
+        client.playlist_tracks.assert_not_called()
+        self.assertEqual(self.profile.playlists.count(), before)
 
     def test_spotify_resource_id_accepts_only_expected_resource_links(self):
         resource_id = "A" * 22
