@@ -49,7 +49,12 @@ def get_vk_track_stream(request, track_id):
             api, track.playlist, track.external_id, stream_format
         )
     except VKPlaybackError as exc:
-        response = JsonResponse({"error": str(exc)}, status=exc.status_code)
+        message = (
+            "Неподдерживаемый формат потока."
+            if exc.status_code == 400
+            else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+        )
+        response = JsonResponse({"error": message}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
         return response
     proxy_url = reverse("library_vk_track_audio", kwargs={"track_id": track.pk})
@@ -91,12 +96,16 @@ def stream_vk_track_audio(request, track_id):
     except VKPlaybackError as exc:
         if exc.status_code == 422:
             logger.info(
-                "VK %s stream unavailable for track %s: %s",
+                "VK %s stream unavailable for track %s",
                 stream_format,
                 track.pk,
-                exc,
             )
-        response = JsonResponse({"error": str(exc)}, status=exc.status_code)
+        message = (
+            "Неподдерживаемый формат потока."
+            if exc.status_code == 400
+            else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+        )
+        response = JsonResponse({"error": message}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
         return response
 
