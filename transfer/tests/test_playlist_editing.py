@@ -7,7 +7,7 @@ from django.utils.crypto import get_random_string
 
 from transfer.credentials import get_session_fingerprint
 from transfer.models import LibraryPlaylist, LibraryProfile, LibraryTrack
-from transfer.services.common import parse_vk_track_reference, parse_vk_track_url
+from transfer.services.common import TransferError, parse_vk_track_reference, parse_vk_track_url
 from transfer.services.vk_client import VKClient
 
 
@@ -96,7 +96,7 @@ class VKClientPlaylistMetadataAndPlaybackTests(TestCase):
             "url": "https://attacker.example/audio.mp3",
         }]})
 
-        with self.assertRaisesRegex(Exception, "небезопасный адрес"):
+        with self.assertRaisesRegex(TransferError, "небезопасный адрес"):
             client.get_track_stream("241688629_456241110", "mp3")
 
 class PlaylistEditingWorkflowTests(TestCase):
