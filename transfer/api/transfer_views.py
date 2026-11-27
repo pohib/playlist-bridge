@@ -9,6 +9,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from ..credentials import get_session_fingerprint
+from ..models import TransferJob
 from ..oauth_views import encryption_key_is_valid
 from ..services import parse_vk_playlist_url
 from ..services.api_transfer_service import (
@@ -82,6 +83,6 @@ def api_transfer_report(request, job_id):
     if result is None:
         return api_error("Задача не найдена.", 404)
     job, report = result
-    if job.status != "succeeded":
+    if job.status != TransferJob.Status.SUCCEEDED:
         return api_error("Отчёт появится после завершения переноса.", 409)
     return JsonResponse({"report": report})
