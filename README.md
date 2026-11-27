@@ -180,12 +180,15 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 ## Режимы разработки и production
 
-Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` оставлен production-like стеком для Gunicorn/Nginx и сценария Quick Tunnel. Для повседневной разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию. Dev overlay задаёт отдельное имя Compose-проекта `playlist-bridge-dev`, поэтому PostgreSQL/Redis volumes разработки изолированы от volumes обычного Compose; данные двух режимов не смешиваются.
+Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` — production-like стек для Gunicorn/Nginx. Для разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию. Dev overlay задаёт отдельное имя Compose-проекта `playlist-bridge-dev`, поэтому PostgreSQL/Redis volumes разработки изолированы от volumes обычного Compose; данные двух режимов не смешиваются.
 
-### Development (Windows / Docker Desktop)
+### Development + DEBUG Quick Tunnel (Windows / Docker Desktop)
 
 ```powershell
-# Запуск отдельного dev-режима; .env должен содержать локальные секреты
+# DEBUG=True + autoreload + отдельные dev volumes + временный публичный HTTPS tunnel
+.\\scripts\\start-tunnel.ps1
+
+# Локальный dev-режим без туннеля (если публичный URL не нужен)
 docker compose -f compose.yaml -f compose.dev.yaml up --build
 
 # Django DEBUG / autoreload напрямую
@@ -199,7 +202,7 @@ docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker
 docker compose -f compose.yaml -f compose.dev.yaml down
 ```
 
-Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies только для loopback-разработки. Он не должен использоваться как публичный endpoint или для production-трафика. Redis в обоих режимах сохраняет брокерную очередь через AOF (`appendfsync everysec`) в отдельном Docker volume; `docker compose down` сохраняет этот volume, а `docker compose down -v` удаляет его вместе с PostgreSQL. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
+Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies. Скрипт `start-tunnel.ps1` перед публикацией требует явного ввода `DEBUG`; публичный DEBUG endpoint может раскрывать stack traces и конфигурацию. Используй его только для кратковременной отладки и сразу останавливай после проверки. Для обычной локальной разработки без публичного доступа запускай Compose-команду выше. Redis в обоих режимах сохраняет брокерную очередь через AOF (`appendfsync everysec`) в отдельном Docker volume; `docker compose down` сохраняет этот volume, а `docker compose down -v` удаляет его вместе с PostgreSQL. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
 
 ```powershell
 docker compose -f compose.yaml -f compose.dev.yaml restart worker
@@ -207,7 +210,7 @@ docker compose -f compose.yaml -f compose.dev.yaml restart worker
 
 ### Production-like / HTTPS Quick Tunnel
 
-Обычный `docker compose up -d --build` и `scripts/start-tunnel.ps1` продолжают использовать базовый `compose.yaml`: Gunicorn, Nginx, отдельный Celery worker, PostgreSQL и Redis. Dev overlay в этом режиме не подключается. Скрипт Quick Tunnel по-прежнему обновляет callback URLs и HTTPS-параметры в локальном `.env`.
+Команда `scripts/start-tunnel-dev.ps1` использует только базовый `compose.yaml`: Gunicorn, Nginx, отдельный Celery worker, PostgreSQL и Redis. Dev overlay в этом режиме не подключается. Production-скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false` и использует Gunicorn. Несмотря на название файла `start-tunnel-dev.ps1`, это production-like сценарий, а не debug-сервер.
 
 Для постоянного production-хоста не используйте Quick Tunnel: задайте постоянные HTTPS callback URLs, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SESSION_COOKIE_SECURE=true`, `CSRF_COOKIE_SECURE=true` и `SECURE_SSL_REDIRECT=true`; TLS должен завершаться на доверенном reverse proxy. Не переносите dev-переменные в production secret store.
 
@@ -316,11 +319,11 @@ VK не требует регистрации приложения и отдел
 
 Quick Tunnel не гарантирует постоянный адрес. При новом запуске:
 1. Останови старый cloudflared процесс, если он ещё работает;
-2. Запусти scripts/start-tunnel.ps1 снова;
+2. Запусти scripts/start-tunnel-dev.ps1 снова;
 3. Обнови callback URI в кабинетах Spotify и SoundCloud, если домен изменился;
 4. При изменении Redirect URI переподключите OAuth-аккаунт провайдера.
 
-Не публикуй приложение с Quick Tunnel как постоянный production-сервис: это временный туннель для разработки и проверки OAuth.
+Quick Tunnel не является постоянным production-хостингом. `start-tunnel-dev.ps1` — production-like проверка Gunicorn/HTTPS, а не замена постоянному домену, резервному копированию, мониторингу и управляемой инфраструктуре.
 
 ### Обычные команды Docker Compose
 

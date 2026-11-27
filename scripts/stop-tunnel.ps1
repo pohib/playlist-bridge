@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $composeFile = Join-Path $repoRoot "compose.yaml"
+$devComposeFile = Join-Path $repoRoot "compose.dev.yaml"
 
 function Get-ProjectQuickTunnels {
     @(
@@ -24,6 +25,9 @@ try {
 
     if (-not (Test-Path -LiteralPath $composeFile)) {
         throw "compose.yaml was not found in $repoRoot"
+    }
+    if (-not (Test-Path -LiteralPath $devComposeFile)) {
+        throw "compose.dev.yaml was not found in $repoRoot"
     }
 
     # Stop only Quick Tunnels explicitly targeting this project's local port.
@@ -60,9 +64,13 @@ try {
         throw "Docker CLI was not found. The Cloudflare Tunnel was stopped, but Docker services may still be running."
     }
 
+    docker compose -f compose.yaml -f compose.dev.yaml down --remove-orphans --timeout 20
+    if ($LASTEXITCODE -ne 0) {
+        throw "Development docker compose down failed. Development services may still be running."
+    }
     docker compose down --remove-orphans --timeout 20
     if ($LASTEXITCODE -ne 0) {
-        throw "docker compose down failed. Docker services may still be running."
+        throw "Production-like docker compose down failed. Production-like services may still be running."
     }
 
     Write-Host ""
@@ -77,7 +85,8 @@ try {
     Write-Host ".env: unchanged" -ForegroundColor Green
     Write-Host ""
     Write-Host "Start everything again with:" -ForegroundColor Cyan
-    Write-Host ".\scripts\start-tunnel.ps1" -ForegroundColor White
+    Write-Host "DEBUG:      .\scripts\start-tunnel.ps1" -ForegroundColor White
+    Write-Host "Production: .\scripts\start-tunnel-dev.ps1" -ForegroundColor White
     Write-Host ""
 }
 catch {

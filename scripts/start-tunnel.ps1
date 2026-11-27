@@ -109,6 +109,12 @@ try {
         if (-not $found) { throw "Missing .env parameter $required." }
     }
 
+    Write-Host ""
+    Write-Host "WARNING: this script publishes Django with DEBUG=True through a public Quick Tunnel." -ForegroundColor Yellow
+    Write-Host "Debug pages can expose stack traces and configuration details. Use only for temporary trusted testing."
+    $confirmation = Read-Host "Type DEBUG to continue"
+    if ($confirmation -cne "DEBUG") { throw "Debug tunnel startup cancelled." }
+
     $cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue
     if (-not $cloudflared) {
         throw "cloudflared was not found. Install it with: winget install --id Cloudflare.cloudflared -e"
@@ -118,22 +124,22 @@ try {
     Stop-ProjectQuickTunnels
 
     Write-Host "[1/5] Building and starting containers..."
-    docker compose up -d --build
-    if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
+    docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+    if ($LASTEXITCODE -ne 0) { throw "docker compose -f compose.yaml -f compose.dev.yaml up failed." }
 
     Write-Host "[2/5] Checking local Django health..."
     $healthy = $false
     for ($i = 0; $i -lt 60; $i++) {
-        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"' -ForwardedProtoHttps) {
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
             $healthy = $true
             break
         }
         Start-Sleep -Seconds 2
     }
     if (-not $healthy) {
-        docker compose ps
-        docker compose logs --tail=100 proxy web
-        throw "Django did not return a valid local HTTP 200 health response."
+        docker compose -f compose.yaml -f compose.dev.yaml ps
+        docker compose -f compose.yaml -f compose.dev.yaml logs --tail=100 proxy web
+        throw "Development Django did not return a valid local HTTP 200 health response."
     }
     Write-Host "Local Django health check passed." -ForegroundColor Green
 
@@ -165,10 +171,10 @@ try {
     $origin = $publicUrl.TrimEnd("/")
     $settings = [ordered]@{
         "DJANGO_ALLOWED_HOSTS" = "$hostName,127.0.0.1,localhost,web"
-        "DJANGO_CSRF_TRUSTED_ORIGINS" = $origin
-        "SESSION_COOKIE_SECURE" = "true"
-        "CSRF_COOKIE_SECURE" = "true"
-        "SECURE_SSL_REDIRECT" = "true"
+        "DJANGO_CSRF_TRUSTED_ORIGINS" = "$origin,http://127.0.0.1:8002,http://localhost:8002,http://127.0.0.1:8000,http://localhost:8000"
+        "SESSION_COOKIE_SECURE" = "false"
+        "CSRF_COOKIE_SECURE" = "false"
+        "SECURE_SSL_REDIRECT" = "false"
         "SPOTIFY_REDIRECT_URI" = "$origin/spotify/callback/"
         "SOUNDCLOUD_REDIRECT_URI" = "$origin/soundcloud/callback/"
     }
@@ -188,13 +194,13 @@ try {
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
     Write-Host "[4/5] Recreating web and worker with HTTPS settings..."
-    docker compose up -d --force-recreate web worker
+    docker compose -f compose.yaml -f compose.dev.yaml up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) { throw "Could not restart web and worker." }
 
     # web receives a new container IP on recreation. Recreate Nginx after it so
     # the proxy starts with the current upstream; runtime DNS also handles later changes.
     Write-Host "Refreshing Nginx upstream after the Django restart..."
-    docker compose up -d --force-recreate proxy
+    docker compose -f compose.yaml -f compose.dev.yaml up -d --force-recreate proxy
     if ($LASTEXITCODE -ne 0) { throw "Could not restart the Nginx proxy." }
 
     $healthy = $false
@@ -203,15 +209,15 @@ try {
         if ($tunnel.HasExited) {
             throw ("cloudflared stopped while the application was restarting. Exit code: " + $tunnel.ExitCode + ". Log: " + $tunnelLogPath + [Environment]::NewLine + (Read-SharedLog -Path $tunnelLogPath))
         }
-        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"' -ForwardedProtoHttps) {
+        if (Test-HttpEndpoint -Url "http://127.0.0.1:8000/healthz/" -ExpectedStatus 200 -ExpectedBodyPattern '"status"\s*:\s*"ok"') {
             $healthy = $true
             break
         }
         Start-Sleep -Seconds 2
     }
     if (-not $healthy) {
-        docker compose logs --tail=100 proxy web
-        throw "Local Django health check failed after applying HTTPS settings."
+        docker compose -f compose.yaml -f compose.dev.yaml logs --tail=100 proxy web
+        throw "Development Django health check failed after applying public callback settings."
     }
 
     Write-Host "[5/5] Verifying the public HTTPS endpoint..."
@@ -228,21 +234,21 @@ try {
         Start-Sleep -Seconds 2
     }
     if (-not $publicHealthy) {
-        docker compose logs --tail=100 proxy web
+        docker compose -f compose.yaml -f compose.dev.yaml logs --tail=100 proxy web
         throw ("The public HTTPS health check did not return HTTP 200. URL: $origin. Check Cloudflare connectivity and Django logs.")
     }
 
     if (-not (Test-HttpEndpoint -Url "$origin/" -ExpectedStatus 200)) {
-        docker compose logs --tail=100 proxy web
-        throw "The public health endpoint works, but the homepage did not return HTTP 200."
+        docker compose -f compose.yaml -f compose.dev.yaml logs --tail=100 proxy web
+        throw "The public health endpoint works, but the DEBUG homepage did not return HTTP 200."
     }
 
     Write-Host ""
-    Write-Host "Application is available: $origin" -ForegroundColor Green
+    Write-Host "DEBUG application is available: $origin" -ForegroundColor Green
     Write-Host "Spotify callback: $origin/spotify/callback/"
     Write-Host "SoundCloud callback: $origin/soundcloud/callback/"
     Write-Host "Tunnel PID: $($tunnel.Id)"
-    Write-Host "Keep this tunnel process running while using the application."
+    Write-Host "Django DEBUG=True is exposed publicly. Stop the tunnel immediately after testing."
     Write-Host "Stop this project's tunnel with: Stop-Process -Id $($tunnel.Id) -Force"
     Write-Host "Quick Tunnel URL may change after restart."
 }
