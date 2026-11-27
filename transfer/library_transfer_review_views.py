@@ -1,7 +1,7 @@
 """Review and finalize track matches for cross-provider library transfers."""
 
 from django.contrib import messages
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from .library_support import (
@@ -10,7 +10,6 @@ from .library_support import (
     _soundcloud_access,
     _spotify_access,
 )
-from .models import LibraryTransfer, LibraryTransferItem
 from .services import TransferError
 from .services.library_transfer_review import (
     select_transfer_candidate as apply_transfer_candidate,
@@ -19,12 +18,20 @@ from .services.library_transfer_review import (
     skip_transfer_item as skip_pending_transfer_item,
 )
 from .services.library_transfer_review_search import search_pending_transfer_item
+from .services.library_transfer_review_queries import (
+    get_transfer_candidate_url,
+    get_transfer_review_page,
+    get_transfer_target_url,
+)
 
 
 @require_GET
 def open_transfer_target(request, transfer_id):
-    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
-    target_url = _safe_candidate_url(review.target_url, review.target_provider)
+    review, target_url = get_transfer_target_url(
+        profile=_profile(request),
+        transfer_id=transfer_id,
+        safe_candidate_url=_safe_candidate_url,
+    )
     if not target_url:
         messages.error(request, "Ссылка на целевой плейлист недоступна.")
         return redirect("transfer_review", transfer_id=review.pk)
@@ -33,15 +40,12 @@ def open_transfer_target(request, transfer_id):
 
 @require_GET
 def open_transfer_candidate(request, transfer_id, item_id, candidate_id):
-    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
-    item = get_object_or_404(LibraryTransferItem, pk=item_id, transfer=review)
-    candidate = next(
-        (entry for entry in item.candidates if entry.get("id") == candidate_id),
-        None,
-    )
-    candidate_url = _safe_candidate_url(
-        candidate.get("url") if candidate else "",
-        review.target_provider,
+    review, candidate_url = get_transfer_candidate_url(
+        profile=_profile(request),
+        transfer_id=transfer_id,
+        item_id=item_id,
+        candidate_id=candidate_id,
+        safe_candidate_url=_safe_candidate_url,
     )
     if not candidate_url:
         messages.error(request, "Ссылка на вариант недоступна.")
@@ -51,21 +55,15 @@ def open_transfer_candidate(request, transfer_id, item_id, candidate_id):
 
 @require_GET
 def transfer_review(request, transfer_id):
-    review = get_object_or_404(
-        LibraryTransfer.objects.prefetch_related("items__source_track"),
-        pk=transfer_id,
+    review, items, first_pending_id = get_transfer_review_page(
         profile=_profile(request),
+        transfer_id=transfer_id,
     )
-    pending = list(
-        review.items.filter(status=LibraryTransferItem.Status.PENDING).order_by("position")
-    )
-    first_pending_id = pending[0].pk if pending else None
     return render(request, "transfer/transfer_review.html", {
         "transfer": review,
-        "items": review.items.select_related("source_track").all(),
+        "items": items,
         "first_pending_id": first_pending_id,
     })
-
 
 @require_POST
 def search_transfer_item(request, transfer_id, item_id):
