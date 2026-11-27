@@ -76,7 +76,7 @@ View-слой библиотеки разделён на специализир�
 | transfer/api/status_views.py | Provider connection/configuration status endpoint |
 | transfer/api/docs_views.py | OpenAPI schema, public API guide и JSON 404 fallback |
 | transfer/api/serializers.py + common.py | Стабильный JSON job serializer и общий error envelope |
-| transfer/services/api_transfer_service.py | Создание/повторное использование активной TransferJob, race handling и Celery dispatch |
+| transfer/services/api_transfer_service.py | Проверка Spotify credential и session ownership, чтение TransferJob/report, race-safe создание и Celery dispatch |
 | transfer/api_views.py | Compatibility facade; URL callbacks используют специализированные API modules |
 | transfer/tasks.py | Celery job claim/progress/result для прямого VK → Spotify workflow |
 | transfer/library_views.py | Compatibility facade; новые маршруты используют специализированные модули напрямую |
