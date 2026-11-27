@@ -1726,3 +1726,6 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
   .track-edit form { grid-template-columns:1fr 1fr; }
   .track-edit input:first-of-type { grid-column:1 / -1; }
 }
+/* Keep the missing-cover glyph centered independently of inherited span rules. */
+.library-card-shell .library-art:not(.library-art-image){display:grid;place-items:center;text-align:center}
+.library-card-shell .library-art:not(.library-art-image)>span{position:static;display:block;margin:0;line-height:1;transform:none}
