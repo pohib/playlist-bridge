@@ -6,7 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .services import SpotifyClient, TransferError, execute_transfer
-from .credentials import get_access_token
+from .services.credential_service import get_access_token
 from .models import TransferJob
 
 logger = logging.getLogger(__name__)
