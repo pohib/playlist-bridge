@@ -6,6 +6,7 @@ import time
 
 from django.shortcuts import redirect
 
+from ..credentials import get_session_fingerprint
 from ..services import TransferError
 from .shared import provider_redirect
 
@@ -45,8 +46,7 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
         profile = client.current_user(token["access_token"])
         rotate_session_binding(request)
         store_credential(
-            __import__("transfer.credentials", fromlist=["get_session_fingerprint"])
-            .get_session_fingerprint(request),
+            get_session_fingerprint(request),
             "spotify",
             token,
             profile.get("id", ""),
@@ -61,8 +61,6 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
 
 
 def disconnect(request, *, delete_credential):
-    from ..credentials import get_session_fingerprint
-
     delete_credential(get_session_fingerprint(request), "spotify")
     request.session["oauth_success"] = "Spotify отключён."
     return redirect(provider_redirect(request))
