@@ -1726,6 +1726,7 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
   .track-edit form { grid-template-columns:1fr 1fr; }
   .track-edit input:first-of-type { grid-column:1 / -1; }
 }
-/* Keep the missing-cover glyph centered independently of inherited span rules. */
-.library-card-shell .library-art:not(.library-art-image){display:grid;place-items:center;text-align:center}
-.library-card-shell .library-art:not(.library-art-image)>span{position:static;display:block;margin:0;line-height:1;transform:none}
+/* Keep missing-cover glyphs centered even when global span rules position them. */
+.library-card-shell .library-art:not(.library-art-image){display:grid;place-items:center;text-align:center;line-height:1}
+.library-card-shell .library-art:not(.library-art-image)>span{position:static!important;inset:auto!important;display:block;margin:0;line-height:1;transform:none!important}
+.global-player-track .player-placeholder{display:grid;place-items:center;align-self:center;position:static;inset:auto;width:58px;height:58px;flex:0 0 58px;margin:0;padding:0;text-align:center;line-height:1;transform:none}
