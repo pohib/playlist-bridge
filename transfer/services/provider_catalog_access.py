@@ -32,8 +32,9 @@ def get_catalog_access(provider):
 
     if not client_id or not client_secret:
         raise TransferError(
-            f"Публичный поиск {provider} не настроен на сервере. "
-            "Пользовательское подключение не требуется."
+            ("Публичный поиск Spotify не настроен на сервере. Пользовательское подключение не требуется."
+             if provider == "spotify" else
+             "Публичный поиск SoundCloud не настроен на сервере. Пользовательское подключение не требуется.")
         )
 
     credential_fingerprint = sha256(
@@ -66,7 +67,7 @@ def get_catalog_access(provider):
 
     access_token = token_data.get("access_token") if isinstance(token_data, dict) else None
     if not isinstance(access_token, str) or not access_token:
-        raise TransferError(f"{provider} не выдал токен публичного поиска.")
+        raise TransferError("Не удалось получить доступ к публичному каталогу музыкального сервиса.")
 
     try:
         expires_in = int(token_data.get("expires_in", 3600))

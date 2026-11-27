@@ -133,4 +133,10 @@ def console_audit(request):
     page = Paginator(
         AdminAuditEvent.objects.select_related("actor"), 50
     ).get_page(request.GET.get("page"))
+    action_labels = {
+        "user.activated": "Пользователь активирован",
+        "user.deactivated": "Пользователь отключён",
+    }
+    for event in page.object_list:
+        event.action_label = action_labels.get(event.action, "Системное действие")
     return render(request, "transfer/admin_console/audit.html", {"page": page})

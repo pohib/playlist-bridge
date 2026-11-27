@@ -57,7 +57,7 @@ class SpotifyClient:
     def client_credentials_token(self):
         """Obtain an app-scoped token for public catalog search only."""
         if not self.client_id or not self.client_secret:
-            raise TransferError("Spotify catalog search is not configured.")
+            raise TransferError("Публичный поиск Spotify не настроен на сервере.")
         return self.token_request({"grant_type": "client_credentials"})
 
     @staticmethod
