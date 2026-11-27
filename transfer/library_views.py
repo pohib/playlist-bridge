@@ -15,9 +15,9 @@ from .library_management_views import (
     update_profile,  # noqa: F401
     upload_local_track,  # noqa: F401
 )
-from .library_playback_views import (
+from .library_local_playback_views import stream_local_track  # noqa: F401
+from .library_vk_playback_views import (
     get_vk_track_stream,  # noqa: F401
-    stream_local_track,  # noqa: F401
     stream_vk_track_audio,  # noqa: F401
 )
 from .library_provider_upload_views import (
