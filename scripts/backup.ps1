@@ -55,12 +55,12 @@ try {
 
     $running = @(Invoke-Compose -Arguments @("ps", "--status", "running", "--services") |
         ForEach-Object { "$_".Trim() } |
-        Where-Object { $_ -in @("web", "worker") })
+        Where-Object { $_ -in @("web", "worker", "celery-beat") })
     $servicesToRestart = @($running)
 
     if ($servicesToRestart.Count -gt 0) {
-        Write-Host "Pausing web/worker for a consistent database + media snapshot (Celery receives a graceful stop)..."
-        Invoke-Compose -Arguments @("stop", "--timeout", "180", "web", "worker") | Out-Null
+        Write-Host "Pausing web/worker/beat for a consistent database + media snapshot..."
+        Invoke-Compose -Arguments @("stop", "--timeout", "180", "web", "worker", "celery-beat") | Out-Null
     }
 
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"

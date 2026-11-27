@@ -98,10 +98,10 @@ try {
 
     $running = @(Invoke-Compose -Arguments @("ps", "--status", "running", "--services") |
         ForEach-Object { "$_".Trim() } |
-        Where-Object { $_ -in @("web", "worker") })
+        Where-Object { $_ -in @("web", "worker", "celery-beat") })
     $servicesToRestart = @($running)
     if ($servicesToRestart.Count -gt 0) {
-        Invoke-Compose -Arguments @("stop", "--timeout", "180", "web", "worker") | Out-Null
+        Invoke-Compose -Arguments @("stop", "--timeout", "180", "web", "worker", "celery-beat") | Out-Null
     }
 
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss-fff"

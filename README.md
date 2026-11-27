@@ -200,7 +200,7 @@ Start-Process http://127.0.0.1:8002/
 Start-Process http://127.0.0.1:8000/
 
 # Логи и остановка (данные PostgreSQL сохраняются)
-docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker
+docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker celery-beat
 docker compose -f compose.yaml -f compose.dev.yaml down
 ```
 
@@ -231,7 +231,7 @@ Backup включает:
 - всё содержимое `media/` в `media.tar.gz`;
 - `manifest.json` с датой, размерами и SHA-256 обоих архивов.
 
-Для согласованного снимка backup временно останавливает `web` и `worker` (Celery получает graceful stop), затем запускает те сервисы, которые работали до операции. PostgreSQL остаётся запущенным. Во время операции сайт может быть недоступен. Восстановление требует явного ввода `RESTORE`, проверяет SHA-256 и безопасные пути в media-архиве, автоматически создаёт резервную копию текущего состояния и только затем заменяет базу и media. Предыдущий каталог `media` сохраняется как `media.before-restore-<timestamp>`.
+Для согласованного снимка backup временно останавливает `web`, `worker` и `celery-beat`, затем запускает те сервисы, которые работали до операции. PostgreSQL остаётся запущенным. Во время операции сайт может быть недоступен. Восстановление требует явного ввода `RESTORE`, проверяет SHA-256 и безопасные пути в media-архиве, автоматически создаёт резервную копию текущего состояния и только затем заменяет базу и media. Предыдущий каталог `media` сохраняется как `media.before-restore-<timestamp>`.
 
 Каталог `backups/` исключён из Git, но локальный диск компьютера не является надёжным off-site backup. Для реального production указывай внешний зашифрованный диск или защищённое удалённое хранилище и проверяй возможность восстановления регулярно. Архивы скрипта не шифруются.
 
@@ -342,7 +342,7 @@ VK не требует регистрации приложения и отдел
 
 Логи приложения и фонового worker:
 
-    docker compose logs -f web worker celery-beat
+    docker compose logs -f web worker celery-beat celery-beat
 
 Подключите Spotify. VK подключать не требуется: для проверки импорта достаточно ссылки на публичный плейлист VK. Для добавления треков в существующий Spotify playlist используйте ссылку на плейлист, принадлежащий подключённому аккаунту.
 
@@ -364,7 +364,7 @@ Quick Tunnel не является постоянным production-хостин�
 
 Посмотреть логи:
 
-    docker compose logs -f web worker
+    docker compose logs -f web worker celery-beat
 
 Выполнить Django checks:
 
@@ -421,7 +421,7 @@ pytest -q transfer/tests/test_fuzzing.py
 
 # Контейнеры / приложение / логи
 docker compose ps
-docker compose logs -f web worker
+docker compose logs -f web worker celery-beat
 docker compose exec web python manage.py check
 
 # Запуск production-like HTTPS Quick Tunnel (DEBUG=False)
