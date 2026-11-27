@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("transfer", "0013_transferjob_dispatch_state"),
+        ("transfer", "0014_transferjob_checkpoint"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
