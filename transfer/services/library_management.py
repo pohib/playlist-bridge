@@ -13,7 +13,7 @@ from .library_playlist_management import (
     merge_playlists,
 )
 from .library_profile_management import update_profile
-from .library_track_management import add_track, delete_track
+from .library_track_management import add_track, append_provider_track, delete_track
 from .library_upload_management import (
     _audio_signature_matches,
     upload_local_track,
@@ -24,7 +24,7 @@ __all__ = [
     "_audio_signature_matches",
     "_normalized_track_key",
     "_safe_optional_url",
-    "add_track",
+    "add_track",\n    "append_provider_track",
     "create_playlist",
     "delete_playlist",
     "delete_track",
