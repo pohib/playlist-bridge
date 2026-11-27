@@ -2,7 +2,12 @@
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .credentials import delete_credential, get_access_token, get_session_fingerprint, store_credential
+from .credentials import (
+    delete_credential,
+    get_access_token,
+    get_session_fingerprint as get_session_fingerprint,
+    store_credential,
+)
 from .oauth import clients, shared, soundcloud, spotify
 
 # Preserve the historical public import surface.
