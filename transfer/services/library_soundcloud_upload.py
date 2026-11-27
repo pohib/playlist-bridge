@@ -6,8 +6,8 @@ from django.db import transaction
 
 from ..models import LibraryPlaylist, LibraryTrack
 from .audio_file_validation import (
-    SOUNDCLOUD_AUDIO_EXTENSIONS,
     has_audio_file_signature,
+    SOUNDCLOUD_AUDIO_EXTENSIONS,
 )
 from .common import TransferError
 
