@@ -4,6 +4,7 @@ Concrete handlers live in focused modules; keep these re-exports so existing
 URL names and third-party imports remain stable.
 """
 
+from .library_local_playback_views import stream_local_track  # noqa: F401
 from .library_management_views import (
     _normalized_track_key,  # noqa: F401
     _safe_optional_url,  # noqa: F401
@@ -14,11 +15,6 @@ from .library_management_views import (
     merge_playlists,  # noqa: F401
     update_profile,  # noqa: F401
     upload_local_track,  # noqa: F401
-)
-from .library_local_playback_views import stream_local_track  # noqa: F401
-from .library_vk_playback_views import (
-    get_vk_track_stream,  # noqa: F401
-    stream_vk_track_audio,  # noqa: F401
 )
 from .library_provider_upload_views import (
     _has_audio_file_signature,  # noqa: F401
@@ -62,4 +58,8 @@ from .library_vk_import_views import (
     import_vk_playlist,  # noqa: F401
     import_vk_track,  # noqa: F401
     refresh_vk_artwork,  # noqa: F401
+)
+from .library_vk_playback_views import (
+    get_vk_track_stream,  # noqa: F401
+    stream_vk_track_audio,  # noqa: F401
 )
