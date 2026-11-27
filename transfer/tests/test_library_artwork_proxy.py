@@ -51,9 +51,8 @@ class ProviderArtworkFetchTests(SimpleTestCase):
         with patch(
             "transfer.services.library_artwork_proxy.requests.get",
             return_value=upstream,
-        ) as request:
-            with self.assertRaises(ArtworkProxyError) as error:
-                fetch_provider_artwork("https://vk.ru/cover.png")
+        ) as request, self.assertRaises(ArtworkProxyError) as error:
+            fetch_provider_artwork("https://vk.ru/cover.png")
 
         self.assertEqual(error.exception.status_code, 400)
         upstream.close.assert_called_once()
@@ -65,9 +64,8 @@ class ProviderArtworkFetchTests(SimpleTestCase):
         with patch(
             "transfer.services.library_artwork_proxy.requests.get",
             return_value=upstream,
-        ):
-            with self.assertRaisesRegex(ArtworkProxyError, "not a supported image"):
-                fetch_provider_artwork("https://vk.ru/cover.png")
+        ), self.assertRaisesRegex(ArtworkProxyError, "not a supported image"):
+            fetch_provider_artwork("https://vk.ru/cover.png")
         upstream.close.assert_called_once()
 
     def test_rejects_oversized_content_length_before_reading(self):
@@ -78,9 +76,8 @@ class ProviderArtworkFetchTests(SimpleTestCase):
         with patch(
             "transfer.services.library_artwork_proxy.requests.get",
             return_value=upstream,
-        ):
-            with self.assertRaisesRegex(ArtworkProxyError, "too large"):
-                fetch_provider_artwork("https://vk.ru/cover.png")
+        ), self.assertRaisesRegex(ArtworkProxyError, "too large"):
+            fetch_provider_artwork("https://vk.ru/cover.png")
         upstream.close.assert_called_once()
         upstream.iter_content.assert_not_called()
 
@@ -88,6 +85,5 @@ class ProviderArtworkFetchTests(SimpleTestCase):
         with patch(
             "transfer.services.library_artwork_proxy.requests.get",
             side_effect=requests.RequestException("private upstream detail"),
-        ):
-            with self.assertRaisesRegex(ArtworkProxyError, "temporarily unavailable"):
-                fetch_provider_artwork("https://vk.ru/cover.png")
+        ), self.assertRaisesRegex(ArtworkProxyError, "temporarily unavailable"):
+            fetch_provider_artwork("https://vk.ru/cover.png")
