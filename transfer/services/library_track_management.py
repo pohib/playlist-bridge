@@ -89,5 +89,24 @@ def append_provider_track(
     return track
 
 
+
+def update_track(track, *, title, artist, album=""):
+    title = (title or "").strip()
+    artist = (artist or "").strip()
+    album = (album or "").strip()
+    if (
+        not title or not artist or len(title) > 180
+        or len(artist) > 180 or len(album) > 180
+    ):
+        raise LibraryManagementError(
+            "Название и исполнитель обязательны (до 180 символов)."
+        )
+    track.title = title
+    track.artist = artist
+    track.album = album
+    track.save(update_fields=["title", "artist", "album"])
+    return track
+
+
 def delete_track(track):
     track.delete()
