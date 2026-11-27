@@ -126,3 +126,18 @@ def import_soundcloud_library(profile, client, token, *, limit=30):
             imported += 1
             track_count += len(tracks)
     return imported, track_count
+
+
+
+def import_soundcloud_playlist(profile, client, token, source_url):
+    """Resolve and persist one SoundCloud playlist."""
+    resource = client.resolve(token, source_url)
+    if resource.get("kind") != "playlist" and "tracks" not in resource:
+        raise TransferError("Ссылка ведёт не на плейлист SoundCloud.")
+    resource_id = resource.get("id")
+    tracks = (
+        client.playlist_tracks(token, resource_id)
+        if resource_id
+        else resource.get("tracks", [])
+    )
+    return save_soundcloud_playlist(profile, resource, tracks, source_url)
