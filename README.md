@@ -30,7 +30,8 @@ View-слой библиотеки вынесен из прежнего обще
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
 - transfer/library_import_views.py — compatibility facade импорта;
 - transfer/library_vk_import_views.py — импорт VK-плейлистов/треков и обновление обложек;
-- transfer/library_spotify_import_views.py — импорт Spotify-плейлистов, треков и библиотеки;\n- transfer/library_soundcloud_import_views.py — импорт SoundCloud-плейлистов, треков и библиотеки;
+- transfer/library_spotify_import_views.py — импорт Spotify-плейлистов, треков и библиотеки;
+- transfer/library_soundcloud_import_views.py — импорт SoundCloud-плейлистов, треков и библиотеки;
 - transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
 - transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
 - transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
@@ -66,7 +67,9 @@ View-слой библиотеки вынесен из прежнего обще
 | transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
 | transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
-| transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |\n| transfer/services/library_transfer_matching.py | Поиск и ранжирование Spotify/SoundCloud кандидатов для переноса библиотечных плейлистов; разделяет автоматические совпадения и кандидатов ручной проверки |\n| transfer/services/library_presentation.py | Подготовка обложек и playback payload для страниц библиотеки |
+| transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
+| transfer/services/library_transfer_matching.py | Поиск и ранжирование Spotify/SoundCloud кандидатов для переноса библиотечных плейлистов; разделяет автоматические совпадения и кандидатов ручной проверки |
+| transfer/services/library_presentation.py | Подготовка обложек и playback payload для страниц библиотеки |
 | transfer/api/transfer_views.py | HTTP validation, session ownership и JSON endpoints для TransferJob |
 | transfer/api/status_views.py | Provider connection/configuration status endpoint |
 | transfer/api/docs_views.py | OpenAPI schema, public API guide и JSON 404 fallback |
@@ -365,7 +368,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 | transfer/tests/test_provider_clients.py | HTTP/API contracts провайдеров, pagination, redirects, ID validation, upload |
 | transfer/tests/test_service_orchestration.py | Прямой VK → Spotify orchestration и matching decisions |
 | transfer/tests/test_playback.py | Playback endpoints, local audio, cover proxy и VK stream behavior |
-| transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |\n| transfer/tests/test_library_transfer_matching.py | Пороговые решения и формат кандидатов Spotify/SoundCloud для ручного сопоставления |
+| transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
+| transfer/tests/test_library_transfer_matching.py | Пороговые решения и формат кандидатов Spotify/SoundCloud для ручного сопоставления |
 | transfer/tests/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
 | transfer/tests/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
 | transfer/tests/test_profile_and_api_docs.py | Профиль, сервисы, API docs и статические UI-регрессии плеера |
