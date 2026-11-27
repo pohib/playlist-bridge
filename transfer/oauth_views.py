@@ -2,14 +2,13 @@
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .credentials import delete_credential, get_access_token, store_credential
+from .credentials import delete_credential, get_access_token, get_session_fingerprint, store_credential
 from .oauth import clients, shared, soundcloud, spotify
 
 # Preserve the historical public import surface.
 encryption_key_is_valid = shared.encryption_key_is_valid
 rotate_session_binding = shared.rotate_session_binding
 connected_providers = shared.connected_providers
-get_session_fingerprint = __import__("transfer.credentials", fromlist=["get_session_fingerprint"]).get_session_fingerprint
 spotify_client = clients.spotify_client
 soundcloud_client = clients.soundcloud_client
 
