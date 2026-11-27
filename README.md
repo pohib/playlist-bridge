@@ -62,13 +62,13 @@ Django-приложение для сбора плейлистов и треко
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
 | transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
 | transfer/api_views.py + transfer/tasks.py | API → очередь Celery → job claim/progress/result |
-| transfer/library_views.py | Основной пока неразделённый library workflow; извлекать use cases постепенно |
+| transfer/library_views.py | Compatibility facade; новые маршруты используют специализированные модули напрямую |
 | transfer/site_views.py | Page rendering, ownership-filtered querysets, playback payload, artwork proxy |
 
 ### Основные бизнес-процессы
 
-1. **Импорт в библиотеку.** HTTP handler в library_views.py валидирует ссылку, получает credentials через credentials.py, вызывает соответствующий provider client и сохраняет локальную копию метаданных в LibraryPlaylist/LibraryTrack. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
-2. **Перенос библиотечного плейлиста.** transfer_library_playlist ищет совпадения в Spotify или SoundCloud, создаёт целевой плейлист из найденных треков, сохраняет локальное зеркало и создаёт LibraryTransfer/LibraryTransferItem. Ненайденные и неоднозначные элементы остаются в review.
+1. **Импорт в библиотеку.** HTTP handlers в library_import_views.py валидируют ссылку, получают credentials через credentials.py, вызывают provider clients и сохраняют локальную копию метаданных в LibraryPlaylist/LibraryTrack. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
+2. **Перенос библиотечного плейлиста.** Handler в library_transfer_views.py ищет совпадения в Spotify или SoundCloud, создаёт целевой плейлист из найденных треков, сохраняет локальное зеркало и создаёт LibraryTransfer/LibraryTransferItem. Ненайденные и неоднозначные элементы остаются в review.
 3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
 4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer создаёт TransferJob и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
 5. **Плеер.** site_views.py формирует playback payload, app.js управляет очередью и воспроизведением. Локальные аудиофайлы и VK воспроизводятся через HTMLAudioElement; Spotify и SoundCloud — через их embed iframe. Плеер не получает аудио Spotify/SoundCloud напрямую.
@@ -76,7 +76,7 @@ Django-приложение для сбора плейлистов и треко
 ### Важные правила изменения архитектуры
 
 - Сохраняйте Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
-- При выносе кода из library_views.py сначала зафиксируйте существующий контракт тестами, затем извлекай один use case. Не переписывай весь модуль за один раз.
+- При добавлении новых library endpoints подключайте специализированные view-модули напрямую в transfer/urls.py. Не возвращайте обработчики в compatibility facade library_views.py; бизнес-логику при необходимости выносите в transfer/services/ после фиксации контрактов тестами.
 - Не удаляйте compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
 - Внешние API в тестах только mock-ать. Не использовать реальные OAuth tokens и не вызывать live VK/Spotify/SoundCloud из CI.
 - Не менять URL names, JSON contract, ownership filtering и очередность ручного review без явной причины и регрессионных тестов.
@@ -361,7 +361,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### Границы покрытия и незакрытые зоны
 
 - Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
-- Последний завершившийся tests job на commit `203fe643e2e70e1e128cbb86dc2ddcb9aeeae5e8`: **163 passed**, **76.34%** combined statement/branch coverage для `transfer`; `transfer/library_views.py` — **78.3%**. Это результат тестового job; итог всего CI run нужно проверять отдельно.
+- Последний подтверждённый успешный tests job на commit `8ab7b24689e590726fe51a0915cc46faf11055b6`: **176 passed**, **26 subtests passed**, **76.46%** coverage для `transfer`. Это результат тестового job; после изменений Caddy и URL routing требуется дождаться нового полного CI.
 - Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
 - Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
 - OWASP ZAP baseline DAST не авторизуется и не проверяет всю библиотеку/плеер за логином.
@@ -427,13 +427,13 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
 - Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
 - Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
-- Docker Compose для web, worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
+- Docker Compose для Caddy reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
 - CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
-- Последний тестовый job: 163 passed; покрытие Python-пакета transfer — 76.34%, library_views.py — 78.3%.
+- Последний подтверждённый тестовый job: 176 passed, 26 subtests passed; coverage пакета transfer — 76.46%.
 
 ### Ближайшие задачи
 
-- Продолжить извлечение use cases из transfer/library_views.py в сервисный слой, не меняя поведение и публичные контракты.
+- Провести аудит оставшихся view-модулей и сервисного слоя на циклические импорты и лишнюю связанность; не дробить уже специализированные модули без практической причины.
 - Ввести единый интерфейс провайдера там, где это уменьшит связанность; не создавать абстракции ради абстракций.
 - Улучшить matching: пороги уверенности, неоднозначные совпадения, версии/ремастеры/featuring и причины отклонения кандидатов.
 - Усилить отчёт переноса: объяснение ошибок и пропусков, экспорт CSV; JSON report уже доступен через API прямого переноса.
@@ -442,7 +442,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.
 - Добавить browser-based E2E для плеера: реальное воспроизведение, очередь, навигация, адаптивность и анимации. Текущий Python coverage не измеряет JS/CSS/templates.
 - Добавить нагрузочные тесты, резервное копирование PostgreSQL и проверку восстановления.
-- Подготовить постоянный production-домен, reverse proxy, отдельные окружения и управляемые секреты.
+- Подготовить постоянный production-домен, TLS-конфигурацию для Caddy/Cloudflare, отдельные окружения и управляемые секреты.
 - Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.
 
