@@ -1,5 +1,7 @@
 """VK-specific playback HTTP endpoints."""
 
+# ruff: noqa: I001 -- keep the service-module imports together for explicit aliases.
+
 import json
 import logging
 
