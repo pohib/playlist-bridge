@@ -37,8 +37,8 @@ def import_vk_playlist(request):
         logger.exception("Unexpected error during VK public playlist import")
         messages.error(request, "Не удалось импортировать плейлист VK. Подробности записаны в журнал.")
         return redirect("library")
-    logger.info("VK public playlist import completed playlist_id=%s track_count=%s", playlist.pk, len(tracks))
-    messages.success(request, f"Импортировано «{playlist.title}»: {len(tracks)} композиций.")
+    logger.info("VK public playlist import completed playlist_id=%s track_count=%s", playlist.pk, track_count)
+    messages.success(request, f"Импортировано «{playlist.title}»: {track_count} композиций.")
     return redirect("library")
 
 @require_POST
