@@ -32,18 +32,17 @@ View-слой библиотеки разделён на специализир�
 - transfer/library_import_views.py — compatibility facade импорта;
 - transfer/library_vk_import_views.py — HTTP-обработчики импорта VK и обновления обложек; сохранение и синхронизация метаданных вынесены в `services/library_import_vk.py`;
 - transfer/library_spotify_import_views.py и transfer/library_soundcloud_import_views.py — HTTP-обработчики импорта плейлистов, треков и библиотек соответствующих провайдеров;
-
 - transfer/library_playlist_management_views.py, transfer/library_track_management_views.py и transfer/library_profile_management_views.py — CRUD плейлистов/треков, локальная загрузка и обновление профиля; transfer/library_management_views.py — compatibility facade;
 - transfer/library_local_playback_views.py и transfer/library_vk_playback_views.py — локальное воспроизведение с HTTP Range и VK streaming proxy; transfer/library_playback_views.py — compatibility facade;
 - transfer/library_provider_upload_views.py — HTTP endpoint загрузки в SoundCloud; валидация, вызов провайдера и сохранение локальной копии делегируются `services/library_soundcloud_upload.py`;
-- transfer/library_search_views.py — поиск источников для плейлистов и треков;
+- transfer/library_search_views.py — безопасное открытие ссылок провайдеров и поиск альтернативных источников для треков;
 - transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
 - transfer/library_transfer_views.py — compatibility facade переноса; специализированные обработчики находятся в transfer/library_transfer_create_views.py и transfer/library_transfer_review_views.py;
 - transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;
 - transfer/library_transfer_review_views.py — HTTP-обработчики ручного поиска, выбора и пропуска совпадений при переносе; нормализация ответов провайдеров вынесена в `services/library_transfer_search.py`;
 - transfer/library_support.py — compatibility facade общих функций доступа к профилю, токенам и безопасным ссылкам;
 - nginx/default.conf — конфигурация локального reverse proxy;
-- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, `library_imports.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
+- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, `library_imports.py`, `library_soundcloud_upload.py`, `audio_file_validation.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
 - transfer/models.py и transfer/core.py — compatibility facades; сохраняйте их, пока не проверены все старые импорты;
