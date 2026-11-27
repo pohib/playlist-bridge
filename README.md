@@ -188,11 +188,11 @@ Django и приложение пишут логи в stdout и в `reports/appl
 # Запуск отдельного dev-режима; .env должен содержать локальные секреты
 docker compose -f compose.yaml -f compose.dev.yaml up --build
 
-# Открыть приложение напрямую с Django DEBUG
-Start-Process http://127.0.0.1:8000/
+# Django DEBUG / autoreload напрямую
+Start-Process http://127.0.0.1:8002/
 
-# Nginx reverse proxy для проверки локально
-Start-Process http://127.0.0.1:8001/
+# Проверка Nginx reverse proxy
+Start-Process http://127.0.0.1:8000/
 
 # Логи и остановка (данные PostgreSQL сохраняются)
 docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker
