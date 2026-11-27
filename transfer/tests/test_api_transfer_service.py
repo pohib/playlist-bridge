@@ -44,16 +44,18 @@ class CreateOrReuseTransferJobTests(TestCase):
         enqueue.assert_not_called()
 
     @patch("transfer.tasks.run_transfer.delay", side_effect=RuntimeError("broker unavailable"))
-    def test_queue_failure_marks_job_failed_and_returns_503(self, enqueue):
+    def test_queue_failure_keeps_job_queued_for_periodic_dispatch(self, enqueue):
         job, status, error = create_or_reuse_transfer_job(
             session_fingerprint=self.fingerprint,
             source_url="https://vk.com/music/playlist/1_2",
         )
         job.refresh_from_db()
-        self.assertEqual(status, 503)
-        self.assertIn("Очередь задач недоступна", error)
-        self.assertEqual(job.status, TransferJob.Status.FAILED)
-        self.assertIsNotNone(job.finished_at)
+        self.assertEqual(status, 202)
+        self.assertIsNone(error)
+        self.assertEqual(job.status, TransferJob.Status.QUEUED)
+        self.assertEqual(job.dispatch_attempts, 1)
+        self.assertIsNotNone(job.dispatch_attempted_at)
+        self.assertIsNone(job.finished_at)
 
     @patch("transfer.services.api_transfer_service.TransferJob.objects.filter")
     @patch("transfer.services.api_transfer_service.TransferJob.objects.create")

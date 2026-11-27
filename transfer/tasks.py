@@ -114,3 +114,18 @@ def run_transfer(self, job_id):
                 "Transfer job %s changed state before unexpected-failure handling; preserving its current state",
                 job_id,
             )
+
+
+@shared_task(ignore_result=True)
+def dispatch_queued_transfers():
+    """Recover PostgreSQL queued jobs whose Redis message was lost or unavailable."""
+    from .services.transfer_dispatch import dispatch_pending_transfers
+
+    result = dispatch_pending_transfers()
+    logger.info(
+        "Queued transfer dispatch completed: eligible=%s dispatched=%s failed=%s",
+        result["eligible"],
+        result["dispatched"],
+        result["failed"],
+    )
+    return result

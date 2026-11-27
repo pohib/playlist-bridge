@@ -86,7 +86,7 @@ try {
     Write-Host ""
     Write-Host "Start everything again with:" -ForegroundColor Cyan
     Write-Host "DEBUG:      .\scripts\start-tunnel.ps1" -ForegroundColor White
-    Write-Host "Production: .\scripts\start-tunnel-dev.ps1" -ForegroundColor White
+    Write-Host "Production: .\scripts\start-tunnel-prod.ps1" -ForegroundColor White
     Write-Host ""
 }
 catch {

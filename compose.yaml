@@ -14,7 +14,24 @@ services:
     expose:
       - "8000"
     depends_on:
+      celery-beat:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://vktospotify:${POSTGRES_PASSWORD}@db:5432/vktospotify
+      DATABASE_SSL_REQUIRE: "false"
+      DJANGO_DEBUG: "false"
+    command: celery -A config beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+  db:
         condition: service_healthy
       redis:
         condition: service_healthy

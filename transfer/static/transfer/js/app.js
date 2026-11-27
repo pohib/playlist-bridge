@@ -16,7 +16,7 @@
   audio.crossOrigin="anonymous";
   let state={queue:[],index:0,sourceProviders:["auto"],repeat:"off",shuffle:false,shuffleOrder:[],eqGains:[0,0,0,0,0],eqEnabled:false};
   try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved&&Array.isArray(saved.queue)){state={...state,...saved};}}catch(_){}
-  state.repeat=["off","all","one"].includes(state.repeat)?state.repeat:"off";state.eqGains=Array.isArray(state.eqGains)&&state.eqGains.length===5?state.eqGains.map(value=>Math.max(-12,Math.min(12,Number(value)||0))):[0,0,0,0,0];state.eqFrequencies=Array.isArray(state.eqFrequencies)&&state.eqFrequencies.length===5?state.eqFrequencies.map(value=>Math.max(20,Math.min(20000,Number(value)||1000))):[60,250,1000,4000,12000];state.eqPreset=({flat:"reference",bass:"sub808",pop:"silk",rock:"club",jazz:"dusty",electronic:"club"})[state.eqPreset]||(["reference","sub808","kick","darktrap","dusty","silk","vocal","club","air","custom"].includes(state.eqPreset)?state.eqPreset:"custom");state.eqEnabled=Boolean(state.eqEnabled);state.shuffle=Boolean(state.shuffle);state.shuffleOrder=Array.isArray(state.shuffleOrder)?state.shuffleOrder.filter(value=>typeof value==="string"):[];
+  state.repeat=["off","all","one"].includes(state.repeat)?state.repeat:"off";state.eqGains=Array.isArray(state.eqGains)&&state.eqGains.length===5?state.eqGains.map(value=>Math.max(-12,Math.min(12,Number(value)||0))):[0,0,0,0,0];state.eqFrequencies=Array.isArray(state.eqFrequencies)&&state.eqFrequencies.length===5?state.eqFrequencies.map(value=>Math.max(20,Math.min(20000,Number(value)||1000))):[60,250,1000,4000,12000];state.eqQs=Array.isArray(state.eqQs)&&state.eqQs.length===5?state.eqQs.map(value=>Math.round(Math.max(.3,Math.min(8,Number(value)||1))*10)/10):[1,1,1,1,1];state.eqPreset=({flat:"reference",bass:"sub808",pop:"silk",rock:"club",jazz:"dusty",electronic:"club"})[state.eqPreset]||(["reference","sub808","kick","darktrap","dusty","silk","vocal","club","air","custom"].includes(state.eqPreset)?state.eqPreset:"custom");state.eqEnabled=Boolean(state.eqEnabled);state.shuffle=Boolean(state.shuffle);state.shuffleOrder=Array.isArray(state.shuffleOrder)?state.shuffleOrder.filter(value=>typeof value==="string"):[];
   state.queue.forEach((track,index)=>{if(!track._queueKey)track._queueKey="queue-"+index+"-"+Math.random().toString(36).slice(2,9);});
   if(state.shuffle){const keys=new Set(state.queue.map(track=>track._queueKey));state.shuffleOrder=state.shuffleOrder.filter(key=>keys.has(key));state.queue.forEach(track=>{if(!state.shuffleOrder.includes(track._queueKey))state.shuffleOrder.push(track._queueKey);});}else{state.shuffleOrder=[];}
   function ensureShuffleOrder(){if(!state.shuffleOrder.length)state.shuffleOrder=state.queue.map(track=>track._queueKey);state.queue.forEach(track=>{if(!state.shuffleOrder.includes(track._queueKey))state.shuffleOrder.push(track._queueKey);});}
@@ -53,25 +53,128 @@
     club:{label:"CLUB TRANSLATE",description:"Собранный клубный баланс: мощный низ, читаемая атака и контролируемый воздух.",gains:[3,1,-1,2,2]},
     air:{label:"AIR & SPACE",description:"Добавляет ощущение открытого верха и пространства, сохраняя низ аккуратным.",gains:[-1,-1,0,2,4]}
   };
-  const defaultEqFrequencies=[60,250,1000,4000,12000];let eqContext=null,eqSource=null,eqFilters=[],eqDragIndex=-1;
+  const defaultEqFrequencies=[60,250,1000,4000,12000];let eqContext=null,eqSource=null,eqFilters=[],eqDragIndex=-1,eqKnobDrag=null,eqSelectedIndex=0;
   function eqFrequencyToX(f){return eqLeft+Math.log(Math.max(eqMinHz,Math.min(eqMaxHz,f))/eqMinHz)/Math.log(eqMaxHz/eqMinHz)*(eqRight-eqLeft);}
   function eqXToFrequency(x){return eqMinHz*Math.pow(eqMaxHz/eqMinHz,Math.max(0,Math.min(1,(x-eqLeft)/(eqRight-eqLeft))));}
   function eqSupported(){const track=state.queue[state.index];return Boolean(track&&["local","vk"].includes(providerFor(track)));}
-  function ensureEqGraph(){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error("Браузер не поддерживает аудиоэквалайзер.");if(!eqContext){eqContext=new C();eqSource=eqContext.createMediaElementSource(audio);let previous=eqSource;state.eqFrequencies.forEach((f,i)=>{const filter=eqContext.createBiquadFilter();filter.type="peaking";filter.frequency.value=f;filter.Q.value=1;filter.gain.value=state.eqEnabled?state.eqGains[i]:0;previous.connect(filter);previous=filter;eqFilters.push(filter);});previous.connect(eqContext.destination);}return eqContext;}
+  function ensureEqGraph(){const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error("Браузер не поддерживает аудиоэквалайзер.");if(!eqContext){eqContext=new C();eqSource=eqContext.createMediaElementSource(audio);let previous=eqSource;state.eqFrequencies.forEach((f,i)=>{const filter=eqContext.createBiquadFilter();filter.type="peaking";filter.frequency.value=f;filter.Q.value=state.eqQs[i];filter.gain.value=state.eqEnabled?state.eqGains[i]:0;previous.connect(filter);previous=filter;eqFilters.push(filter);});previous.connect(eqContext.destination);}return eqContext;}
   async function activateEq(){const context=ensureEqGraph();if(context.state==="suspended")await context.resume();applyEqGains();}
   async function prepareEqForPlayback(){if(!state.eqEnabled)return;try{await activateEq();}catch(error){state.eqEnabled=false;if(ui.eqEnabled)ui.eqEnabled.checked=false;applyEqGains();if(ui.eqNote)ui.eqNote.textContent=error.message+" Воспроизведение продолжится без обработки.";persist();}}
-  function applyEqGains(){if(!eqContext)return;eqFilters.forEach((f,i)=>{f.frequency.setTargetAtTime(state.eqFrequencies[i],eqContext.currentTime,.025);f.gain.setTargetAtTime(state.eqEnabled?state.eqGains[i]:0,eqContext.currentTime,.025);});}
-  function drawEqCurve(){if(!ui.eqCurve||!ui.eqArea||!ui.eqPoints)return;const points=state.eqGains.map((g,i)=>({x:eqFrequencyToX(state.eqFrequencies[i]),y:eqCenter-g*eqGainScale}));const samples=[];for(let n=0;n<=120;n++){const x=eqLeft+(eqRight-eqLeft)*n/120,f=eqXToFrequency(x);let response=0;state.eqGains.forEach((g,i)=>{response+=g*Math.exp(-.5*Math.pow(Math.log(f/state.eqFrequencies[i])/.48,2));});samples.push({x,y:eqCenter-Math.max(-12,Math.min(12,response))*eqGainScale});}const path=samples.map((p,i)=>(i?"L ":"M ")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");ui.eqCurve.setAttribute("d",path);ui.eqArea.setAttribute("d",path+" L "+eqRight+" "+eqBottom+" L "+eqLeft+" "+eqBottom+" Z");ui.eqPoints.replaceChildren();points.forEach((p,i)=>{const c=document.createElementNS("http://www.w3.org/2000/svg","circle");c.setAttribute("cx",p.x);c.setAttribute("cy",p.y);c.setAttribute("r","7");c.setAttribute("class","player-eq-point"+(state.eqEnabled?" is-active":""));c.setAttribute("aria-label","Полоса "+(i+1)+": "+Math.round(state.eqFrequencies[i])+" Гц, "+state.eqGains[i]+" дБ");ui.eqPoints.append(c);});document.querySelectorAll("[data-eq-band]").forEach(input=>{const i=Number(input.dataset.eqBand),v=state.eqGains[i];input.value=String(v);input.nextElementSibling.textContent=(v>0?"+":"")+v+" dB";});document.querySelectorAll("[data-eq-frequency]").forEach(output=>{const f=state.eqFrequencies[Number(output.dataset.eqFrequency)];output.textContent=f>=1000?(f/1000).toFixed(f%1000?1:0)+" kHz":Math.round(f)+" Hz";});if(ui.eqEnabled)ui.eqEnabled.checked=state.eqEnabled;if(ui.eqPreset)ui.eqPreset.value=state.eqPreset;if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты и уровни изменены вручную.";}
-  function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки: вверх/вниз — усиление, влево/вправо — частота.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
+  function applyEqGains(){if(!eqContext)return;eqFilters.forEach((f,i)=>{f.frequency.setTargetAtTime(state.eqFrequencies[i],eqContext.currentTime,.025);f.Q.setTargetAtTime(state.eqQs[i],eqContext.currentTime,.025);f.gain.setTargetAtTime(state.eqEnabled?state.eqGains[i]:0,eqContext.currentTime,.025);});}
+  function drawEqCurve(){
+    if(!ui.eqCurve||!ui.eqArea||!ui.eqPoints)return;
+    const points=state.eqGains.map((g,i)=>({x:eqFrequencyToX(state.eqFrequencies[i]),y:eqCenter-g*eqGainScale}));
+    const samples=[];
+    for(let n=0;n<=120;n++){
+      const x=eqLeft+(eqRight-eqLeft)*n/120,f=eqXToFrequency(x);
+      let response=0;
+      state.eqGains.forEach((g,i)=>{
+        const width=.48/Math.sqrt(state.eqQs[i]);
+        response+=g*Math.exp(-.5*Math.pow(Math.log(f/state.eqFrequencies[i])/width,2));
+      });
+      samples.push({x,y:eqCenter-Math.max(-12,Math.min(12,response))*eqGainScale});
+    }
+    const path=samples.map((p,i)=>(i?"L ":"M ")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
+    ui.eqCurve.setAttribute("d",path);
+    ui.eqArea.setAttribute("d",path+" L "+eqRight+" "+eqBottom+" L "+eqLeft+" "+eqBottom+" Z");
+    ui.eqPoints.replaceChildren();
+    points.forEach((p,i)=>{
+      const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx",p.x);c.setAttribute("cy",p.y);c.setAttribute("r","7");
+      c.setAttribute("class","player-eq-point"+(state.eqEnabled?" is-active":"")+(eqSelectedIndex===i?" is-selected":""));
+      c.setAttribute("data-eq-index",String(i));
+      c.setAttribute("aria-label","Полоса "+(i+1)+": "+Math.round(state.eqFrequencies[i])+" Гц, "+state.eqGains[i]+" дБ, Q "+state.eqQs[i].toFixed(1));
+      ui.eqPoints.append(c);
+    });
+    document.querySelectorAll("[data-eq-band]").forEach(input=>{
+      const i=Number(input.dataset.eqBand),v=state.eqGains[i];
+      input.value=String(v);input.nextElementSibling.textContent=(v>0?"+":"")+v+" dB";
+    });
+    document.querySelectorAll("[data-eq-frequency]").forEach(output=>{
+      const f=state.eqFrequencies[Number(output.dataset.eqFrequency)];
+      output.textContent=f>=1000?(f/1000).toFixed(f%1000?1:0)+" kHz":Math.round(f)+" Hz";
+    });
+    document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
+      const i=Number(knob.dataset.eqQKnob),q=state.eqQs[i];
+      knob.style.setProperty("--eq-knob-angle",(-135+(q-.3)/7.7*270)+"deg");
+      knob.setAttribute("aria-valuenow",q.toFixed(1));
+      knob.setAttribute("aria-valuetext","Q "+q.toFixed(1));
+      knob.title="Q "+q.toFixed(1)+" · колесо или перетаскивание";
+    });
+    document.querySelectorAll("[data-eq-q-value]").forEach(output=>{
+      output.textContent=state.eqQs[Number(output.dataset.eqQValue)].toFixed(1);
+    });
+    if(ui.eqEnabled)ui.eqEnabled.checked=state.eqEnabled;
+    if(ui.eqPreset)ui.eqPreset.value=state.eqPreset;
+    if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты, уровни и Q изменены вручную.";
+  }
+  function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band], [data-eq-q-knob]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки: вверх/вниз — усиление, влево/вправо — частота; колесо над точкой или крутилка меняют Q.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
   function setEqOpen(open){if(!ui.eqPanel)return;ui.eqPanel.hidden=!open;ui.eqOpen?.setAttribute("aria-expanded",String(open));if(open){updateEqAvailability();drawEqCurve();}}
-  function applyEqPreset(name){const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();applyEqGains();drawEqCurve();persist();}
+  function applyEqPreset(name){const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();state.eqQs=[1,1,1,1,1];applyEqGains();drawEqCurve();persist();}
   ui.eqPreset?.addEventListener("change",()=>applyEqPreset(ui.eqPreset.value));ui.eqOpen?.addEventListener("click",()=>setEqOpen(ui.eqPanel.hidden));ui.eqClose?.addEventListener("click",()=>setEqOpen(false));
   ui.eqEnabled?.addEventListener("change",async()=>{if(!eqSupported()){ui.eqEnabled.checked=false;return;}state.eqEnabled=ui.eqEnabled.checked;try{if(state.eqEnabled)await activateEq();else applyEqGains();persist();drawEqCurve();}catch(error){state.eqEnabled=false;ui.eqEnabled.checked=false;applyEqGains();if(ui.eqNote)ui.eqNote.textContent=error.message;}});
   document.querySelectorAll("[data-eq-band]").forEach(input=>input.addEventListener("input",()=>{const i=Number(input.dataset.eqBand);state.eqGains[i]=Number(input.value);state.eqPreset="custom";drawEqCurve();applyEqGains();persist();}));ui.eqReset?.addEventListener("click",()=>applyEqPreset("flat"));
   function eqLocalPoint(event){const p=ui.eqGraph.createSVGPoint();p.x=event.clientX;p.y=event.clientY;return p.matrixTransform(ui.eqGraph.getScreenCTM().inverse());}
-  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-12,Math.min(12,(eqCenter-p.y)/eqGainScale))*2)/2;state.eqPreset="custom";drawEqCurve();applyEqGains();persist();}
-  ui.eqGraph?.addEventListener("pointerdown",event=>{if(!eqSupported())return;const p=eqLocalPoint(event);eqDragIndex=state.eqFrequencies.reduce((best,f,i)=>Math.abs(eqFrequencyToX(f)-p.x)<Math.abs(eqFrequencyToX(state.eqFrequencies[best])-p.x)?i:best,0);ui.eqGraph.setPointerCapture(event.pointerId);updateEqFromGraph(p);});
-  ui.eqGraph?.addEventListener("pointermove",event=>{if(eqDragIndex>=0)updateEqFromGraph(eqLocalPoint(event));});function finishEqDrag(){eqDragIndex=-1;}ui.eqGraph?.addEventListener("pointerup",finishEqDrag);ui.eqGraph?.addEventListener("pointercancel",finishEqDrag);
+  function nearestEqPoint(p){
+    let index=0,distance=Infinity;
+    state.eqGains.forEach((gain,i)=>{
+      const dx=eqFrequencyToX(state.eqFrequencies[i])-p.x,dy=eqCenter-gain*eqGainScale-p.y;
+      const candidate=Math.hypot(dx,dy);
+      if(candidate<distance){distance=candidate;index=i;}
+    });
+    return {index,distance};
+  }
+  function setEqQ(index,value){
+    const next=Math.round(Math.max(.3,Math.min(8,value))*10)/10;
+    if(next===state.eqQs[index])return;
+    state.eqQs[index]=next;eqSelectedIndex=index;state.eqPreset="custom";
+    applyEqGains();drawEqCurve();persist();
+  }
+  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-12,Math.min(12,(eqCenter-p.y)/eqGainScale))*2)/2;eqSelectedIndex=eqDragIndex;state.eqPreset="custom";drawEqCurve();applyEqGains();persist();}
+  ui.eqGraph?.addEventListener("pointerdown",event=>{
+    if(!eqSupported())return;
+    const p=eqLocalPoint(event),nearest=nearestEqPoint(p);
+    eqDragIndex=nearest.index;eqSelectedIndex=nearest.index;
+    ui.eqGraph.setPointerCapture(event.pointerId);updateEqFromGraph(p);
+  });
+  ui.eqGraph?.addEventListener("pointermove",event=>{if(eqDragIndex>=0)updateEqFromGraph(eqLocalPoint(event));});
+  function finishEqDrag(){eqDragIndex=-1;}
+  ui.eqGraph?.addEventListener("pointerup",finishEqDrag);ui.eqGraph?.addEventListener("pointercancel",finishEqDrag);
+  ui.eqGraph?.addEventListener("wheel",event=>{
+    if(!eqSupported())return;
+    const nearest=nearestEqPoint(eqLocalPoint(event));
+    if(nearest.distance>22)return;
+    event.preventDefault();
+    setEqQ(nearest.index,state.eqQs[nearest.index]+(event.deltaY<0?.1:-.1));
+  },{passive:false});
+  document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
+    const index=Number(knob.dataset.eqQKnob);
+    knob.addEventListener("pointerdown",event=>{
+      if(!eqSupported())return;
+      event.preventDefault();
+      eqKnobDrag={index,startY:event.clientY,startQ:state.eqQs[index],pointerId:event.pointerId};
+      knob.setPointerCapture(event.pointerId);eqSelectedIndex=index;drawEqCurve();
+    });
+    knob.addEventListener("pointermove",event=>{
+      if(!eqKnobDrag||eqKnobDrag.index!==index||eqKnobDrag.pointerId!==event.pointerId)return;
+      setEqQ(index,eqKnobDrag.startQ+(eqKnobDrag.startY-event.clientY)*.05);
+    });
+    const finishKnobDrag=()=>{eqKnobDrag=null;};
+    knob.addEventListener("pointerup",finishKnobDrag);
+    knob.addEventListener("pointercancel",finishKnobDrag);
+    knob.addEventListener("wheel",event=>{
+      if(!eqSupported())return;
+      event.preventDefault();setEqQ(index,state.eqQs[index]+(event.deltaY<0?.1:-.1));
+    },{passive:false});
+    knob.addEventListener("keydown",event=>{
+      if(!eqSupported())return;
+      if(["ArrowUp","ArrowRight","ArrowDown","ArrowLeft","Home","End"].includes(event.key))event.preventDefault();
+      if(event.key==="ArrowUp"||event.key==="ArrowRight")setEqQ(index,state.eqQs[index]+.1);
+      else if(event.key==="ArrowDown"||event.key==="ArrowLeft")setEqQ(index,state.eqQs[index]-.1);
+      else if(event.key==="Home")setEqQ(index,.3);
+      else if(event.key==="End")setEqQ(index,8);
+    });
+  });
   window.addEventListener("keydown",event=>{if(event.key==="Escape"&&!ui.eqPanel?.hidden)setEqOpen(false);});drawEqCurve();
   function openPopout(){if(popoutWindow&&!popoutWindow.closed){try{popoutWindow.focus();}catch(_){}syncPopoutState();return true;}popoutWindow=window.open("/player/popout/","playlistBridgePlayer","width=190,height=430,resizable=yes,scrollbars=no");if(!popoutWindow){showPlaybackError("Браузер заблокировал дополнительный плеер. Разреши всплывающие окна для сайта и нажми кнопку ещё раз.");return false;}syncPopoutState();return true;}
   ui.popout?.addEventListener("click",openPopout);

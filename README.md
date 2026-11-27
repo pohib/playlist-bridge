@@ -15,7 +15,7 @@ Django-приложение для сбора плейлистов и треко
 
 ## Архитектура приложения
 
-Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn. Nginx возвращает нейтральную HTML-страницу для 404 и блокирует прямые запросы к dotfiles, репозиторным метаданным, конфигурации и служебным каталогам.
+Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis, Celery worker и Celery beat (периодическая доставка задач из PostgreSQL в Redis). Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn. Nginx возвращает нейтральную HTML-страницу для 404 и блокирует прямые запросы к dotfiles, репозиторным метаданным, конфигурации и служебным каталогам.
 
 View-слой библиотеки разделён на специализированные HTTP-обработчики, а бизнес-сценарии постепенно вынесены в `transfer/services/`. URL-маршруты подключают конкретные модули напрямую. Старые модули (`library_views.py`, `library_management_views.py`, `library_playback_views.py`, `library_transfer_views.py`, `library_import_views.py`, `site_views.py` и `views.py`) сохранены как compatibility facades для обратной совместимости; новые обработчики в них добавлять не следует. Это по-прежнему модульный Django-монолит, а не набор микросервисов.
 
@@ -60,7 +60,7 @@ View-слой библиотеки разделён на специализир�
 | config/security.py | Security headers и CSP/COEP; не ослаблять политики ради обхода ошибок воспроизведения без диагностики |
 | config/storage.py | Static files storage |
 | transfer/domain_models/credentials.py | OAuthCredential |
-| transfer/domain_models/jobs.py | TransferJob |
+| transfer/domain_models/jobs.py | TransferJob, heartbeat и состояние dispatch в Celery |
 | transfer/domain_models/library.py | LibraryProfile, LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem, cleanup audio files signal |
 | transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh |
 | transfer/services/oauth_session_service.py | Session fingerprint rotation for credentials/jobs/library profiles and connected-provider lookup | 
@@ -85,7 +85,7 @@ View-слой библиотеки разделён на специализир�
 | transfer/api/serializers.py + common.py | Стабильный JSON job serializer и общий error envelope |
 | transfer/services/api_transfer_service.py | Проверка Spotify credential и session ownership, чтение TransferJob/report, race-safe создание и Celery dispatch |
 | transfer/api_views.py | Compatibility facade; URL callbacks используют специализированные API modules |
-| transfer/tasks.py | Celery job claim/progress/result для прямого VK → Spotify workflow |
+| transfer/tasks.py | Celery job claim/progress/result и периодический dispatch queued jobs |
 | transfer/library_views.py | Compatibility facade; новые маршруты используют специализированные модули напрямую |
 | transfer/site_views.py | Page rendering и ownership-filtered querysets; подготовка playback payload делегирована library_presentation.py |
 
@@ -94,7 +94,7 @@ View-слой библиотеки разделён на специализир�
 1. **Импорт в библиотеку.** Специализированные HTTP handlers `library_vk_import_views.py`, `library_spotify_import_views.py` и `library_soundcloud_import_views.py` валидируют входные данные, получают доступ к провайдерам и делегируют сохранение метаданных сервисам. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
 2. **Перенос библиотечного плейлиста.** `library_transfer_create_views.py` отвечает за HTTP workflow и создание записей; `services/library_transfer_matching.py` выполняет поиск/ранжирование кандидатов Spotify и SoundCloud. Уверенные совпадения добавляются в целевой плейлист, остальные сохраняются в `LibraryTransferItem` для ручного review.
 3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
-4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer валидирует запрос и делегирует создание TransferJob сервису api_transfer_service.py, который повторно использует активную задачу при повторном запросе и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
+4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer валидирует запрос и делегирует создание TransferJob сервису api_transfer_service.py, который повторно использует активную задачу при повторном запросе и отправляет UUID в Celery; при недоступности Redis запись остаётся queued, а Celery beat периодически запускает восстановление dispatch; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
 5. **Плеер.** site_views.py формирует playback payload, app.js управляет очередью и воспроизведением. Локальные аудиофайлы и VK воспроизводятся через HTMLAudioElement; Spotify и SoundCloud — через их embed iframe. Плеер не получает аудио Spotify/SoundCloud напрямую.
 
 ### Важные правила изменения архитектуры
@@ -241,7 +241,7 @@ CI пока проверяет синтаксис PowerShell-скриптов, �
 
 ### Production-like / HTTPS Quick Tunnel
 
-`scripts/start-tunnel-dev.ps1` запускает production-like конфигурацию только с базовым `compose.yaml`: Nginx, Gunicorn, Celery worker, PostgreSQL и Redis; `compose.dev.yaml` не подключается. Скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false`. `scripts/start-tunnel.ps1`, напротив, запускает dev overlay с `DEBUG=true` и требует явного ввода `DEBUG` перед публичной публикацией. Для остановки туннеля и Compose-контейнеров используй `scripts/stop-tunnel.ps1`.
+`scripts/start-tunnel-prod.ps1` запускает production-like конфигурацию только с базовым `compose.yaml`: Nginx, Gunicorn, Celery worker, Celery beat, PostgreSQL и Redis; `compose.dev.yaml` не подключается. Скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false`. `scripts/start-tunnel.ps1`, напротив, запускает dev overlay с `DEBUG=true` и требует явного ввода `DEBUG` перед публичной публикацией. Для остановки туннеля и Compose-контейнеров используй `scripts/stop-tunnel.ps1`.
 
 Для постоянного production-хоста не используйте Quick Tunnel: задайте постоянные HTTPS callback URLs, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SESSION_COOKIE_SECURE=true`, `CSRF_COOKIE_SECURE=true` и `SECURE_SSL_REDIRECT=true`; TLS должен завершаться на доверенном reverse proxy. Не переносите dev-переменные в production secret store.
 
@@ -299,9 +299,9 @@ VK не требует регистрации приложения и отдел
 Из корня проекта:
 
     Set-ExecutionPolicy -Scope Process Bypass
-    .\scripts\start-tunnel-dev.ps1
+    .\scripts\start-tunnel-prod.ps1
 
-Для запуска DEBUG-версии используй `scripts/start-tunnel.ps1`: он работает через `compose.dev.yaml`, требует подтверждения `DEBUG` и публикует DEBUG=True. Не используй его для публичной эксплуатации. Production-like скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel-dev.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
+Для запуска DEBUG-версии используй `scripts/start-tunnel.ps1`: он работает через `compose.dev.yaml`, требует подтверждения `DEBUG` и публикует DEBUG=True. Не используй его для публичной эксплуатации. Production-like скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel-prod.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
 
 Скрипт:
 1. Проверяет обязательные секреты в .env;
@@ -342,7 +342,7 @@ VK не требует регистрации приложения и отдел
 
 Логи приложения и фонового worker:
 
-    docker compose logs -f web worker
+    docker compose logs -f web worker celery-beat
 
 Подключите Spotify. VK подключать не требуется: для проверки импорта достаточно ссылки на публичный плейлист VK. Для добавления треков в существующий Spotify playlist используйте ссылку на плейлист, принадлежащий подключённому аккаунту.
 
@@ -350,11 +350,11 @@ VK не требует регистрации приложения и отдел
 
 Quick Tunnel не гарантирует постоянный адрес. При новом запуске:
 1. Останови старый cloudflared процесс, если он ещё работает;
-2. Запусти scripts/start-tunnel-dev.ps1 снова;
+2. Запусти scripts/start-tunnel-prod.ps1 снова;
 3. Обнови callback URI в кабинетах Spotify и SoundCloud, если домен изменился;
 4. При изменении Redirect URI переподключите OAuth-аккаунт провайдера.
 
-Quick Tunnel не является постоянным production-хостингом. `start-tunnel-dev.ps1` — production-like проверка Gunicorn/HTTPS, а не замена постоянному домену, резервному копированию, мониторингу и управляемой инфраструктуре.
+Quick Tunnel не является постоянным production-хостингом. `start-tunnel-prod.ps1` — production-like проверка Gunicorn/HTTPS, а не замена постоянному домену, резервному копированию, мониторингу и управляемой инфраструктуре.
 
 ### Обычные команды Docker Compose
 
@@ -426,7 +426,7 @@ docker compose exec web python manage.py check
 
 # Запуск production-like HTTPS Quick Tunnel (DEBUG=False)
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\start-tunnel-dev.ps1
+.\scripts\start-tunnel-prod.ps1
 
 # Для временной DEBUG-отладки (требует ручного подтверждения)
 .\scripts\start-tunnel.ps1
@@ -483,7 +483,7 @@ API использует ту же браузерную сессию и CSRF:
 
 Пустой target_playlist создаёт новый приватный плейлист.
 
-## Celery: heartbeat и безопасная обработка зависших задач
+## Celery: durable dispatch, heartbeat и безопасная обработка зависших задач
 
 `run_transfer` атомарно забирает задачу из `queued` в `running`. Во время переноса worker обновляет `heartbeat_at` при обработке каждого трека. Это позволяет отличить давно не обновлявшуюся задачу от обычной активной работы. Повторная доставка сообщения по-прежнему защищена атомарным claim: одновременно выполнить одну задачу дважды нельзя.
 
@@ -501,7 +501,20 @@ docker compose exec web python manage.py fail_stale_transfers --older-than-minut
 
 Команда затрагивает только `running` jobs, у которых heartbeat (или `started_at` для старых записей без heartbeat) старше заданного порога. Она **не перезапускает** задачу. Перед ручным повтором проверь целевой Spotify playlist: если worker завершился после успешного API-запроса, часть композиций уже могла добавиться. Порог по умолчанию — 60 минут; выбирай его с учётом максимальной длительности переноса.
 
-Это первый уровень обработки аварий: он обнаруживает и закрывает зависшее состояние, но не восстанавливает потерянные сообщения `queued` и не выполняет resume. `acks_late` и автоматические retries намеренно не включены: без сверки внешнего состояния они могут продублировать записи в Spotify. Следующий шаг — durable dispatch для queued jobs и reconciliation уже выполненных Spotify операций.
+### Восстановление доставки queued jobs
+
+Новая задача сначала сохраняется в PostgreSQL. Отправка UUID в Redis выполняется через общий dispatch-сервис: перед публикацией он атомарно записывает `dispatch_attempted_at` и увеличивает `dispatch_attempts`. Если Redis недоступен, задача остаётся в `queued`, а не переводится в `failed`. Celery beat раз в минуту запускает `dispatch_queued_transfers`; повторная попытка разрешается после 120 секунд. Условное UPDATE не даёт двум scheduler-процессам одновременно захватить один и тот же dispatch lease.
+
+Проверить и вручную запустить восстановление:
+
+```powershell
+docker compose exec web python manage.py dispatch_queued_transfers --dry-run
+docker compose exec web python manage.py dispatch_queued_transfers
+```
+
+Команда поддерживает `--retry-after-seconds` и `--batch-size`. Повторная публикация одного UUID безопасна на уровне worker: `run_transfer` атомарно переводит только `queued` в `running`, все дублирующие доставки завершаются без повторного вызова Spotify API.
+
+Heartbeat и `fail_stale_transfers` остаются отдельным механизмом: он закрывает зависшие `running`, но не пытается автоматически повторить перенос. `acks_late` и автоматические retries для внешних Spotify POST пока не включены: durable dispatch восстанавливает только доставку ещё не начатых задач. Для безопасного resume после частичного переноса всё ещё нужна reconciliation фактического содержимого целевого Spotify playlist и checkpoint по подтверждённым пакетам.
 
 ## Безопасность и CI
 
@@ -542,7 +555,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
 - Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
 - Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
-- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи, отдельный debug overlay и production-like Cloudflare Quick Tunnel.
+- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker и beat, PostgreSQL и Redis; health checks, логи, отдельный debug overlay и production-like Cloudflare Quick Tunnel.
 - PowerShell backup/restore для production-like Compose: PostgreSQL custom dump, media archive, SHA-256 manifest, pre-restore backup и сохранение предыдущего media-каталога. Архивы не зашифрованы, секреты хранятся отдельно; runtime restore drill ещё не подтверждён.
 - CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
 - Проверка полного CI и coverage выполняется для каждого commit; фиксированные числа тестов и coverage в README намеренно не закрепляются, поскольку они меняются вместе с кодом.
@@ -553,7 +566,6 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Ввести единый интерфейс провайдера там, где это уменьшит связанность; не создавать абстракции ради абстракций.
 - Улучшить matching: пороги уверенности, неоднозначные совпадения, версии/ремастеры/featuring и причины отклонения кандидатов.
 - Усилить отчёт переноса: объяснение ошибок и пропусков, экспорт CSV; JSON report уже доступен через API прямого переноса.
-- **Следующий этап — durable dispatch:** восстановление queued jobs, если сообщение потерялось между PostgreSQL и Redis, с ограничением повторной постановки и без параллельного запуска.
 - Реализовать reconciliation частично выполненного переноса: сохранять checkpoints целевого Spotify playlist и сверять фактически добавленные треки до любого resume. Не включать слепые retries для внешних POST-запросов.
 - Расширить обработку больших коллекций, rate limits и временных ошибок API с корректным Retry-After/backoff; для небезопасных POST не повторять запрос автоматически при неопределённом результате.
 - Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.

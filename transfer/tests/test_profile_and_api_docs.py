@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model  # noqa: I001
 from django.contrib.staticfiles import finders
 from django.test import TestCase, override_settings
@@ -95,6 +96,8 @@ class PlayerAndProfileStyleRegressionTests(TestCase):
             cls.stylesheet = stylesheet.read()
         with open(finders.find("transfer/js/app.js"), encoding="utf-8") as player_script:
             cls.player_script = player_script.read()
+        with open(settings.BASE_DIR / "transfer/templates/transfer/base.html", encoding="utf-8") as player_template:
+            cls.player_template = player_template.read()
 
     def test_collapsed_player_keeps_track_title_space_and_ellipsis(self):
         self.assertIn(".global-player.is-collapsed .global-player-meta{display:grid;flex:1 1 150px;min-width:72px;overflow:hidden}", self.stylesheet)

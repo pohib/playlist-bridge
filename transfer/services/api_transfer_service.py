@@ -3,12 +3,10 @@
 HTTP parsing and response formatting stay in api_views; this module owns
 persistence, idempotent reuse of active jobs, and Celery dispatch.
 """
-import logging
-
 from django.db import IntegrityError, transaction
-from django.utils import timezone
 
 from ..models import OAuthCredential, TransferJob
+from .transfer_dispatch import dispatch_transfer_job
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +37,9 @@ def create_or_reuse_transfer_job(*, session_fingerprint, source_url, target_play
             return active, 202, None
         raise
 
-    try:
-        from ..tasks import run_transfer
-
-        run_transfer.delay(str(job.pk))
-    except Exception:
-        logger.exception("Could not enqueue transfer job %s", job.pk)
-        job.status = TransferJob.Status.FAILED
-        job.error = "Очередь задач недоступна. Проверь Redis и Celery worker."
-        job.finished_at = timezone.now()
-        job.save(update_fields=["status", "error", "finished_at"])
-        return job, 503, job.error
-
+    # PostgreSQL remains the source of truth. If Redis is unavailable, the
+    # job stays queued and the periodic dispatcher retries publication.
+    dispatch_transfer_job(job.pk)
     return job, 202, None
 
 

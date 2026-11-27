@@ -26,6 +26,8 @@ class TransferJob(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     heartbeat_at = models.DateTimeField(null=True, blank=True)
+    dispatch_attempted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    dispatch_attempts = models.PositiveIntegerField(default=0)
     finished_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
