@@ -17,7 +17,7 @@ def upload_track_to_soundcloud(request):
     description = (request.POST.get("description") or "").strip()
     try:
         playlist = upload_soundcloud_track(
-            profile=_profile(request),
+            profile_provider=lambda: _profile(request),
             uploaded=uploaded,
             title=title,
             artist=artist,
