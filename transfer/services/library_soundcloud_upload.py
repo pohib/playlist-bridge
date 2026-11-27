@@ -11,7 +11,6 @@ from .audio_file_validation import (
 )
 from .common import TransferError
 
-
 _MAX_UPLOAD_SIZE = 100 * 1024 * 1024
 
 
