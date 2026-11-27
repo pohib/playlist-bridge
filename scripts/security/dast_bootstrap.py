@@ -6,6 +6,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 
 from transfer.models import TransferJob
 
@@ -22,6 +23,7 @@ for username, job_id in fixtures:
         defaults={"email": f"{username}@example.invalid"},
     )
     user.is_active = True
+    validate_password(password, user=user)
     user.set_password(password)
     user.save(update_fields=["password", "is_active"])
 
