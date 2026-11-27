@@ -1,12 +1,13 @@
 """Shared helpers for library-facing views."""
 
-from urllib.parse import urlparse
-
 from django.conf import settings
 
 from .models import LibraryProfile
 from .services import SoundCloudClient, SpotifyClient
 from .services.credential_service import get_access_token, get_session_fingerprint
+from .services.library_source_links import (
+    safe_provider_candidate_url as _safe_candidate_url,
+)
 
 
 def _profile(request):
@@ -26,28 +27,6 @@ def _profile(request):
     profile, _ = LibraryProfile.objects.get_or_create(session_fingerprint=fingerprint)
     return profile
 
-
-def _safe_candidate_url(value, provider):
-    if not isinstance(value, str) or len(value) > 2048:
-        return ""
-    try:
-        parsed = urlparse(value.strip())
-        port = parsed.port
-    except ValueError:
-        return ""
-    allowed_hosts = {
-        "spotify": {"open.spotify.com", "www.open.spotify.com"},
-        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
-    }
-    if (
-        parsed.scheme != "https"
-        or parsed.hostname not in allowed_hosts.get(provider, set())
-        or port not in (None, 443)
-        or parsed.username
-        or parsed.password
-    ):
-        return ""
-    return parsed.geturl()
 
 
 def _soundcloud_access(request):
