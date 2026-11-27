@@ -36,9 +36,11 @@ class LibrarySourceSearchRequestTests(SimpleTestCase):
             {"title": "Track", "artist": "Artist", "providers": ["unknown"]},
             {"title": "Track", "artist": "Artist", "providers": ["spotify", 1]},
         ):
-            with self.subTest(payload=payload):
-                with self.assertRaises(LibrarySourceSearchError):
-                    parse_library_source_search_request(payload)
+            with (
+                self.subTest(payload=payload),
+                self.assertRaises(LibrarySourceSearchError),
+            ):
+                parse_library_source_search_request(payload)
 
 
 class LibrarySourceSearchOrchestrationTests(SimpleTestCase):
