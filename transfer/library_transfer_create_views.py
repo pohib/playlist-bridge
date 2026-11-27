@@ -1,8 +1,6 @@
 """Create a cross-provider transfer from a local library playlist."""
 
 import logging
-import re
-from types import SimpleNamespace
 
 from django.conf import settings
 from django.contrib import messages
@@ -13,7 +11,8 @@ from django.views.decorators.http import require_POST
 from .credentials import get_access_token, get_session_fingerprint
 from .library_support import _profile, _safe_candidate_url
 from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem
-from .services import SoundCloudClient, SpotifyClient, TransferError, score_candidate
+from .services import SoundCloudClient, SpotifyClient, TransferError
+from .services.library_transfer_matching import match_soundcloud_tracks, match_spotify_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +36,6 @@ def transfer_library_playlist(request, playlist_id):
         return redirect("playlist_detail", playlist_id=playlist.pk)
 
     fingerprint = get_session_fingerprint(request)
-    matched = {}
-    unmatched = []
     try:
         if target == "spotify":
             client = SpotifyClient(
@@ -47,36 +44,9 @@ def transfer_library_playlist(request, playlist_id):
                 settings.SPOTIFY_REDIRECT_URI,
             )
             token, _ = get_access_token(fingerprint, "spotify", client)
-            for track in tracks:
-                source = SimpleNamespace(
-                    title=track.title,
-                    artist=track.artist,
-                    duration=(track.duration_ms or 0) // 1000,
-                )
-                ranked = sorted(
-                    ((score_candidate(source, item), item) for item in client.search(token, track.artist, track.title)),
-                    key=lambda pair: pair[0],
-                    reverse=True,
-                )
-                if ranked and ranked[0][0] >= 0.82 and re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", str(ranked[0][1].get("uri") or "")):
-                    item = ranked[0][1]
-                    matched[track.pk] = {
-                        "id": str(item.get("id") or ""),
-                        "uri": str(item.get("uri") or ""),
-                        "url": _safe_candidate_url((item.get("external_urls") or {}).get("spotify", ""), "spotify"),
-                    }
-                else:
-                    unmatched.append((track, [
-                        {
-                            "id": str(item.get("id") or ""),
-                            "uri": str(item.get("uri") or ""),
-                            "title": str(item.get("name") or "")[:180],
-                            "artist": ", ".join(str(artist.get("name") or "") for artist in item.get("artists", []))[:180],
-                            "duration_ms": int(item.get("duration_ms") or 0),
-                            "url": _safe_candidate_url((item.get("external_urls") or {}).get("spotify", ""), "spotify"),
-                        }
-                        for score, item in ranked[:5] if score >= 0.45 and item.get("id") and re.fullmatch(r"spotify:track:[A-Za-z0-9]{22}", str(item.get("uri") or ""))
-                    ]))
+            matched, unmatched = match_spotify_tracks(
+                tracks, client=client, token=token, safe_candidate_url=_safe_candidate_url,
+            )
             uris = [
                 matched[track.pk]["uri"]
                 for track in tracks
@@ -93,42 +63,9 @@ def transfer_library_playlist(request, playlist_id):
                 settings.SOUNDCLOUD_REDIRECT_URI,
             )
             token, _ = get_access_token(fingerprint, "soundcloud", client)
-            for track in tracks:
-                query = f"{track.artist} {track.title}"
-                candidates = client.search_tracks(token, query)
-                ranked = []
-                source = SimpleNamespace(
-                    title=track.title,
-                    artist=track.artist,
-                    duration=(track.duration_ms or 0) // 1000,
-                )
-                for candidate in candidates:
-                    user = candidate.get("user") or {}
-                    normalized = {
-                        "name": candidate.get("title", ""),
-                        "artists": [{"name": candidate.get("metadata_artist") or user.get("username", "")}],
-                        "duration_ms": candidate.get("duration"),
-                    }
-                    ranked.append((score_candidate(source, normalized), candidate))
-                ranked.sort(key=lambda pair: pair[0], reverse=True)
-                if ranked and ranked[0][0] >= 0.82 and re.fullmatch(r"[0-9]+", str(ranked[0][1].get("id") or "")):
-                    candidate = ranked[0][1]
-                    matched[track.pk] = {
-                        "id": str(candidate["id"]),
-                        "url": _safe_candidate_url(candidate.get("permalink_url"), "soundcloud"),
-                    }
-                else:
-                    unmatched.append((track, [
-                        {
-                            "id": str(candidate.get("id") or ""),
-                            "uri": str(candidate.get("urn") or candidate.get("id") or ""),
-                            "title": str(candidate.get("title") or "")[:180],
-                            "artist": str(candidate.get("metadata_artist") or (candidate.get("user") or {}).get("username") or "")[:180],
-                            "duration_ms": int(candidate.get("duration") or 0),
-                            "url": _safe_candidate_url(candidate.get("permalink_url"), "soundcloud"),
-                        }
-                        for score, candidate in ranked[:5] if score >= 0.45 and re.fullmatch(r"[0-9]+", str(candidate.get("id") or ""))
-                    ]))
+            matched, unmatched = match_soundcloud_tracks(
+                tracks, client=client, token=token, safe_candidate_url=_safe_candidate_url,
+            )
             target_ids = [matched[track.pk]["id"] for track in tracks if track.pk in matched]
             if target_ids:
                 result = client.create_playlist(token, playlist.title, target_ids)
