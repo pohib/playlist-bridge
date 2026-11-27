@@ -1,10 +1,13 @@
 """Spotify playlist, track, and library import endpoints."""
 
 from django.contrib import messages
+from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _spotify_access
+from .models import LibraryPlaylist
+from .services.library_management import append_provider_track
 from .services import TransferError
 from .services.library_imports import save_spotify_playlist, spotify_resource_id
 
@@ -36,15 +39,42 @@ def import_spotify_track(request):
         track_id = _spotify_resource_id(source_url, "track")
         client, token = _spotify_access(request)
         track = client.track_details(token, track_id)
-        resource = {"name": f"Spotify — {track.get('name') or 'Track'}"}
-        playlist, _count = _save_spotify_playlist(
-            _profile(request), resource, [{"item": track}], source_url,
+        profile = _profile(request)
+        playlist_id = (request.POST.get("playlist_id") or "").strip()
+        playlist = (
+            get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
+            if playlist_id else None
         )
+        if playlist:
+            artists = track.get("artists") or []
+            artist = ", ".join(
+                str(item.get("name") or "") for item in artists if item.get("name")
+            ) or "Unknown artist"
+            album = (track.get("album") or {}).get("name") or ""
+            external_url = (track.get("external_urls") or {}).get("spotify", source_url)
+            images = (track.get("album") or {}).get("images") or []
+            cover_url = images[0].get("url", "") if images else ""
+            append_provider_track(
+                playlist,
+                title=track.get("name") or "Unknown track",
+                artist=artist,
+                album=album,
+                provider=LibraryPlaylist.Provider.SPOTIFY,
+                external_id=track.get("id") or track_id,
+                external_url=external_url,
+                duration_ms=track.get("duration_ms"),
+                cover_url=cover_url,
+            )
+        else:
+            resource = {"name": f"Spotify — {track.get('name') or 'Track'}"}
+            playlist, _count = _save_spotify_playlist(
+                profile, resource, [{"item": track}], source_url,
+            )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
-    messages.success(request, f"Трек добавлен в библиотеку: {playlist.title}.")
-    return redirect("library")
+    messages.success(request, f"Трек добавлен в «{playlist.title}».")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
 
 
 @require_POST
