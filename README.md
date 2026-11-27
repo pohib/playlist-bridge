@@ -214,14 +214,14 @@ docker compose -f compose.yaml -f compose.dev.yaml restart worker
 Скрипты работают с основным `compose.yaml` и текущим production-like проектом; отдельные dev volumes из `compose.dev.yaml` они не затрагивают. Запускай их из PowerShell на машине с Docker Desktop:
 
 ```powershell
-# Создать backup в .\\backups (по умолчанию хранить 30 дней)
-.\\scripts\\backup.ps1
+# Создать backup в .\backups (по умолчанию хранить 30 дней)
+.\scripts\backup.ps1
 
 # Указать отдельный диск/каталог и срок хранения
-.\\scripts\\backup.ps1 -OutputRoot 'E:\\PlaylistBridgeBackups' -RetentionDays 14
+.\scripts\backup.ps1 -OutputRoot 'E:\PlaylistBridgeBackups' -RetentionDays 14
 
 # Восстановить конкретную копию (перед заменой создаётся pre-restore backup)
-.\\scripts\\restore.ps1 -BackupPath '.\\backups\\20261128-120000-000'
+.\scripts\restore.ps1 -BackupPath '.\backups\20261128-120000-000'
 ```
 
 Backup включает:

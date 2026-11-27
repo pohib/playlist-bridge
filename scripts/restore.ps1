@@ -60,8 +60,12 @@ try {
     }
 
     $mediaArchive = Join-Path $resolvedBackup "media.tar.gz"
-    $null = & $tar.Source -tzf $mediaArchive | ForEach-Object {
-        $entryName = "$_".Replace("\", "/")
+    $null = & $tar.Source -tvzf $mediaArchive | ForEach-Object {
+        $entryLine = "$_"
+        if ($entryLine -match '^[lh]') {
+            throw "Symbolic and hard links are not allowed in media archives."
+        }
+        $entryName = ($entryLine -split '\s+', 9 | Select-Object -Last 1).Replace("\", "/")
         if ($entryName.StartsWith("/") -or $entryName -match '(^|/)\.\.(/|$)' -or $entryName -match '^[A-Za-z]:') {
             throw "Unsafe path found in media archive: $entryName"
         }
@@ -85,7 +89,6 @@ try {
 
     $backupScript = Join-Path $PSScriptRoot "backup.ps1"
     $backupOutput = @(& $backupScript -OutputRoot $OutputRoot -RetentionDays 0)
-    if (-not (Test-Path -LiteralPath (Join-Path $OutputRoot "never-used-marker"))) { }
     $preRestoreBackup = [string]($backupOutput | Select-Object -Last 1)
     if ([string]::IsNullOrWhiteSpace($preRestoreBackup) -or
         -not (Test-Path -LiteralPath (Join-Path $preRestoreBackup "manifest.json"))) {
@@ -137,6 +140,21 @@ try {
             $mediaWasMoved = $false
         }
         throw
+    }
+
+    foreach ($service in @($servicesToRestart)) {
+        Invoke-Compose -Arguments @("start", $service) | Out-Null
+        $servicesToRestart = @($servicesToRestart | Where-Object { $_ -ne $service })
+        Write-Host "Restarted service: $service"
+    }
+    if ($running -contains "web") {
+        $appReady = $false
+        for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            $null = & docker compose exec -T web python manage.py check 2>$null
+            if ($LASTEXITCODE -eq 0) { $appReady = $true; break }
+            Start-Sleep -Seconds 2
+        }
+        if (-not $appReady) { throw "Database was restored, but Django did not pass 'manage.py check'. See the pre-restore backup before attempting recovery." }
     }
 
     Write-Host "Database and media restore completed." -ForegroundColor Green
