@@ -1,7 +1,7 @@
 """VK anonymous public-audio API client implementation."""
 import requests
 
-from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_url
+from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_reference
 
 
 class VKAnonymousTokenProvider:
@@ -321,13 +321,14 @@ class VKClient:
         return "VK playlist", tracks
 
     def fetch_track(self, url):
-        owner_id, track_id = parse_vk_track_url(url)
+        owner_id, track_id, access_key = parse_vk_track_reference(url)
         self.token_provider.referer = url
-        payload = self.post("audio.getById", data={"audios": f"{owner_id}_{track_id}"})
+        audio_id = f"{owner_id}_{track_id}" + (f"_{access_key}" if access_key else "")
+        payload = self.post("audio.getById", data={"audios": audio_id})
         items, _ = self._response_items(payload)
         if not items or not isinstance(items[0], dict):
             raise TransferError("VK не вернул аудиозапись. Возможно, она недоступна.")
-        track = self._track_from_item(items[0])
+        track = self._track_from_item(items[0], audio_id)
         if not track or not track.artist or not track.title:
             raise TransferError("VK вернул некорректные данные аудиозаписи.")
         return track
