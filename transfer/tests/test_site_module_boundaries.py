@@ -12,7 +12,12 @@ from transfer import (
     site_views,
     views,
 )
-from transfer.services import library_request_context, library_source_links, vk_anonymous_token, vk_client
+from transfer.services import (
+    library_request_context,
+    library_source_links,
+    vk_anonymous_token,
+    vk_client,
+)
 
 
 class SitePageModuleBoundaryTests(SimpleTestCase):
