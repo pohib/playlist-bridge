@@ -189,6 +189,13 @@ jobs:
     needs: [tests, container]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - name: Prepare DAST environment
+        run: |
+          mkdir -p reports "$RUNNER_TEMP/zap-reports"
+          chmod 777 reports "$RUNNER_TEMP/zap-reports"
+          DAST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$DAST_PASSWORD"
+          echo "DAST_PASSWORD=$DAST_PASSWORD" >> "$GITHUB_ENV"
       - name: Prepare integration environment
         run: |
           cat > .env <<'EOF'
@@ -212,28 +219,27 @@ jobs:
           done
           docker compose logs
           exit 1
-      - name: Run OWASP ZAP full DAST scan
+      - name: Create isolated DAST users and IDOR fixtures
+        run: |
+          docker compose exec -T -e DAST_PASSWORD="$DAST_PASSWORD" web python manage.py shell -c "exec(open('scripts/security/dast_bootstrap.py').read())"
+      - name: Verify authenticated access control and prepare ZAP session
+        run: bash scripts/security/dast_auth_check.sh http://127.0.0.1:8000 "$DAST_PASSWORD" "$RUNNER_TEMP/zap-reports"
+      - name: Run OWASP ZAP authenticated full DAST scan
         id: zap_full
         continue-on-error: true
         run: |
-          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c .zap/rules.tsv -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
-      - name: Run OWASP ZAP API DAST scan
+          docker run --rm --network=host -v "$PWD:/zap/src:ro" -v "$RUNNER_TEMP/zap-reports:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c /zap/src/.zap/rules.tsv -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md -z "-configfile /zap/wrk/zap-auth.conf"
+      - name: Run OWASP ZAP authenticated API DAST scan
         id: zap_api
         continue-on-error: true
         run: |
-          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c .zap/rules.tsv -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md
-      - name: Upload OWASP ZAP report
+          docker run --rm --network=host -v "$PWD:/zap/src:ro" -v "$RUNNER_TEMP/zap-reports:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c /zap/src/.zap/rules.tsv -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md -z "-configfile /zap/wrk/zap-auth.conf"
+      - name: Upload OWASP ZAP reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: zap-full-scan
-          path: |
-            zap-full-report.json
-            zap-full-report.html
-            zap-full-report.md
-            zap-api-report.json
-            zap-api-report.html
-            zap-api-report.md
+          name: zap-authenticated-dast
+          path: ${{ runner.temp }}/zap-reports/zap-*-report.*
           if-no-files-found: warn
           retention-days: 30
       - name: Enforce DAST scan results
@@ -243,7 +249,8 @@ jobs:
           API_SCAN_OUTCOME: ${{ steps.zap_api.outcome }}
         run: |
           if [ "$FULL_SCAN_OUTCOME" != "success" ] || [ "$API_SCAN_OUTCOME" != "success" ]; then
-            echo "OWASP ZAP reported a finding or a scanner error. Review the uploaded reports and scan logs."
+            echo "Authenticated OWASP ZAP scan failed: full=$FULL_SCAN_OUTCOME api=$API_SCAN_OUTCOME"
+            echo "Review the uploaded reports to distinguish security findings from scanner errors."
             exit 1
           fi
       - name: Show application logs on failure
