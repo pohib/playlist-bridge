@@ -52,7 +52,11 @@ def get_vk_track_stream(request, track_id):
         message = (
             "Неподдерживаемый формат потока."
             if exc.status_code == 400
-            else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+            else (
+                "Не удалось подключиться к CDN VK. Попробуй запустить трек ещё раз."
+                if exc.status_code == 502
+                else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+            )
         )
         response = JsonResponse({"error": message}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
@@ -103,7 +107,11 @@ def stream_vk_track_audio(request, track_id):
         message = (
             "Неподдерживаемый формат потока."
             if exc.status_code == 400
-            else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+            else (
+                "Не удалось подключиться к CDN VK. Попробуй запустить трек ещё раз."
+                if exc.status_code == 502
+                else "VK не предоставил аудиопоток. Попробуй запустить трек позже."
+            )
         )
         response = JsonResponse({"error": message}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
