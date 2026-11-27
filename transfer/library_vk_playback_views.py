@@ -8,7 +8,7 @@ import time
 import requests
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
@@ -76,8 +76,6 @@ def stream_vk_track_audio(request, track_id):
         playlist__profile=_profile(request),
     )
     if (track.source_provider or track.playlist.provider) != LibraryPlaylist.Provider.VK:
-        from django.http import Http404
-
         raise Http404("VK track not found")
 
     api = VKClient(version=settings.VK_API_VERSION)
