@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
