@@ -38,21 +38,19 @@ def import_spotify_playlist(request):
 def import_spotify_track(request):
     source_url = request.POST.get("source_url", "").strip()
     try:
-        track_id = _spotify_resource_id(source_url, "track")
         client, token = _spotify_access(request)
-        track = client.track_details(token, track_id)
         profile = _profile(request)
         playlist_id = (request.POST.get("playlist_id") or "").strip()
         playlist = (
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        playlist = library_import_spotify.save_spotify_track(
+        playlist = library_import_spotify.import_spotify_track(
             profile,
-            track,
+            client,
+            token,
             source_url,
             playlist=playlist,
-            fallback_track_id=track_id,
         )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))

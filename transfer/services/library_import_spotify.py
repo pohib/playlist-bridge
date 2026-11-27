@@ -1,4 +1,4 @@
-"""Spotify playlist import validation and persistence."""
+"""Spotify playlist, track, and library import workflows."""
 
 import re
 from urllib.parse import urlparse
@@ -74,7 +74,6 @@ def save_spotify_playlist(profile, resource, entries, source_url):
     return playlist, len(rows)
 
 
-
 def save_spotify_track(profile, track, source_url, *, playlist=None, fallback_track_id=""):
     """Append a Spotify track or create a one-track playlist for it."""
     if playlist is None:
@@ -121,6 +120,20 @@ def save_spotify_track(profile, track, source_url, *, playlist=None, fallback_tr
     return playlist
 
 
+def import_spotify_track(
+    profile, client, token, source_url, *, playlist=None
+):
+    """Fetch and persist one Spotify track after validating its public URL."""
+    track_id = spotify_resource_id(source_url, "track")
+    track = client.track_details(token, track_id)
+    return save_spotify_track(
+        profile,
+        track,
+        source_url,
+        playlist=playlist,
+        fallback_track_id=track_id,
+    )
+
 
 def import_spotify_library(profile, client, token, *, limit=30):
     """Import a bounded batch of the user's Spotify playlists."""
@@ -148,7 +161,6 @@ def import_spotify_library(profile, client, token, *, limit=30):
         except TransferError:
             skipped += 1
     return imported, track_count, skipped
-
 
 
 def import_spotify_playlist(profile, client, token, playlist_id, source_url):

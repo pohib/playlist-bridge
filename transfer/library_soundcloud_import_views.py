@@ -37,20 +37,17 @@ def import_soundcloud_playlist(request):
 def import_soundcloud_track(request):
     source_url = request.POST.get("source_url", "").strip()
     try:
-        source_url = _validate_soundcloud_permalink(source_url)
         client, token = _soundcloud_access(request)
-        resource = client.resolve(token, source_url)
-        if resource.get("kind") != "track" and "duration" not in resource:
-            raise TransferError("Ссылка ведёт не на трек SoundCloud.")
         profile = _profile(request)
         playlist_id = (request.POST.get("playlist_id") or "").strip()
         playlist = (
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        playlist = library_import_soundcloud.save_soundcloud_track(
+        playlist = library_import_soundcloud.import_soundcloud_track(
             profile,
-            resource,
+            client,
+            token,
             source_url,
             playlist=playlist,
         )

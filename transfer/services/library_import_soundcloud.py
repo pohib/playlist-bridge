@@ -1,4 +1,4 @@
-"""SoundCloud playlist import validation and persistence."""
+"""SoundCloud playlist, track, and library import workflows."""
 
 from urllib.parse import urlparse
 
@@ -77,7 +77,6 @@ def save_soundcloud_playlist(profile, resource, tracks, source_url):
     return playlist, len(rows)
 
 
-
 def save_soundcloud_track(profile, resource, source_url, *, playlist=None):
     """Append a SoundCloud track or create a one-track playlist for it."""
     if playlist is None:
@@ -109,6 +108,19 @@ def save_soundcloud_track(profile, resource, source_url, *, playlist=None):
     return playlist
 
 
+def import_soundcloud_track(profile, client, token, source_url, *, playlist=None):
+    """Resolve and persist one SoundCloud track."""
+    source_url = validate_soundcloud_permalink(source_url)
+    resource = client.resolve(token, source_url)
+    if resource.get("kind") != "track" and "duration" not in resource:
+        raise TransferError("Ссылка ведёт не на трек SoundCloud.")
+    return save_soundcloud_track(
+        profile,
+        resource,
+        source_url,
+        playlist=playlist,
+    )
+
 
 def import_soundcloud_library(profile, client, token, *, limit=30):
     """Import a bounded batch of the user's SoundCloud playlists."""
@@ -126,7 +138,6 @@ def import_soundcloud_library(profile, client, token, *, limit=30):
             imported += 1
             track_count += len(tracks)
     return imported, track_count
-
 
 
 def import_soundcloud_playlist(profile, client, token, source_url):
