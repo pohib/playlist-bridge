@@ -5,8 +5,8 @@ import time
 
 from django.shortcuts import redirect
 
-from ..services.credential_service import get_session_fingerprint
 from ..services import TransferError
+from ..services.credential_service import get_session_fingerprint
 from .shared import provider_redirect
 
 logger = logging.getLogger(__name__)
