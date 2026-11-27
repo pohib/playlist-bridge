@@ -4,7 +4,8 @@ from .common import (
     TransferError,
     VKTrack,
     parse_vk_playlist_url,
-    parse_vk_track_reference,\n    parse_vk_track_url,
+    parse_vk_track_reference,
+    parse_vk_track_url,
 )
 from .soundcloud_client import SoundCloudClient
 from .spotify_client import SpotifyClient
