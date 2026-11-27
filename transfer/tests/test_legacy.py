@@ -876,16 +876,20 @@ class UnifiedLibraryTransferTests(TestCase):
         self.assertEqual(item.status, LibraryTransferItem.Status.PENDING)
 
         with patch(
-            "transfer.library_transfer_review_views._soundcloud_access",
+            "transfer.library_transfer_review_views.get_catalog_access",
             return_value=(client, "sc-token"),
         ):
             self.client.post(
                 reverse("search_transfer_item", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
                 {"query": "Unknown Artist Unknown Track"},
             )
-            item.refresh_from_db()
-            self.assertEqual(item.candidates[0]["id"], "988")
+        item.refresh_from_db()
+        self.assertEqual(item.candidates[0]["id"], "988")
 
+        with patch(
+            "transfer.library_transfer_review_views._soundcloud_access",
+            return_value=(client, "sc-token"),
+        ):
             response = self.client.post(
                 reverse("select_transfer_candidate", kwargs={"transfer_id": review.pk, "item_id": item.pk}),
                 {"candidate_id": "988"},

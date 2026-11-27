@@ -74,10 +74,8 @@ def search_library_sources(
                     "Доступна ссылка на поиск; публичный API для получения результатов "
                     "не подключён."
                 )
-        except TransferError:
-            statuses[provider] = (
-                "Не удалось выполнить поиск в этом сервисе. Проверь подключение и повтори попытку."
-            )
+        except TransferError as exc:
+            statuses[provider] = str(exc)
         except (AttributeError, KeyError, TypeError, ValueError):
             statuses[provider] = "Провайдер вернул данные неизвестного формата."
     return {"results": results[:60], "statuses": statuses, "query": query}

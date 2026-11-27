@@ -88,6 +88,12 @@ class SoundCloudClient:
             "refresh_token": refresh_token,
         })
 
+    def client_credentials_token(self):
+        """Obtain an app-scoped token for public catalog search only."""
+        if not self.client_id or not self.client_secret:
+            raise TransferError("SoundCloud catalog search is not configured.")
+        return self.token_request({"grant_type": "client_credentials"})
+
     def _request(self, method, path_or_url, token, *, params=None, json_body=None, files=None, data=None):
         if path_or_url.startswith("/"):
             url = f"{self.API}{path_or_url}"
