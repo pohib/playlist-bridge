@@ -79,6 +79,8 @@ class LibraryTransferReviewSearchTests(TestCase):
         provider.search_tracks.assert_called_once_with("token", "Track")
 
     def test_search_rejects_later_item_before_provider_access(self):
+        self.item.position = 1
+        self.item.save(update_fields=["position"])
         earlier_track = LibraryTrack.objects.create(
             playlist=self.source,
             title="Earlier",
@@ -88,7 +90,7 @@ class LibraryTransferReviewSearchTests(TestCase):
         earlier_item = LibraryTransferItem.objects.create(
             transfer=self.review,
             source_track=earlier_track,
-            position=-1,
+            position=0,
         )
         access = Mock()
 
