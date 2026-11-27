@@ -1,7 +1,9 @@
 """Anonymous VK web-client token acquisition."""
+
 import requests
 
 from .common import TransferError
+
 
 class VKAnonymousTokenProvider:
     """Obtain a short-lived anonymous token using VK's public web client."""
