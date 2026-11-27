@@ -21,12 +21,13 @@ class TransferDispatchTests(TestCase):
         self.assertEqual(entry["task"], "transfer.tasks.dispatch_queued_transfers")
         self.assertEqual(entry["schedule"], 60.0)
 
-    def create_job(self, fingerprint, *, status=TransferJob.Status.QUEUED, attempted_at=None):
+    def create_job(self, fingerprint, *, status=TransferJob.Status.QUEUED, attempted_at=None, attempts=0):
         return TransferJob.objects.create(
             session_fingerprint=fingerprint,
             source_url="https://vk.com/music/playlist/1_2",
             status=status,
             dispatch_attempted_at=attempted_at,
+            dispatch_attempts=attempts,
         )
 
     @patch("transfer.tasks.run_transfer.delay")
@@ -48,6 +49,7 @@ class TransferDispatchTests(TestCase):
         stale = self.create_job(
             "c" * 64,
             attempted_at=timezone.now() - timedelta(minutes=5),
+            attempts=1,
         )
 
         result = dispatch_pending_transfers(retry_after_seconds=120)

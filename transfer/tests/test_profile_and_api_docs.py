@@ -117,7 +117,7 @@ class PlayerAndProfileStyleRegressionTests(TestCase):
         self.assertIn('data-eq-q-knob="0"', self.player_template)
         self.assertIn('data-eq-q-value="4"', self.player_template)
         self.assertIn('state.eqQs=Array.isArray(state.eqQs)', self.player_script)
-        self.assertIn('filter.Q.setTargetAtTime(state.eqQs[i]', self.player_script)
+        self.assertIn('f.Q.setTargetAtTime(state.eqQs[i]', self.player_script)
         self.assertIn('addEventListener("wheel"', self.player_script)
         self.assertIn('nearest.distance>22', self.player_script)
         self.assertIn('player-eq-q-knob', self.stylesheet)
