@@ -12,12 +12,12 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack
-from .services import vk_client
 from .services.library_vk_playback import (
     VKPlaybackError,
     open_vk_track_audio,
     resolve_vk_track_stream,
 )
+from .services import vk_client
 
 
 VKClient = vk_client.VKClient
