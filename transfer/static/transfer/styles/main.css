@@ -494,7 +494,8 @@ button,.secondary-button,.primary-button { border-radius:13px; }
 .back-link { display:inline-block; margin-bottom:13px; color:#8eabcf; font-size:11px; font-weight:750; text-decoration:none; }
 .back-link:hover { color:#a8f2bd; }
 .site-footer { border-top-color:rgba(174,194,226,.13); }
-.landing-copy h1 span,.auth-aside h1 span,.page-heading h1 span { background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; text-shadow:none; }
+.landing-copy h1 span { display:inline-block; padding-right:.12em; margin-right:-.12em; background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; filter:drop-shadow(0 4px 12px rgba(30,215,96,.28)); }
+.auth-aside h1 span,.page-heading h1 span { background:linear-gradient(100deg,#71e99c 0%,#a2e9d4 48%,#8dbaff 100%); background-clip:text; -webkit-background-clip:text; color:transparent; text-shadow:none; }
 .landing-hero { min-height:590px; }
 .landing-copy { animation:copy-enter .75s cubic-bezier(.18,.72,.22,1) both; }
 .music-orbit { animation:orbit-enter .9s .1s cubic-bezier(.18,.72,.22,1) both; }
