@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from transfer.models import TransferJob
+from transfer.services.transfer_dispatch import dispatch_transfer_job
 
 
 STALE_JOB_ERROR = (
@@ -15,7 +16,7 @@ STALE_JOB_ERROR = (
 
 
 class Command(BaseCommand):
-    help = "Safely mark Celery transfer jobs with an expired heartbeat as failed; never retries them."
+    help = "Resume stale transfers only when a Spotify target playlist was checkpointed; fail unsafe jobs."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -27,7 +28,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Only report how many stale jobs would be marked failed.",
+            help="Only report how many stale jobs would be resumed or marked failed.",
         )
 
     def handle(self, *args, **options):
@@ -44,23 +45,52 @@ class Command(BaseCommand):
             | Q(heartbeat_at__isnull=True, started_at__lt=cutoff)
         )
 
+        recoverable_ids = []
+        failed_ids = []
+        for job in stale_jobs.only("pk", "checkpoint", "target_playlist"):
+            checkpoint = job.checkpoint if isinstance(job.checkpoint, dict) else {}
+            if (
+                checkpoint.get("target_playlist_id")
+                or job.target_playlist
+                or (checkpoint.get("report") and not checkpoint.get("playlist_create_pending"))
+            ):
+                recoverable_ids.append(job.pk)
+            else:
+                failed_ids.append(job.pk)
+
         if options["dry_run"]:
-            count = stale_jobs.count()
             self.stdout.write(
                 self.style.WARNING(
-                    f"Dry run: {count} stale running transfer job(s) would be marked failed."
+                    f"Dry run: {len(recoverable_ids)} stale job(s) are resumable; "
+                    f"{len(failed_ids)} job(s) would be marked failed."
                 )
             )
             return
 
-        updated = stale_jobs.update(
+        failed = TransferJob.objects.filter(pk__in=failed_ids).update(
             status=TransferJob.Status.FAILED,
             error=STALE_JOB_ERROR,
             finished_at=now,
         )
+        resumed = TransferJob.objects.filter(
+            pk__in=recoverable_ids,
+            status=TransferJob.Status.RUNNING,
+        ).update(
+            status=TransferJob.Status.QUEUED,
+            error="",
+            started_at=None,
+            heartbeat_at=None,
+            finished_at=None,
+            dispatch_attempted_at=None,
+        )
+        dispatched = 0
+        for job_id in recoverable_ids:
+            if dispatch_transfer_job(job_id, retry_after_seconds=1):
+                dispatched += 1
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"Marked {updated} stale running transfer job(s) as failed. "
-                "No task was retried."
+                f"Resumed {resumed} stale transfer job(s); dispatched {dispatched}. "
+                f"Marked {failed} job(s) failed because no safe target playlist was saved."
             )
         )

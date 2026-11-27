@@ -22,6 +22,7 @@ class TransferJob(models.Model):
     not_found = models.PositiveIntegerField(default=0)
     ambiguous = models.PositiveIntegerField(default=0)
     result = models.JSONField(default=dict, blank=True)
+    checkpoint = models.JSONField(default=dict, blank=True)
     error = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)

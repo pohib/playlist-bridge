@@ -51,6 +51,12 @@ def run_transfer(self, job_id):
                 status=TransferJob.Status.RUNNING,
             ).update(**update_values)
 
+        def save_checkpoint(values):
+            TransferJob.objects.filter(
+                pk=job.pk,
+                status=TransferJob.Status.RUNNING,
+            ).update(checkpoint=values, heartbeat_at=timezone.now())
+
         result = execute_transfer(
             vk_version=settings.VK_API_VERSION,
             spotify=spotify,
@@ -59,6 +65,8 @@ def run_transfer(self, job_id):
             source_url=job.source_url,
             target_playlist=job.target_playlist or None,
             progress_callback=update_progress,
+            checkpoint=job.checkpoint,
+            checkpoint_callback=save_checkpoint,
         )
 
         finished_at = timezone.now()

@@ -23,7 +23,6 @@ def serialize_job(job):
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "target_playlist_id": (
             job.result.get("target_playlist_id")
-            if job.status == TransferJob.Status.SUCCEEDED
-            else None
+            or (job.checkpoint.get("target_playlist_id") if isinstance(job.checkpoint, dict) else None)
         ),
     }
