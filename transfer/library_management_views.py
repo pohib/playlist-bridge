@@ -11,17 +11,17 @@ from .services.library_management import (
     LibraryManagementError,
     _normalized_track_key,  # noqa: F401
     _safe_optional_url,  # noqa: F401
-    add_track as add_track_service,
-    create_playlist as create_playlist_service,
-    delete_playlist as delete_playlist_service,
-    delete_track as delete_track_service,
-    merge_playlists as merge_playlists_service,
-    move_track as move_track_service,
-    update_playlist as update_playlist_service,
-    update_profile as update_profile_service,
-    update_track as update_track_service,
-    upload_local_track as upload_local_track_service,
 )
+from .services.library_management import add_track as add_track_service
+from .services.library_management import create_playlist as create_playlist_service
+from .services.library_management import delete_playlist as delete_playlist_service
+from .services.library_management import delete_track as delete_track_service
+from .services.library_management import merge_playlists as merge_playlists_service
+from .services.library_management import move_track as move_track_service
+from .services.library_management import update_playlist as update_playlist_service
+from .services.library_management import update_profile as update_profile_service
+from .services.library_management import update_track as update_track_service
+from .services.library_management import upload_local_track as upload_local_track_service
 
 
 @require_POST
