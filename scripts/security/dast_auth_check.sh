@@ -57,10 +57,80 @@ JAR_ONE="$ZAP_DIR/user-one.cookies"
 JAR_TWO="$ZAP_DIR/user-two.cookies"
 trap 'rm -f "$JAR_ONE" "$JAR_TWO"' EXIT
 
-mapfile -t AUTH_ONE < <(login "$USER_ONE" "$JAR_ONE")
-mapfile -t AUTH_TWO < <(login "$USER_TWO" "$JAR_TWO")
-CSRF_ONE="${AUTH_ONE[0]}"
-SESSION_ONE="${AUTH_ONE[1]}"
+AUTH_ONE="$(login "$USER_ONE" "$JAR_ONE")"
+AUTH_TWO="$(login "$USER_TWO" "$JAR_TWO")"
+CSRF_ONE="${AUTH_ONE%%
+
+# Verify owner access and cross-account isolation before running the scanner.
+own_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_ONE/")"
+foreign_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_TWO/")"
+foreign_report_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_TWO/report/")"
+other_owner_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_TWO" "$BASE_URL/api/v1/transfers/$JOB_TWO/")"
+
+if [[ "$own_status" != "200" || "$other_owner_status" != "200" \
+  || "$foreign_status" != "404" || "$foreign_report_status" != "404" ]]; then
+  printf 'Access-control regression: own=%s other_own=%s foreign=%s foreign_report=%s\n' \
+    "$own_status" "$other_owner_status" "$foreign_status" "$foreign_report_status" >&2
+  exit 1
+fi
+
+cat > "$ZAP_DIR/zap-auth.conf" <<EOF
+replacer.full_list(0).description=CI authenticated session cookie
+replacer.full_list(0).enabled=true
+replacer.full_list(0).matchtype=REQ_HEADER
+replacer.full_list(0).matchstr=Cookie
+replacer.full_list(0).regex=false
+replacer.full_list(0).replacement=csrftoken=$CSRF_ONE; sessionid=$SESSION_ONE
+replacer.full_list(1).description=CI CSRF request header
+replacer.full_list(1).enabled=true
+replacer.full_list(1).matchtype=REQ_HEADER
+replacer.full_list(1).matchstr=X-CSRFToken
+replacer.full_list(1).regex=false
+replacer.full_list(1).replacement=$CSRF_ONE
+EOF
+chmod 644 "$ZAP_DIR/zap-auth.conf"
+echo "Authenticated DAST login and cross-account access checks passed"
+\\n'*}"
+SESSION_ONE="${AUTH_ONE#*
+
+# Verify owner access and cross-account isolation before running the scanner.
+own_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_ONE/")"
+foreign_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_TWO/")"
+foreign_report_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_ONE" "$BASE_URL/api/v1/transfers/$JOB_TWO/report/")"
+other_owner_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  --cookie "$JAR_TWO" "$BASE_URL/api/v1/transfers/$JOB_TWO/")"
+
+if [[ "$own_status" != "200" || "$other_owner_status" != "200" \
+  || "$foreign_status" != "404" || "$foreign_report_status" != "404" ]]; then
+  printf 'Access-control regression: own=%s other_own=%s foreign=%s foreign_report=%s\n' \
+    "$own_status" "$other_owner_status" "$foreign_status" "$foreign_report_status" >&2
+  exit 1
+fi
+
+cat > "$ZAP_DIR/zap-auth.conf" <<EOF
+replacer.full_list(0).description=CI authenticated session cookie
+replacer.full_list(0).enabled=true
+replacer.full_list(0).matchtype=REQ_HEADER
+replacer.full_list(0).matchstr=Cookie
+replacer.full_list(0).regex=false
+replacer.full_list(0).replacement=csrftoken=$CSRF_ONE; sessionid=$SESSION_ONE
+replacer.full_list(1).description=CI CSRF request header
+replacer.full_list(1).enabled=true
+replacer.full_list(1).matchtype=REQ_HEADER
+replacer.full_list(1).matchstr=X-CSRFToken
+replacer.full_list(1).regex=false
+replacer.full_list(1).replacement=$CSRF_ONE
+EOF
+chmod 600 "$ZAP_DIR/zap-auth.conf"
+echo "Authenticated DAST login and cross-account access checks passed"
+\\n'}"
 
 # Verify owner access and cross-account isolation before running the scanner.
 own_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
