@@ -31,7 +31,7 @@ def _validate_upload(uploaded, title, artist):
 
 def upload_soundcloud_track(
     *,
-    profile,
+    profile_provider,
     uploaded,
     title,
     artist,
@@ -58,6 +58,7 @@ def upload_soundcloud_track(
     except (TypeError, ValueError, OverflowError):
         duration_ms = 0
 
+    profile = profile_provider()
     with transaction.atomic():
         playlist = LibraryPlaylist.objects.create(
             profile=profile,
