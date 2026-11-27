@@ -11,11 +11,7 @@ from .library_support import (
     _spotify_access,
 )
 from .models import LibraryPlaylist, LibraryTransfer, LibraryTransferItem
-from .services import TransferError
-from .services.library_transfer_review import (
-    skip_transfer_item as apply_skip_transfer_item,
-    select_transfer_candidate as apply_transfer_candidate,
-)
+from .services import TransferError, library_transfer_review
 
 
 @require_GET
@@ -140,7 +136,7 @@ def search_transfer_item(request, transfer_id, item_id):
 @require_POST
 def select_transfer_candidate(request, transfer_id, item_id):
     try:
-        review, item, candidate = apply_transfer_candidate(
+        review, item, candidate = library_transfer_review.select_transfer_candidate(
             profile=_profile(request),
             transfer_id=transfer_id,
             item_id=item_id,
@@ -163,7 +159,7 @@ def select_transfer_candidate(request, transfer_id, item_id):
 @require_POST
 def skip_transfer_item(request, transfer_id, item_id):
     try:
-        review, item = apply_skip_transfer_item(
+        review, item = library_transfer_review.skip_transfer_item(
             profile=_profile(request),
             transfer_id=transfer_id,
             item_id=item_id,
