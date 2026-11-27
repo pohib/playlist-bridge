@@ -114,10 +114,9 @@ def select_transfer_candidate(
     review.save(update_fields=["matched", "status", "completed_at"])
 
     logger.info(
-        "Manual track match selected transfer_id=%s item_id=%s provider=%s",
+        "Manual track match selected transfer_id=%s item_id=%s",
         review.pk,
         item.pk,
-        review.target_provider,
     )
     return review, item, candidate
 
