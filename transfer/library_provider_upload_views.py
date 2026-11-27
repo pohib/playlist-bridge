@@ -1,4 +1,4 @@
-"""SoundCloud upload endpoint and audio file signature validation."""
+"""SoundCloud upload HTTP endpoint."""
 
 from pathlib import Path
 
@@ -13,7 +13,6 @@ from .services.audio_file_validation import (
     SOUNDCLOUD_AUDIO_EXTENSIONS,
     has_audio_file_signature,
 )
-
 
 
 @require_POST
