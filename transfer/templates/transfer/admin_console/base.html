@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin">
+  <title>{% block title %}Панель управления{% endblock %} · Playlist Bridge</title>
+  <link rel="stylesheet" href="{% static 'transfer/styles/admin-console.css' %}">
+</head>
+<body class="admin-body">
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <a class="admin-brand" href="{% url 'admin_console' %}"><span>PB</span><strong>Playlist Bridge<small>CONTROL CENTER</small></strong></a>
+      <div class="admin-sidebar-label">WORKSPACE</div>
+      <nav class="admin-nav">
+        <a href="{% url 'admin_console' %}" class="{% if request.resolver_match.url_name == 'admin_console' %}active{% endif %}">⌂ <span>Обзор</span></a>
+        {% if perms.auth.view_user %}<a href="{% url 'admin_console_users' %}" class="{% if request.resolver_match.url_name == 'admin_console_users' %}active{% endif %}">♙ <span>Пользователи</span></a>{% endif %}
+        {% if perms.transfer.view_libraryprofile %}<a href="{% url 'admin_console_library' %}" class="{% if request.resolver_match.url_name == 'admin_console_library' %}active{% endif %}">▤ <span>Библиотеки</span></a>{% endif %}
+        {% if perms.transfer.view_transferjob %}<a href="{% url 'admin_console_jobs' %}" class="{% if request.resolver_match.url_name == 'admin_console_jobs' %}active{% endif %}">⇄ <span>Очередь и переносы</span></a>{% endif %}
+        {% if perms.transfer.view_adminevent %}<a href="{% url 'admin_console_audit' %}" class="{% if request.resolver_match.url_name == 'admin_console_audit' %}active{% endif %}">◷ <span>Журнал действий</span></a>{% endif %}
+      </nav>
+      <div class="admin-sidebar-bottom"><a href="{% url 'home' %}">← Вернуться в приложение</a><span>Доступ только для staff</span></div>
+    </aside>
+    <main class="admin-main">
+      <header class="admin-topbar"><div><span class="admin-overline">SYSTEM MANAGEMENT</span><strong>{% block page_heading %}Панель управления{% endblock %}</strong></div><div class="admin-identity"><span class="admin-status-dot"></span>{{ request.user.get_username }} <a href="{% url 'profile' %}">Профиль ↗</a></div></header>
+      {% if messages %}<div class="admin-messages">{% for message in messages %}<div class="admin-message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      <section class="admin-content">{% block content %}{% endblock %}</section>
+      <footer class="admin-footer"><span>PLAYLIST BRIDGE · CONTROL CENTER</span><span>Privileged actions are permission-checked and audited.</span></footer>
+    </main>
+  </div>
+</body>
+</html>

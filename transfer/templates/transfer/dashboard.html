@@ -1,7 +1,7 @@
 {% extends "transfer/base.html" %}
 {% block title %}Обзор{% endblock %}
 {% block content %}
-<section class="page-heading"><div><span class="section-kicker">ТВОЁ ПРОСТРАНСТВО</span><h1>Привет, <span>{{ user.username }}</span></h1><p>Здесь начинается маршрут твоей музыки.</p></div><div class="dashboard-heading-actions"><a class="secondary-button dashboard-api-link" href="{% url 'api_docs' %}"><span aria-hidden="true">⌘</span> Документация API <span aria-hidden="true"></span></a><a class="primary-button" href="{% url 'library' %}">Открыть библиотеку <span></span></a></div></section>
+<section class="page-heading"><div><span class="section-kicker">ТВОЁ ПРОСТРАНСТВО</span><h1>Привет, <span>{{ user.username }}</span></h1><p>Здесь начинается маршрут твоей музыки.</p></div><div class="dashboard-heading-actions"><a class="primary-button" href="{% url 'library' %}">Открыть библиотеку <span></span></a></div></section>
 <section class="dashboard-tiles">
   <a class="dashboard-tile tile-library" href="{% url 'library' %}"><span class="tile-icon">▤</span><span class="tile-meta">КОЛЛЕКЦИИ</span><strong>Моя библиотека</strong><small>Плейлисты и отдельные треки в одном месте</small><b>Перейти →</b></a>
   <a class="dashboard-tile tile-services" href="{% url 'connections' %}"><span class="tile-icon">⌘</span><span class="tile-meta">АККАУНТЫ</span><strong>Музыкальные сервисы</strong><small>Подключай и управляй доступом через OAuth</small><b>Настроить →</b></a>

@@ -54,6 +54,12 @@ class SpotifyClient:
     def refresh_token(self, refresh_token):
         return self.token_request({"grant_type": "refresh_token", "refresh_token": refresh_token})
 
+    def client_credentials_token(self):
+        """Obtain an app-scoped token for public catalog search only."""
+        if not self.client_id or not self.client_secret:
+            raise TransferError("Spotify catalog search is not configured.")
+        return self.token_request({"grant_type": "client_credentials"})
+
     @staticmethod
     def _api_destination(operation, playlist_id=None):
         """Resolve a closed Spotify operation set to a fixed API origin."""
@@ -114,6 +120,11 @@ class SpotifyClient:
                         continue
                     raise TransferError(
                         "Spotify ограничил частоту запросов. Повтори перенос позже."
+                    )
+                if response.status_code == 403:
+                    raise TransferError(
+                        "Spotify запретил запрос к каталогу. Проверь Premium у владельца "
+                        "приложения и доступ приложения в Spotify Developer Dashboard."
                     )
                 response.raise_for_status()
                 return response.json() if response.content else {}

@@ -1,3 +1,4 @@
+from .admin import AdminAuditEvent
 from .credentials import OAuthCredential
 from .jobs import TransferJob
 from .library import (
@@ -9,6 +10,7 @@ from .library import (
 )
 
 __all__ = [
+    "AdminAuditEvent",
     "LibraryPlaylist",
     "LibraryProfile",
     "LibraryTrack",

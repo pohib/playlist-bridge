@@ -110,6 +110,17 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_TRACK_STARTED = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
+# Share provider catalog tokens between web and Celery workers.
+CACHE_URL = os.getenv("CACHE_URL", "redis://redis:6379/1")
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": CACHE_URL,
+        "KEY_PREFIX": "playlist-bridge",
+        "TIMEOUT": 300,
+    },
+}
+
 WHITENOISE_ALLOW_ALL_ORIGINS = False
 
 

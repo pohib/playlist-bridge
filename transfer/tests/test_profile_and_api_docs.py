@@ -4,7 +4,7 @@ from django.contrib.staticfiles import finders
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
+from ..models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, LibraryTrack, OAuthCredential
 
 
 TEST_STORAGE_SETTINGS = {
@@ -162,3 +162,81 @@ class ApiDocumentationTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response["Content-Type"], "application/json")
         self.assertEqual(response.json(), {"error": {"message": "API endpoint not found."}})
+
+
+
+@override_settings(**TEST_STORAGE_SETTINGS)
+class LandingAndAdminConsoleTests(TestCase):
+    def test_api_documentation_link_is_on_landing_page_after_profile_action(self):
+        user = get_user_model().objects.create_user(
+            username="landing-docs-user", password="test-password"
+        )
+        self.client.force_login(user)
+        landing = self.client.get(reverse("home"))
+        self.assertEqual(landing.status_code, 200)
+        content = landing.content
+        self.assertLess(content.index("Открыть мою библиотеку".encode()), content.index("Мой профиль".encode()))
+        self.assertLess(content.index("Мой профиль".encode()), content.index("Документация API".encode()))
+
+        dashboard = self.client.get(reverse("dashboard"))
+        self.assertNotContains(dashboard, reverse("api_docs"))
+
+    def test_api_documentation_link_remains_public_for_anonymous_visitors(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("api_docs"))
+
+    def test_admin_console_redirects_anonymous_user_to_login(self):
+        response = self.client.get(reverse("admin_console"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+    def test_non_staff_user_cannot_access_admin_console(self):
+        user = get_user_model().objects.create_user(
+            username="regular-console-user", password="test-password"
+        )
+        self.client.force_login(user)
+        response = self.client.get(reverse("admin_console"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
+    def test_staff_user_can_access_custom_console_and_legacy_admin_redirects(self):
+        user = get_user_model().objects.create_superuser(
+            username="console-admin", email="admin@example.test", password="test-password"
+        )
+        self.client.force_login(user)
+        response = self.client.get(reverse("admin_console"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Состояние платформы")
+        self.assertNotContains(response, "encrypted_payload")
+        legacy_admin = self.client.get("/admin/")
+        self.assertEqual(legacy_admin.status_code, 302)
+        self.assertEqual(legacy_admin.url, "/control/")
+
+    def test_admin_user_toggle_is_post_only_and_audited(self):
+        admin_user = get_user_model().objects.create_superuser(
+            username="console-operator", email="operator@example.test", password="test-password"
+        )
+        target = get_user_model().objects.create_user(
+            username="target-user", password="test-password"
+        )
+        self.client.force_login(admin_user)
+        response = self.client.post(reverse("admin_console_toggle_user", args=[target.pk]))
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+        event = AdminAuditEvent.objects.get(target_id=str(target.pk))
+        self.assertEqual(event.action, "user.deactivated")
+        self.assertEqual(event.actor, admin_user)
+        self.assertEqual(
+            self.client.post(reverse("admin_console_toggle_user", args=[admin_user.pk])).status_code,
+            403,
+        )
+
+    def test_staff_without_permissions_cannot_view_global_admin_data(self):
+        staff = get_user_model().objects.create_user(
+            username="restricted-staff", password="test-password", is_staff=True
+        )
+        self.client.force_login(staff)
+        self.assertEqual(self.client.get(reverse("admin_console")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("admin_console_users")).status_code, 403)

@@ -7,11 +7,8 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
-from .library_support import (
-    _profile,
-    _soundcloud_access,
-    _spotify_access,
-)
+from .library_support import _profile
+from .services.provider_catalog_access import get_catalog_access
 from .models import LibraryPlaylist, LibraryTrack
 from .services import library_source_search_service
 from .services.library_source_links import safe_provider_source_url
@@ -61,7 +58,7 @@ def search_library_sources(request):
         title,
         artist,
         providers,
-        spotify_access=lambda: _spotify_access(request),
-        soundcloud_access=lambda: _soundcloud_access(request),
+        spotify_access=lambda: get_catalog_access("spotify"),
+        soundcloud_access=lambda: get_catalog_access("soundcloud"),
     )
     return JsonResponse(result)

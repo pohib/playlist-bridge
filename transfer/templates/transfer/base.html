@@ -22,6 +22,7 @@
           <a href="{% url 'library' %}" class="{% if request.resolver_match.url_name == 'library' or request.resolver_match.url_name == 'playlist_detail' %}active{% endif %}">Библиотека</a>
           <a href="{% url 'connections' %}" class="{% if request.resolver_match.url_name == 'connections' %}active{% endif %}">Сервисы</a>
           <a href="{% url 'transfers' %}" class="{% if request.resolver_match.url_name == 'transfers' %}active{% endif %}">Переносы</a>
+          {% if user.is_staff %}<a href="{% url 'admin_console' %}">Управление</a>{% endif %}
         {% endif %}
       </nav>
       <div class="header-account">

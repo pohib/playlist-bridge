@@ -5,6 +5,7 @@ Keeping this module preserves existing imports and the historical Django app lab
 """
 
 from .domain_models import (
+    AdminAuditEvent,
     LibraryPlaylist,
     LibraryProfile,
     LibraryTrack,
@@ -15,6 +16,7 @@ from .domain_models import (
 )
 
 __all__ = [
+    "AdminAuditEvent",
     "LibraryPlaylist",
     "LibraryProfile",
     "LibraryTrack",

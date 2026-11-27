@@ -7,8 +7,6 @@ from django.views.decorators.http import require_GET, require_POST
 from .library_support import (
     _profile,
     _safe_candidate_url,
-    _soundcloud_access,
-    _spotify_access,
 )
 from .services.common import TransferError
 from .services.library_transfer_review import (
@@ -23,6 +21,7 @@ from .services.library_transfer_review_queries import (
     get_transfer_target_url,
 )
 from .services.library_transfer_review_search import search_pending_transfer_item
+from .services.provider_catalog_access import get_catalog_access
 
 
 @require_GET
@@ -74,8 +73,8 @@ def search_transfer_item(request, transfer_id, item_id):
             transfer_id=transfer_id,
             item_id=item_id,
             query=(request.POST.get("query") or "").strip(),
-            spotify_access=lambda: _spotify_access(request),
-            soundcloud_access=lambda: _soundcloud_access(request),
+            spotify_access=lambda: get_catalog_access("spotify"),
+            soundcloud_access=lambda: get_catalog_access("soundcloud"),
             safe_candidate_url=_safe_candidate_url,
         )
     except TransferError as exc:

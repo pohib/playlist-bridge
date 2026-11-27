@@ -90,5 +90,5 @@ class LibrarySourceSearchOrchestrationTests(SimpleTestCase):
         self.assertEqual(result["results"][0]["provider"], "apple_music")
         self.assertEqual(
             result["statuses"]["spotify"],
-            "Не удалось выполнить поиск в этом сервисе. Проверь подключение и повтори попытку.",
+            "Spotify needs reconnect",
         )

@@ -1,0 +1,19 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Обзор{% endblock %}{% block page_heading %}Обзор системы{% endblock %}
+{% block content %}
+<div class="admin-welcome"><div><span class="admin-overline">OVERVIEW / LIVE DATA</span><h1>Состояние платформы</h1><p>Операционная панель Playlist Bridge. Чувствительные OAuth-токены и секреты здесь не отображаются.</p></div><span class="admin-pill"><i></i> STAFF AREA</span></div>
+<div class="admin-stat-grid">
+  {% if can_view_users %}<article class="admin-stat"><span>Пользователи</span><strong>{{ user_count }}</strong><small>учётных записей</small></article>{% endif %}
+  {% if can_view_library %}<article class="admin-stat"><span>Библиотеки</span><strong>{{ profile_count }}</strong><small>профилей</small></article><article class="admin-stat"><span>Плейлисты</span><strong>{{ playlist_count }}</strong><small>коллекций</small></article>{% endif %}
+  {% if can_view_jobs %}<article class="admin-stat stat-warn"><span>В очереди</span><strong>{{ queued_count }}</strong><small>ожидают worker</small></article><article class="admin-stat stat-live"><span>Выполняются</span><strong>{{ running_count }}</strong><small>активных задач</small></article><article class="admin-stat stat-danger"><span>Ошибки</span><strong>{{ failed_count }}</strong><small>неуспешных задач</small></article>{% endif %}
+</div>
+<div class="admin-two-column">
+  {% if can_view_jobs %}<section class="admin-panel"><div class="admin-panel-heading"><div><span class="admin-overline">QUEUE MONITOR</span><h2>Последние задачи</h2></div>{% if perms.transfer.view_transferjob %}<a href="{% url 'admin_console_jobs' %}">Все задачи →</a>{% endif %}</div>
+    {% for job in recent_jobs %}<div class="admin-list-row"><span class="job-status status-{{ job.status }}"></span><div class="admin-row-main"><strong>{{ job.id|truncatechars:18 }}</strong><small>{{ job.created_at|date:"d.m.Y H:i" }} · {{ job.progress }} / {{ job.total }}</small></div><span class="admin-tag">{{ job.get_status_display }}</span></div>{% empty %}<p class="admin-empty">Задач пока нет.</p>{% endfor %}
+  </section>{% endif %}
+  {% if can_view_audit %}<section class="admin-panel"><div class="admin-panel-heading"><div><span class="admin-overline">AUDIT TRAIL</span><h2>Действия администраторов</h2></div>{% if perms.transfer.view_adminevent %}<a href="{% url 'admin_console_audit' %}">Журнал →</a>{% endif %}</div>
+    {% for event in recent_events %}<div class="admin-list-row"><span class="audit-mark">↳</span><div class="admin-row-main"><strong>{{ event.action }}</strong><small>{{ event.actor.get_username|default:"Система" }} · {{ event.created_at|date:"d.m.Y H:i" }}</small></div></div>{% empty %}<p class="admin-empty">Привилегированных действий ещё не было.</p>{% endfor %}
+  </section>{% endif %}
+</div>
+<div class="admin-notice"><strong>Безопасность панели</strong><span>Доступ закрыт для обычных пользователей. Разделы проверяют Django permissions отдельно; изменение состояния аккаунтов защищено POST + CSRF и записывается в аудит.</span></div>
+{% endblock %}

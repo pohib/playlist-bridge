@@ -3,6 +3,7 @@ from django.urls import path, reverse_lazy
 
 from . import (
     account_page_views,
+    admin_console_views,
     api_views,
     auth_views,
     dashboard_views,
@@ -27,6 +28,12 @@ from . import (
 )
 
 urlpatterns = [
+    path("control/", admin_console_views.console_dashboard, name="admin_console"),
+    path("control/users/", admin_console_views.console_users, name="admin_console_users"),
+    path("control/users/<int:user_id>/toggle/", admin_console_views.console_toggle_user, name="admin_console_toggle_user"),
+    path("control/jobs/", admin_console_views.console_jobs, name="admin_console_jobs"),
+    path("control/library/", admin_console_views.console_library, name="admin_console_library"),
+    path("control/audit/", admin_console_views.console_audit, name="admin_console_audit"),
     path("", landing_views.home, name="home"),
     path("accounts/register/", auth_views.register, name="register"),
     path("accounts/login/", auth_views.sign_in, name="login"),

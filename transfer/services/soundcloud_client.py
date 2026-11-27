@@ -37,12 +37,25 @@ class SoundCloudClient:
         try:
             response = self.http.post(
                 f"{self.AUTH}/oauth/token",
-                data={
-                    **data,
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
+                data=(
+                    {"grant_type": "client_credentials"}
+                    if data.get("grant_type") == "client_credentials"
+                    else {
+                        **data,
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                    }
+                ),
+                headers={
+                    "Accept": "application/json",
+                    **(
+                        {"Authorization": "Basic " + base64.b64encode(
+                            f"{self.client_id}:{self.client_secret}".encode()
+                        ).decode()}
+                        if data.get("grant_type") == "client_credentials"
+                        else {}
+                    ),
                 },
-                headers={"Accept": "application/json"},
                 timeout=(5, 25),
                 allow_redirects=False,
             )
