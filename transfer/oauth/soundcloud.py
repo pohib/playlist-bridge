@@ -5,7 +5,7 @@ import time
 
 from django.shortcuts import redirect
 
-from ..credentials import get_access_token, get_session_fingerprint
+from ..credentials import get_session_fingerprint
 from ..services import TransferError
 from .shared import provider_redirect
 
