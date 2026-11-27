@@ -1,3 +1,6 @@
+import json
+import uuid
+
 from django.test import TestCase
 from django.urls import resolve, reverse
 
@@ -44,13 +47,15 @@ class ApiModuleBoundaryTests(TestCase):
         }
         for route_name, module_name in expected_modules.items():
             with self.subTest(route_name=route_name):
-                self.assertEqual(resolve(reverse(route_name)).func.__module__, module_name)
+                kwargs = {"job_id": uuid.uuid4()} if route_name in {"api_transfer_detail", "api_transfer_report"} else None
+                url = reverse(route_name, kwargs=kwargs) if kwargs else reverse(route_name)
+                self.assertEqual(resolve(url).func.__module__, module_name)
 
     def test_api_error_keeps_the_existing_json_envelope(self):
         response = api_error("Invalid request.", 422)
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response["Content-Type"], "application/json")
-        self.assertEqual(response.json(), {"error": {"message": "Invalid request."}})
+        self.assertEqual(json.loads(response.content), {"error": {"message": "Invalid request."}})
 
     def test_transfer_serializer_keeps_contract_and_hides_session_fingerprint(self):
         job = TransferJob.objects.create(
@@ -75,7 +80,7 @@ class ApiModuleBoundaryTests(TestCase):
         self.assertIsNone(serialize_job(job)["target_playlist_id"])
 
     def test_create_endpoint_rejects_non_json_content_type(self):
-        response = self.client.post(reverse("api_create_transfer"), data="source_url=x")
+        response = self.client.post(reverse("api_create_transfer"), data="source_url=x", content_type="application/x-www-form-urlencoded")
         self.assertEqual(response.status_code, 415)
         self.assertEqual(response.json(), {
             "error": {"message": "Используй Content-Type: application/json."}
