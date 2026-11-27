@@ -213,8 +213,23 @@ class VKClient:
                         tracks.append(track)
         if not tracks:
             raise TransferError("VK не вернул метаданные аудиозаписей.")
-        # getIdsBySource currently returns ordered IDs but not playlist title.
-        return "VK playlist", tracks
+        title = self._fetch_playlist_title(owner, playlist_id, access_key)
+        return title, tracks
+
+    def _fetch_playlist_title(self, owner_id, playlist_id, access_key=""):
+        """Fetch the source playlist title using VK playlist metadata."""
+        data = {"owner_id": owner_id, "playlist_id": playlist_id, "extended": 1}
+        if access_key:
+            data["access_key"] = access_key
+        try:
+            payload = self.post("audio.getPlaylistById", data=data)
+        except TransferError:
+            payload = {}
+        response = payload.get("response") if isinstance(payload, dict) else None
+        title = response.get("title") if isinstance(response, dict) else None
+        if isinstance(title, str) and title.strip():
+            return title.strip()[:120]
+        return f"Плейлист VK · {playlist_id}"
 
     def fetch_track(self, url):
         owner_id, track_id, access_key = parse_vk_track_reference(url)
