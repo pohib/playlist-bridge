@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_POST
 def get_vk_track_stream(request, track_id):
-    """Resolve a short-lived VK CDN URL only when the user starts a track."""
+    """Validate a VK stream and return its same-origin playback proxy URL."""
     track = get_object_or_404(
         LibraryTrack.objects.select_related("playlist"),
         pk=track_id,
@@ -50,8 +50,9 @@ def get_vk_track_stream(request, track_id):
         response = JsonResponse({"error": str(exc)}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
         return response
+    proxy_url = reverse("library_vk_track_audio", kwargs={"track_id": track.pk})
     response = JsonResponse({
-        "url": f"{reverse('library_vk_track_audio', kwargs={'track_id': track.pk})}?format={stream_format}",
+        "url": f"{proxy_url}?format={stream_format}",
         "format": stream_format,
     })
     response["Cache-Control"] = "private, no-store"
@@ -62,7 +63,7 @@ def get_vk_track_stream(request, track_id):
 @login_required
 @require_GET
 def stream_vk_track_audio(request, track_id):
-    """Proxy a fresh VK MP3 stream with browser-friendly audio and Range headers."""
+    """Proxy a fresh VK audio stream with browser-friendly Range handling."""
     track = get_object_or_404(
         LibraryTrack.objects.select_related("playlist"),
         pk=track_id,
@@ -87,7 +88,12 @@ def stream_vk_track_audio(request, track_id):
         )
     except VKPlaybackError as exc:
         if exc.status_code == 422:
-            logger.info("VK %s stream unavailable for track %s: %s", stream_format, track.pk, exc)
+            logger.info(
+                "VK %s stream unavailable for track %s: %s",
+                stream_format,
+                track.pk,
+                exc,
+            )
         response = JsonResponse({"error": str(exc)}, status=exc.status_code)
         response["Cache-Control"] = "private, no-store"
         return response
