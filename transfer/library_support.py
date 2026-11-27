@@ -4,9 +4,9 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 
-from .services.credential_service import get_access_token, get_session_fingerprint
 from .models import LibraryProfile
 from .services import SoundCloudClient, SpotifyClient
+from .services.credential_service import get_access_token, get_session_fingerprint
 
 
 def _profile(request):
