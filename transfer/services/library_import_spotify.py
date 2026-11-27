@@ -7,6 +7,7 @@ from django.db import transaction
 
 from ..models import LibraryPlaylist, LibraryTrack
 from .common import TransferError
+from .library_track_management import append_provider_track
 
 
 def spotify_resource_id(value, resource_type):
@@ -71,3 +72,50 @@ def save_spotify_playlist(profile, resource, entries, source_url):
             raise TransferError("Spotify не вернул доступные композиции этого плейлиста.")
         LibraryTrack.objects.bulk_create(rows)
     return playlist, len(rows)
+
+
+
+def save_spotify_track(profile, track, source_url, *, playlist=None, fallback_track_id=""):
+    """Append a Spotify track or create a one-track playlist for it."""
+    if playlist is None:
+        resource = {"name": f"Spotify — {track.get('name') or 'Track'}"}
+        playlist, _count = save_spotify_playlist(
+            profile,
+            resource,
+            [{"item": track}],
+            source_url,
+        )
+        return playlist
+
+    artists = track.get("artists") or []
+    artist = ", ".join(
+        str(item.get("name") or "")
+        for item in artists
+        if isinstance(item, dict) and item.get("name")
+    ) or "Unknown artist"
+    album_payload = track.get("album")
+    album = album_payload.get("name") or "" if isinstance(album_payload, dict) else ""
+    external_urls = track.get("external_urls")
+    external_url = (
+        external_urls.get("spotify", source_url)
+        if isinstance(external_urls, dict)
+        else source_url
+    )
+    images = album_payload.get("images") or [] if isinstance(album_payload, dict) else []
+    cover_url = (
+        images[0].get("url", "")
+        if images and isinstance(images[0], dict)
+        else ""
+    )
+    append_provider_track(
+        playlist,
+        title=track.get("name") or "Unknown track",
+        artist=artist,
+        album=album,
+        provider=LibraryPlaylist.Provider.SPOTIFY,
+        external_id=track.get("id") or fallback_track_id,
+        external_url=external_url,
+        duration_ms=track.get("duration_ms"),
+        cover_url=cover_url,
+    )
+    return playlist
