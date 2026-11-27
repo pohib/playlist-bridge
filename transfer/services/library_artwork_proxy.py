@@ -1,8 +1,7 @@
 """Safe, bounded fetching of provider artwork for the authenticated proxy."""
 
-from urllib.parse import urljoin, urlsplit
-
 import requests
+from urllib.parse import urljoin, urlsplit
 
 
 ALLOWED_ARTWORK_DOMAINS = (
