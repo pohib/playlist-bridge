@@ -47,7 +47,7 @@ def import_vk_track(request):
     try:
         parse_vk_track_url(source_url)
         track = VKClient(version=settings.VK_API_VERSION).fetch_track(source_url)
-        playlist = save_vk_track(_profile(request), track, source_url)
+        save_vk_track(_profile(request), track, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
