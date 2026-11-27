@@ -12,7 +12,11 @@ def serialize_job(job):
         "matched": job.matched,
         "not_found": job.not_found,
         "ambiguous": job.ambiguous,
-        "error": job.error or None,
+        "error": (
+            "Перенос не выполнен. Проверь подключение к сервисам и повтори попытку."
+            if job.status == TransferJob.Status.FAILED
+            else None
+        ),
         "created_at": job.created_at.isoformat(),
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
