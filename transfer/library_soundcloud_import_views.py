@@ -7,8 +7,11 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
-from .services.library_imports import save_soundcloud_playlist, validate_soundcloud_permalink
-from .services.library_management import append_provider_track
+from .services.library_imports import (
+    save_soundcloud_playlist,
+    save_soundcloud_track,
+    validate_soundcloud_permalink,
+)
 
 # Keep the previous private helper names importable for compatibility.
 _validate_soundcloud_permalink = validate_soundcloud_permalink
@@ -49,27 +52,12 @@ def import_soundcloud_track(request):
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        if playlist:
-            user = resource.get("user")
-            if not isinstance(user, dict):
-                user = {}
-            append_provider_track(
-                playlist,
-                title=resource.get("title") or "Unknown track",
-                artist=resource.get("metadata_artist") or user.get("username") or "Unknown artist",
-                provider=LibraryPlaylist.Provider.SOUNDCLOUD,
-                external_id=resource.get("id", ""),
-                external_url=resource.get("permalink_url") or source_url,
-                duration_ms=resource.get("duration"),
-                cover_url=resource.get("artwork_url") or "",
-            )
-        else:
-            playlist, _count = _save_soundcloud_playlist(
-                profile,
-                {"title": f"SoundCloud — {resource.get('title') or 'Track'}"},
-                [resource],
-                source_url,
-            )
+        playlist = save_soundcloud_track(
+            profile,
+            resource,
+            source_url,
+            playlist=playlist,
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
