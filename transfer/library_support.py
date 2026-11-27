@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 
-from .credentials import get_access_token, get_session_fingerprint
+from .services.credential_service import get_access_token, get_session_fingerprint
 from .models import LibraryProfile
 from .services import SoundCloudClient, SpotifyClient
 
