@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET
 from .library_support import _profile
 from .models import LibraryTrack
 
+
 @login_required
 @require_GET
 def library_cover_proxy(request):
