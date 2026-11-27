@@ -5,7 +5,6 @@ import logging
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .library_support import _profile, _safe_candidate_url, _soundcloud_access, _spotify_access
