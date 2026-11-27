@@ -3,8 +3,8 @@
 from cryptography.fernet import Fernet
 from django.conf import settings
 
-from ..services.credential_service import get_session_fingerprint
 from ..models import LibraryProfile, OAuthCredential, TransferJob
+from ..services.credential_service import get_session_fingerprint
 
 
 def encryption_key_is_valid():
