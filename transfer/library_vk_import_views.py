@@ -12,14 +12,14 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile
 from .models import LibraryPlaylist
 from .services.common import TransferError, parse_vk_playlist_url, parse_vk_track_url
-from .services.library_import_vk import (
-    refresh_vk_track_metadata,
-    save_vk_playlist,
-    save_vk_track,
-)
-from .services.vk_client import VKClient
+from .services import library_import_vk, vk_client
 
 logger = logging.getLogger(__name__)
+
+VKClient = vk_client.VKClient
+refresh_vk_track_metadata = library_import_vk.refresh_vk_track_metadata
+save_vk_playlist = library_import_vk.save_vk_playlist
+save_vk_track = library_import_vk.save_vk_track
 
 @require_POST
 def import_vk_playlist(request):
@@ -28,9 +28,12 @@ def import_vk_playlist(request):
         owner_id, playlist_id, access_key = parse_vk_playlist_url(source_url)
         logger.info("VK public playlist import started owner_id=%s playlist_id=%s has_access_key=%s", owner_id, playlist_id, bool(access_key))
         api = VKClient(version=settings.VK_API_VERSION)
-        title, tracks = api.fetch_playlist(source_url)
         profile = _profile(request)
-        playlist, track_count = save_vk_playlist(profile, title, tracks, source_url)
+        playlist, track_count = library_import_vk.import_vk_playlist(
+            profile,
+            api,
+            source_url,
+        )
     except (ValueError, TransferError) as exc:
         logger.warning("VK public playlist import rejected: %s", str(exc)[:240])
         messages.error(request, str(exc) if isinstance(exc, TransferError) else "Укажи корректную ссылку на публичный плейлист VK.")
@@ -54,8 +57,12 @@ def import_vk_track(request):
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        track = VKClient(version=settings.VK_API_VERSION).fetch_track(source_url)
-        playlist = save_vk_track(profile, track, source_url, playlist=playlist)
+        playlist, track = library_import_vk.import_vk_track(
+            profile,
+            VKClient(version=settings.VK_API_VERSION),
+            source_url,
+            playlist=playlist,
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
@@ -79,8 +86,10 @@ def refresh_vk_artwork(request, playlist_id):
         messages.error(request, "Обновление обложек доступно только для плейлистов VK.")
         return redirect("playlist_detail", playlist_id=playlist.pk)
     try:
-        _title, vk_tracks = VKClient(version=settings.VK_API_VERSION).fetch_playlist(playlist.external_url)
-        updated = refresh_vk_track_metadata(playlist, vk_tracks)
+        updated = library_import_vk.refresh_vk_playlist_artwork(
+            playlist,
+            VKClient(version=settings.VK_API_VERSION),
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("playlist_detail", playlist_id=playlist.pk)
