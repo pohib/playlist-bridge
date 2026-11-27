@@ -42,8 +42,8 @@ class LibraryTransferMatchingTests(SimpleTestCase):
         candidate = {
             "id": "B" * 22,
             "uri": "spotify:track:" + "B" * 22,
-            "name": "Different title",
-            "artists": [{"name": "Other artist"}],
+            "name": "Midnight City Extended",
+            "artists": [{"name": "M83"}],
             "duration_ms": 1000,
             "external_urls": {"spotify": "https://open.spotify.com/track/" + "B" * 22},
         }
@@ -92,8 +92,8 @@ class LibraryTransferMatchingTests(SimpleTestCase):
     def test_soundcloud_review_candidates_are_capped_and_validated(self):
         candidates = [
             {
-                "id": index, "title": "Midnight City", "metadata_artist": "M83",
-                "duration": 243000, "permalink_url": f"https://soundcloud.com/m83/{index}",
+                "id": index, "title": "Midnight City Extended", "metadata_artist": "M83",
+                "duration": 500000, "permalink_url": f"https://soundcloud.com/m83/{index}",
             }
             for index in range(1, 9)
         ]
