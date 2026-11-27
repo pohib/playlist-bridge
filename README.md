@@ -28,14 +28,16 @@ Django-приложение для сбора плейлистов и треко
 - transfer/api_views.py — versioned API переноса, статусы и отчёты;
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
 - transfer/library_import_views.py — compatibility facade импорта;
-- transfer/library_vk_import_views.py — импорт VK-плейлистов/треков и обновление обложек;\n- transfer/library_spotify_import_views.py — импорт Spotify-плейлистов, треков и библиотеки;\n- transfer/library_soundcloud_import_views.py — импорт SoundCloud-плейлистов, треков и библиотеки;
+- transfer/library_vk_import_views.py — импорт VK-плейлистов/треков и обновление обложек;
+- transfer/library_spotify_import_views.py — импорт Spotify-плейлистов, треков и библиотеки;\n- transfer/library_soundcloud_import_views.py — импорт SoundCloud-плейлистов, треков и библиотеки;
 - transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
 - transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
 - transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
 - transfer/library_search_views.py — поиск источников для плейлистов и треков;
 - transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
 - transfer/library_transfer_views.py — compatibility facade переноса;
-- transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;\n- transfer/library_transfer_review_views.py — ручной поиск, выбор и пропуск совпадений при переносе;
+- transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;
+- transfer/library_transfer_review_views.py — ручной поиск, выбор и пропуск совпадений при переносе;
 - transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
 - nginx/default.conf — конфигурация локального reverse proxy;
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
