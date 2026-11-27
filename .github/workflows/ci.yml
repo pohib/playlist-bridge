@@ -216,12 +216,12 @@ jobs:
         id: zap_full
         continue-on-error: true
         run: |
-          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c .zap/rules.tsv -i -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
+          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c .zap/rules.tsv -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
       - name: Run OWASP ZAP API DAST scan
         id: zap_api
         continue-on-error: true
         run: |
-          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c .zap/rules.tsv -i -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md
+          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c .zap/rules.tsv -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md
       - name: Upload OWASP ZAP report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
