@@ -1,9 +1,7 @@
 """Safe, bounded fetching of provider artwork for the authenticated proxy."""
 
 from urllib.parse import urljoin, urlsplit
-
 import requests
-
 
 ALLOWED_ARTWORK_DOMAINS = (
     "userapi.com", "mycdn.me", "vk.com", "vk.ru", "vk.me",
