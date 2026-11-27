@@ -24,7 +24,8 @@ View-слой библиотеки разделён на специализир�
 - config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
 - transfer/dashboard_views.py, transfer/library_page_views.py, transfer/account_page_views.py и transfer/landing_views.py — специализированные обработчики страниц; transfer/site_views.py — compatibility facade;
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
-- transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
+- transfer/oauth_views.py — HTTP facade OAuth endpoints; state/PKCE, callback и disconnect workflows делегируются provider-модулям;
+- transfer/oauth/ — provider-specific OAuth authorization-code/PKCE workflows и общие redirect/configuration helpers;
 - transfer/api/ — отдельные HTTP API-модули: transfer_views.py (создание/просмотр задач), status_views.py (состояние провайдеров), docs_views.py (OpenAPI и публичная документация), serializers.py и common.py;
 - transfer/api_views.py — compatibility facade для прежних API imports;
 - transfer/error_views.py — единые HTML-обработчики 400/403/404/500 для браузера и JSON-ошибки для API;
@@ -61,7 +62,8 @@ View-слой библиотеки разделён на специализир�
 | transfer/domain_models/credentials.py | OAuthCredential |
 | transfer/domain_models/jobs.py | TransferJob |
 | transfer/domain_models/library.py | LibraryProfile, LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem, cleanup audio files signal |
-| transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh | 
+| transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh |
+| transfer/services/oauth_session_service.py | Session fingerprint rotation for credentials/jobs/library profiles and connected-provider lookup | 
 | transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
 | transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
 | transfer/services/vk_client.py | VK API transport, получение плейлиста/трека и разрешение аудиопотоков |\n| transfer/services/vk_anonymous_token.py | Получение и кеширование анонимного токена веб-клиента VK |\n| transfer/services/vk_audio_metadata.py | Извлечение доверенной обложки и нормализация VK audio payload в VKTrack |
