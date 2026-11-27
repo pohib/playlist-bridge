@@ -1,4 +1,4 @@
-""""Application services for the manual library-transfer review workflow."""
+"""Application services for the manual library-transfer review workflow."""
 
 import logging
 
