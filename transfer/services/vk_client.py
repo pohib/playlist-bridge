@@ -246,7 +246,18 @@ class VKClient:
             raise TransferError("VK не вернул аудиозапись. Возможно, она недоступна.")
         item = items[0]
         streams = item.get("audio_streams") or []
-        stream = next((entry for entry in streams if isinstance(entry, dict) and entry.get("type") == stream_format and entry.get("url")), None)
+        stream = next((
+            entry for entry in streams
+            if isinstance(entry, dict)
+            and entry.get("type") == stream_format
+            and isinstance(entry.get("url"), str)
+            and entry["url"].strip()
+        ), None)
+        # Some VK responses expose the fresh MP3 URL in the legacy url field.
+        if not stream and stream_format == "mp3":
+            direct_url = item.get("url")
+            if isinstance(direct_url, str) and direct_url.strip():
+                stream = {"url": direct_url.strip()}
         if not stream:
             if item.get("content_restricted"):
                 raise TransferError("VK не предоставил аудиопоток для этой композиции (ограничение доступа).")
@@ -254,7 +265,7 @@ class VKClient:
         url = str(stream["url"])
         parsed = urlparse(url)
         host = (parsed.hostname or "").lower().rstrip(".")
-        trusted = host == "okcdn.ru" or host.endswith((".okcdn.ru", ".vkuseraudio.ru")) or host == "vkuseraudio.ru"
+        trusted = host == "okcdn.ru" or host.endswith((".okcdn.ru", ".vkuseraudio.ru", ".vkuseraudio.net", ".userapi.com")) or host in {"vkuseraudio.ru", "vkuseraudio.net"}
         try:
             port = parsed.port
         except ValueError:
