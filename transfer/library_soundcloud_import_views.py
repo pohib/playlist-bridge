@@ -9,6 +9,7 @@ from .models import LibraryPlaylist
 from .services.common import TransferError
 from .services.library_imports import (
     import_soundcloud_library as import_soundcloud_library_service,
+    import_soundcloud_playlist as import_soundcloud_playlist_service,
 )
 from .services.library_imports import (
     save_soundcloud_playlist,
@@ -27,12 +28,12 @@ def import_soundcloud_playlist(request):
     try:
         source_url = _validate_soundcloud_permalink(source_url)
         client, token = _soundcloud_access(request)
-        resource = client.resolve(token, source_url)
-        if resource.get("kind") != "playlist" and "tracks" not in resource:
-            raise TransferError("Ссылка ведёт не на плейлист SoundCloud.")
-        resource_id = resource.get("id")
-        tracks = client.playlist_tracks(token, resource_id) if resource_id else resource.get("tracks", [])
-        playlist, count = _save_soundcloud_playlist(_profile(request), resource, tracks, source_url)
+        playlist, count = import_soundcloud_playlist_service(
+            _profile(request),
+            client,
+            token,
+            source_url,
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
