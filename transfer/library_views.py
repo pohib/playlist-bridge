@@ -4,26 +4,6 @@ Concrete handlers live in focused modules; keep these re-exports so existing
 URL names and third-party imports remain stable.
 """
 
-from .library_soundcloud_import_views import (
-    _save_soundcloud_playlist,  # noqa: F401
-    _validate_soundcloud_permalink,  # noqa: F401
-    import_soundcloud_library,  # noqa: F401
-    import_soundcloud_playlist,  # noqa: F401
-    import_soundcloud_track,  # noqa: F401
-)
-from .library_spotify_import_views import (
-    _save_spotify_playlist,  # noqa: F401
-    _spotify_resource_id,  # noqa: F401
-    import_spotify_library,  # noqa: F401
-    import_spotify_playlist,  # noqa: F401
-    import_spotify_track,  # noqa: F401
-)
-from .library_vk_import_views import (
-    import_vk_playlist,  # noqa: F401
-    import_vk_track,  # noqa: F401
-    refresh_vk_artwork,  # noqa: F401
-)
-
 from .library_management_views import (
     _normalized_track_key,  # noqa: F401
     _safe_optional_url,  # noqa: F401
@@ -49,6 +29,20 @@ from .library_search_views import (
     open_track_source,  # noqa: F401
     search_library_sources,  # noqa: F401
 )
+from .library_soundcloud_import_views import (
+    _save_soundcloud_playlist,  # noqa: F401
+    _validate_soundcloud_permalink,  # noqa: F401
+    import_soundcloud_library,  # noqa: F401
+    import_soundcloud_playlist,  # noqa: F401
+    import_soundcloud_track,  # noqa: F401
+)
+from .library_spotify_import_views import (
+    _save_spotify_playlist,  # noqa: F401
+    _spotify_resource_id,  # noqa: F401
+    import_spotify_library,  # noqa: F401
+    import_spotify_playlist,  # noqa: F401
+    import_spotify_track,  # noqa: F401
+)
 from .library_support import (
     _profile,  # noqa: F401
     _safe_candidate_url,  # noqa: F401
@@ -63,4 +57,9 @@ from .library_transfer_views import (
     skip_transfer_item,  # noqa: F401
     transfer_library_playlist,  # noqa: F401
     transfer_review,  # noqa: F401
+)
+from .library_vk_import_views import (
+    import_vk_playlist,  # noqa: F401
+    import_vk_track,  # noqa: F401
+    refresh_vk_artwork,  # noqa: F401
 )
