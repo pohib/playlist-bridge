@@ -8,6 +8,7 @@ from .library_support import _profile, _spotify_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
 from .services.library_imports import (
+    import_spotify_library as import_spotify_library_service,
     save_spotify_playlist,
     save_spotify_track,
     spotify_resource_id,
@@ -65,29 +66,11 @@ def import_spotify_track(request):
 def import_spotify_library(request):
     try:
         client, token = _spotify_access(request)
-        resources = client.my_playlists(token)
-        profile = _profile(request)
-        imported = 0
-        track_count = 0
-        skipped = 0
-        for resource in resources[:30]:
-            playlist_id = resource.get("id")
-            if not playlist_id:
-                continue
-            try:
-                entries = client.get_playlist_items(token, playlist_id)
-                count = len(entries)
-                if count:
-                    _save_spotify_playlist(
-                        profile,
-                        resource,
-                        entries,
-                        (resource.get("external_urls") or {}).get("spotify", ""),
-                    )
-                    imported += 1
-                    track_count += count
-            except TransferError:
-                skipped += 1
+        imported, track_count, skipped = import_spotify_library_service(
+            _profile(request),
+            client,
+            token,
+        )
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("library")
