@@ -28,7 +28,6 @@ def _profile(request):
     return profile
 
 
-
 def _soundcloud_access(request):
     client = SoundCloudClient(
         settings.SOUNDCLOUD_CLIENT_ID,
