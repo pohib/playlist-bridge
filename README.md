@@ -39,10 +39,10 @@ View-слой библиотеки вынесен из прежнего обще
 - transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
 - transfer/library_transfer_views.py — compatibility facade переноса;
 - transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;
-- transfer/library_transfer_review_views.py — ручной поиск, выбор и пропуск совпадений при переносе;
+- transfer/library_transfer_review_views.py — HTTP-обработчики ручного поиска, выбора и пропуска совпадений при переносе; нормализация ответов провайдеров вынесена в `services/library_transfer_search.py`;
 - transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
 - nginx/default.conf — конфигурация локального reverse proxy;
-- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, `library_imports.py`, `library_transfer_matching.py` и `api_transfer_service.py`);
+- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, `library_imports.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
 - transfer/models.py и transfer/core.py — compatibility facades; сохраняйте их, пока не проверены все старые импорты;

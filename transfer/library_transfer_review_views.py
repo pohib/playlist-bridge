@@ -12,6 +12,10 @@ from .library_support import (
 )
 from .models import LibraryPlaylist, LibraryTransfer, LibraryTransferItem
 from .services import TransferError, library_transfer_review
+from .services.library_transfer_search import (
+    normalize_soundcloud_search_results,
+    normalize_spotify_search_results,
+)
 
 
 @require_GET
@@ -88,43 +92,22 @@ def search_transfer_item(request, transfer_id, item_id):
         if review.target_provider == LibraryPlaylist.Provider.SPOTIFY:
             client, token = _spotify_access(request)
             results = client.search_tracks(token, query)
-            candidates = [{
-                "id": str(result.get("id") or ""),
-                "uri": str(result.get("uri") or ""),
-                "title": str(result.get("name") or "")[:180],
-                "artist": ", ".join(
-                    str(artist.get("name") or "")
-                    for artist in result.get("artists", [])
-                )[:180],
-                "duration_ms": int(result.get("duration_ms") or 0),
-                "url": _safe_candidate_url(
-                    (result.get("external_urls") or {}).get("spotify", ""),
-                    "spotify",
-                ),
-            } for result in results if result.get("id") and result.get("uri")]
+            candidates = normalize_spotify_search_results(
+                results,
+                _safe_candidate_url,
+            )
         else:
             client, token = _soundcloud_access(request)
             results = client.search_tracks(token, query)
-            candidates = [{
-                "id": str(result.get("id") or ""),
-                "uri": str(result.get("urn") or result.get("id") or ""),
-                "title": str(result.get("title") or "")[:180],
-                "artist": str(
-                    result.get("metadata_artist")
-                    or (result.get("user") or {}).get("username")
-                    or ""
-                )[:180],
-                "duration_ms": int(result.get("duration") or 0),
-                "url": _safe_candidate_url(
-                    result.get("permalink_url"),
-                    "soundcloud",
-                ),
-            } for result in results if result.get("id")]
+            candidates = normalize_soundcloud_search_results(
+                results,
+                _safe_candidate_url,
+            )
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("transfer_review", transfer_id=review.pk)
 
-    item.candidates = candidates[:10]
+    item.candidates = candidates
     item.save(update_fields=["candidates", "updated_at"])
     messages.success(
         request,
