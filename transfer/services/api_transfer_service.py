@@ -8,7 +8,7 @@ import logging
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from ..models import TransferJob
+from ..models import OAuthCredential, TransferJob
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +52,33 @@ def create_or_reuse_transfer_job(*, session_fingerprint, source_url, target_play
         return job, 503, job.error
 
     return job, 202, None
+
+
+
+def has_spotify_connection(session_fingerprint):
+    """Check whether the current session has a persisted Spotify credential."""
+    return OAuthCredential.objects.filter(
+        session_fingerprint=session_fingerprint,
+        provider="spotify",
+    ).exists()
+
+
+def get_transfer_job_for_session(*, session_fingerprint, job_id):
+    """Return a transfer job only when it belongs to the requesting session."""
+    return TransferJob.objects.filter(
+        pk=job_id,
+        session_fingerprint=session_fingerprint,
+    ).first()
+
+
+def get_transfer_report_for_session(*, session_fingerprint, job_id):
+    """Return an owned job and its report, or None when the job is not owned."""
+    job = get_transfer_job_for_session(
+        session_fingerprint=session_fingerprint,
+        job_id=job_id,
+    )
+    if job is None:
+        return None
+    result = job.result if isinstance(job.result, dict) else {}
+    report = result.get("report", [])
+    return job, report if isinstance(report, list) else []
