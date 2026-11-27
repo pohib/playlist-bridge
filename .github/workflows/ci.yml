@@ -213,9 +213,13 @@ jobs:
           docker compose logs
           exit 1
       - name: Run OWASP ZAP full DAST scan
+        id: zap_full
+        continue-on-error: true
         run: |
           docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c .zap/rules.tsv -i -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
       - name: Run OWASP ZAP API DAST scan
+        id: zap_api
+        continue-on-error: true
         run: |
           docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-api-scan.py -t http://127.0.0.1:8000/api/v1/openapi.json -f openapi -c .zap/rules.tsv -i -J zap-api-report.json -r zap-api-report.html -w zap-api-report.md
       - name: Upload OWASP ZAP report
@@ -232,6 +236,16 @@ jobs:
             zap-api-report.md
           if-no-files-found: warn
           retention-days: 30
+      - name: Enforce DAST scan results
+        if: always()
+        env:
+          FULL_SCAN_OUTCOME: ${{ steps.zap_full.outcome }}
+          API_SCAN_OUTCOME: ${{ steps.zap_api.outcome }}
+        run: |
+          if [ "$FULL_SCAN_OUTCOME" != "success" ] || [ "$API_SCAN_OUTCOME" != "success" ]; then
+            echo "OWASP ZAP reported a finding or a scanner error. Review the uploaded reports and scan logs."
+            exit 1
+          fi
       - name: Show application logs on failure
         if: failure()
         run: docker compose logs --no-color
