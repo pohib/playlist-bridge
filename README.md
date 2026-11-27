@@ -22,18 +22,18 @@ Django-приложение для сбора плейлистов и треко
 Основные границы ответственности:
 
 - config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
-- transfer/site_views.py — страницы, dashboard, библиотека, профиль пользователя и прокси обложек;
+- transfer/site_views.py — страницы dashboard, библиотеки, профиля и подключений;
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
 - transfer/api_views.py — versioned API переноса, статусы и отчёты;
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
-- transfer/library_import_views.py — импорт библиотек, плейлистов и треков из VK, Spotify и SoundCloud;
+- transfer/library_import_views.py — compatibility facade импорта;\n- transfer/library_vk_import_views.py — импорт VK-плейлистов/треков и обновление обложек;\n- transfer/library_spotify_import_views.py — импорт Spotify-плейлистов, треков и библиотеки;\n- transfer/library_soundcloud_import_views.py — импорт SoundCloud-плейлистов, треков и библиотеки;
 - transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
 - transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
 - transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
 - transfer/library_search_views.py — поиск источников для плейлистов и треков;
 - transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
-- transfer/library_transfer_views.py — сценарий переноса библиотеки между провайдерами;
+- transfer/library_transfer_views.py — compatibility facade переноса;\n- transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;\n- transfer/library_transfer_review_views.py — ручной поиск, выбор и пропуск совпадений при переносе;
 - transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
 - nginx/default.conf — конфигурация локального reverse proxy;
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
