@@ -1,6 +1,6 @@
 # ZAP rule policy for the isolated CI integration environment.
 # Unlisted rules remain WARN and fail CI; explicitly selected security checks fail CI.
-# Informational heuristics from the current baseline report remain visible but non-blocking.
+# Informational heuristics remain visible but non-blocking; ownership is verified by a two-user DAST smoke test.
 10010	FAIL	(HttpOnly cookie flag)
 10020	FAIL	(Anti-clickjacking header)
 10021	FAIL	(X-Content-Type-Options header)
