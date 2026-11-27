@@ -17,12 +17,12 @@ from .services.library_transfer_review import (
 from .services.library_transfer_review import (
     skip_transfer_item as skip_pending_transfer_item,
 )
-from .services.library_transfer_review_search import search_pending_transfer_item
 from .services.library_transfer_review_queries import (
     get_transfer_candidate_url,
     get_transfer_review_page,
     get_transfer_target_url,
 )
+from .services.library_transfer_review_search import search_pending_transfer_item
 
 
 @require_GET
@@ -64,6 +64,7 @@ def transfer_review(request, transfer_id):
         "items": items,
         "first_pending_id": first_pending_id,
     })
+
 
 @require_POST
 def search_transfer_item(request, transfer_id, item_id):
