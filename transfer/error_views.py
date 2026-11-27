@@ -19,7 +19,6 @@ def _html_error(status_code, title, description):
             "status_code": status_code,
             "title": title,
             "description": description,
-            "home_url": "/",
         },
     )
     return HttpResponse(content, status=status_code, content_type="text/html; charset=utf-8")
