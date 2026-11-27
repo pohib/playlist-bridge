@@ -48,7 +48,7 @@ class BulkLibraryImportRegressionTests(TestCase):
             return [self.spotify_track(playlist_id)]
 
         client.get_playlist_items.side_effect = playlist_items
-        with patch("transfer.library_import_views._spotify_access", return_value=(client, "spotify-token")):
+        with patch("transfer.library_spotify_import_views._spotify_access", return_value=(client, "spotify-token")):
             response = self.client.post(reverse("library_import_spotify_library"))
 
         self.assertEqual(response.status_code, 302)
@@ -79,7 +79,7 @@ class BulkLibraryImportRegressionTests(TestCase):
             }
         ]
 
-        with patch("transfer.library_import_views._soundcloud_access", return_value=(client, "sc-token")):
+        with patch("transfer.library_soundcloud_import_views._soundcloud_access", return_value=(client, "sc-token")):
             response = self.client.post(reverse("library_import_soundcloud_library"))
 
         self.assertEqual(response.status_code, 302)
@@ -101,7 +101,7 @@ class BulkLibraryImportRegressionTests(TestCase):
             TransferError("provider unavailable"),
         ]
 
-        with patch("transfer.library_import_views._soundcloud_access", return_value=(client, "sc-token")):
+        with patch("transfer.library_soundcloud_import_views._soundcloud_access", return_value=(client, "sc-token")):
             response = self.client.post(reverse("library_import_soundcloud_library"))
 
         self.assertEqual(response.status_code, 302)
