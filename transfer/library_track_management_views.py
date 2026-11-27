@@ -7,14 +7,12 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack
-from .services.library_management import (
-    LibraryManagementError,
-    add_track as add_track_service,
-    delete_track as delete_track_service,
-    move_track as move_track_service,
-    update_track as update_track_service,
-    upload_local_track as upload_local_track_service,
-)
+from .services.library_management import LibraryManagementError
+from .services.library_management import add_track as add_track_service
+from .services.library_management import delete_track as delete_track_service
+from .services.library_management import move_track as move_track_service
+from .services.library_management import update_track as update_track_service
+from .services.library_management import upload_local_track as upload_local_track_service
 
 
 @require_POST
