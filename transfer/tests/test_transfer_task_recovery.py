@@ -221,7 +221,7 @@ class RunTransferTaskHeartbeatTests(TestCase):
 
 
 class TransferJobSerializerSafetyTests(TestCase):
-    def test_failed_job_exposes_saved_target_playlist_id(self):
+    def test_failed_job_does_not_expose_saved_target_playlist_id(self):
         job = TransferJob.objects.create(
             session_fingerprint="h" * 64,
             source_url="https://vk.com/music/playlist/1_2",
@@ -233,4 +233,5 @@ class TransferJobSerializerSafetyTests(TestCase):
         payload = serialize_job(job)
 
         self.assertIn("проверь целевой плейлист", payload["error"])
-        self.assertEqual(payload["target_playlist_id"], "A" * 22)
+        self.assertIsNone(payload["target_playlist_id"])
+        self.assertEqual(job.checkpoint["target_playlist_id"], "A" * 22)
