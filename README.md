@@ -15,7 +15,9 @@ Django-приложение для сбора плейлистов и треко
 
 ## Архитектура приложения
 
-Это модульный Django-монолит, не набор микросервисов. Web-приложение, PostgreSQL, Redis и Celery worker запускаются через Docker Compose. Разделение на модули уже начато, но бизнес-логика библиотеки пока не полностью вынесена из views: **library_views.py остаётся крупным модулем с бизнес-операциями**, а не тонким HTTP-контроллером.
+Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Caddy принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Caddy (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn.
+
+Разделение view-слоя библиотеки завершено: **library_views.py — compatibility facade**, который только реэкспортирует обработчики специализированных модулей. Новые обработчики следует размещать в соответствующих модулях, не возвращая бизнес-логику в фасад.
 
 Основные границы ответственности:
 
@@ -24,7 +26,15 @@ Django-приложение для сбора плейлистов и треко
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
 - transfer/api_views.py — versioned API переноса, статусы и отчёты;
-- transfer/library_views.py — пока крупный модуль: импорт/экспорт библиотеки, CRUD плейлистов, загрузка файлов, поиск, VK playback proxy и ручная проверка переноса;
+- transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
+- transfer/library_import_views.py — импорт библиотек, плейлистов и треков из VK, Spotify и SoundCloud;
+- transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
+- transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
+- transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
+- transfer/library_search_views.py — поиск источников для плейлистов и треков;
+- transfer/library_transfer_views.py — сценарий переноса библиотеки между провайдерами;
+- transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
+- Caddyfile — конфигурация локального reverse proxy;
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
@@ -206,12 +216,12 @@ VK не требует регистрации приложения и отдел
 
 Скрипт:
 1. Проверяет обязательные секреты в .env;
-2. собирает контейнеры и запускает Django, PostgreSQL и Redis;
+2. собирает контейнеры и запускает Caddy reverse proxy, Django/Gunicorn, PostgreSQL, Redis и Celery worker;
 3. ждёт успешного ответа /healthz/;
 4. запускает Cloudflare Quick Tunnel;
 5. получает временный HTTPS URL;
 6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и callback URI Spotify/SoundCloud;
-7. пересоздаёт web и worker с новыми настройками.
+7. пересоздаёт web и worker с новыми настройками; Caddy продолжает принимать трафик на прежнем локальном порту 8000 и передаёт его в web:8000.
 
 После завершения скрипт покажет URL и точные callback URI. Не закрывай процесс cloudflared: туннель должен оставаться запущенным, пока используешь приложение. Чтобы остановить его, выполни команду с PID, который напечатал скрипт:
 
