@@ -29,7 +29,7 @@ def resolve_vk_track_stream(api, playlist, external_id, stream_format):
         try:
             audio_id = api.resolve_playlist_audio_id(playlist.external_url, audio_id)
         except (ValueError, TransferError) as exc:
-            raise VKPlaybackError(str(exc)) from exc
+            raise VKPlaybackError("Не удалось разрешить аудиозапись VK.") from exc
 
     last_error = None
     for attempt in range(2):
@@ -42,7 +42,7 @@ def resolve_vk_track_stream(api, playlist, external_id, stream_format):
             if attempt == 0:
                 time.sleep(0.35)
     raise VKPlaybackError(
-        str(last_error or "VK временно не выдал аудиопоток.")
+        "VK временно не предоставил аудиопоток. Попробуй запустить трек позже."
     ) from last_error
 
 
