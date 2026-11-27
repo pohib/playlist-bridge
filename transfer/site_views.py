@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from .credentials import get_session_fingerprint
+from .services.credential_service import get_session_fingerprint
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, OAuthCredential, TransferJob
 from .services.library_presentation import (
