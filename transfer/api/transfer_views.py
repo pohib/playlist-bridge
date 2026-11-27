@@ -9,10 +9,14 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from ..credentials import get_session_fingerprint
-from ..models import OAuthCredential, TransferJob
 from ..oauth_views import encryption_key_is_valid
 from ..services import parse_vk_playlist_url
-from ..services.api_transfer_service import create_or_reuse_transfer_job
+from ..services.api_transfer_service import (
+    create_or_reuse_transfer_job,
+    get_transfer_job_for_session,
+    get_transfer_report_for_session,
+    has_spotify_connection,
+)
 from .common import api_error
 from .serializers import serialize_job
 
@@ -44,11 +48,7 @@ def api_create_transfer(request):
     if not encryption_key_is_valid():
         return api_error("Шифрование OAuth-токенов не настроено на сервере.", 503)
     fingerprint = get_session_fingerprint(request)
-    connected = set(
-        OAuthCredential.objects.filter(session_fingerprint=fingerprint)
-        .values_list("provider", flat=True)
-    )
-    if "spotify" not in connected:
+    if not has_spotify_connection(fingerprint):
         return api_error("Сначала подключи Spotify.", 401)
     job, status, error = create_or_reuse_transfer_job(
         session_fingerprint=fingerprint,
@@ -63,10 +63,10 @@ def api_create_transfer(request):
 @never_cache
 @require_GET
 def api_transfer_detail(request, job_id):
-    job = TransferJob.objects.filter(
-        pk=job_id,
+    job = get_transfer_job_for_session(
+        job_id=job_id,
         session_fingerprint=get_session_fingerprint(request),
-    ).first()
+    )
     if not job:
         return api_error("Задача не найдена.", 404)
     return JsonResponse({"job": serialize_job(job)})
@@ -75,12 +75,13 @@ def api_transfer_detail(request, job_id):
 @never_cache
 @require_GET
 def api_transfer_report(request, job_id):
-    job = TransferJob.objects.filter(
-        pk=job_id,
+    result = get_transfer_report_for_session(
+        job_id=job_id,
         session_fingerprint=get_session_fingerprint(request),
-    ).first()
-    if not job:
+    )
+    if result is None:
         return api_error("Задача не найдена.", 404)
-    if job.status != TransferJob.Status.SUCCEEDED:
+    job, report = result
+    if job.status != "succeeded":
         return api_error("Отчёт появится после завершения переноса.", 409)
-    return JsonResponse({"report": job.result.get("report", [])})
+    return JsonResponse({"report": report})
