@@ -189,6 +189,10 @@ jobs:
     needs: [tests, container]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - name: Validate DAST helper scripts
+        run: |
+          bash -n scripts/security/dast_auth_check.sh
+          python -m py_compile scripts/security/dast_bootstrap.py
       - name: Prepare DAST environment
         run: |
           mkdir -p reports "$RUNNER_TEMP/zap-reports"
