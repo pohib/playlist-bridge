@@ -3,8 +3,13 @@ from unittest.mock import patch
 from django.db import IntegrityError
 from django.test import TestCase
 
-from transfer.models import TransferJob
-from transfer.services.api_transfer_service import create_or_reuse_transfer_job
+from transfer.models import OAuthCredential, TransferJob
+from transfer.services.api_transfer_service import (
+    create_or_reuse_transfer_job,
+    get_transfer_job_for_session,
+    get_transfer_report_for_session,
+    has_spotify_connection,
+)
 
 
 class CreateOrReuseTransferJobTests(TestCase):
@@ -86,3 +91,75 @@ class CreateOrReuseTransferJobTests(TestCase):
                 session_fingerprint=self.fingerprint,
                 source_url="https://vk.com/music/playlist/1_2",
             )
+
+
+
+class TransferApiOwnershipServiceTests(TestCase):
+    def setUp(self):
+        self.fingerprint = "owned-session-fingerprint"
+        self.other_fingerprint = "another-session-fingerprint"
+
+    def test_spotify_connection_check_is_scoped_to_session(self):
+        self.assertFalse(has_spotify_connection(self.fingerprint))
+        OAuthCredential.objects.create(
+            session_fingerprint=self.fingerprint,
+            provider=OAuthCredential.Provider.SPOTIFY,
+            encrypted_payload="encrypted-token-payload",
+        )
+        self.assertTrue(has_spotify_connection(self.fingerprint))
+        self.assertFalse(has_spotify_connection(self.other_fingerprint))
+
+    def test_transfer_job_lookup_does_not_cross_session_boundary(self):
+        job = TransferJob.objects.create(
+            session_fingerprint=self.fingerprint,
+            source_url="https://vk.com/music/playlist/1_2",
+        )
+        self.assertEqual(
+            get_transfer_job_for_session(
+                session_fingerprint=self.fingerprint,
+                job_id=job.pk,
+            ),
+            job,
+        )
+        self.assertIsNone(
+            get_transfer_job_for_session(
+                session_fingerprint=self.other_fingerprint,
+                job_id=job.pk,
+            )
+        )
+
+    def test_report_lookup_returns_only_owned_succeeded_report(self):
+        job = TransferJob.objects.create(
+            session_fingerprint=self.fingerprint,
+            source_url="https://vk.com/music/playlist/1_2",
+            status=TransferJob.Status.SUCCEEDED,
+            result={"report": [{"status": "matched"}]},
+        )
+        self.assertEqual(
+            get_transfer_report_for_session(
+                session_fingerprint=self.fingerprint,
+                job_id=job.pk,
+            ),
+            (job, [{"status": "matched"}]),
+        )
+        self.assertIsNone(
+            get_transfer_report_for_session(
+                session_fingerprint=self.other_fingerprint,
+                job_id=job.pk,
+            )
+        )
+
+    def test_report_lookup_normalizes_malformed_stored_report(self):
+        job = TransferJob.objects.create(
+            session_fingerprint=self.fingerprint,
+            source_url="https://vk.com/music/playlist/1_2",
+            status=TransferJob.Status.SUCCEEDED,
+            result={"report": "unexpected"},
+        )
+        self.assertEqual(
+            get_transfer_report_for_session(
+                session_fingerprint=self.fingerprint,
+                job_id=job.pk,
+            ),
+            (job, []),
+        )
