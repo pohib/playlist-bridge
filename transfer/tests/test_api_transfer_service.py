@@ -50,21 +50,32 @@ class CreateOrReuseTransferJobTests(TestCase):
         self.assertEqual(job.status, TransferJob.Status.FAILED)
         self.assertIsNotNone(job.finished_at)
 
+    @patch("transfer.services.api_transfer_service.TransferJob.objects.filter")
     @patch("transfer.services.api_transfer_service.TransferJob.objects.create")
     @patch("transfer.tasks.run_transfer.delay")
-    def test_integrity_race_reuses_job_created_by_concurrent_request(self, enqueue, create):
-        existing = TransferJob.objects.create(
+    def test_integrity_race_reuses_job_created_by_concurrent_request(
+        self, enqueue, create, filter_jobs
+    ):
+        # The competing transaction commits its row after our first lookup.
+        # Mock the two reads to model that visibility without sharing a DB
+        # transaction (which would roll the competing insert back as well).
+        existing = TransferJob(
+            id="b8c6f2f4-1f91-4f2a-8b6a-6c45c2e1f5a0",
             session_fingerprint=self.fingerprint,
             source_url="https://vk.com/music/playlist/1_2",
         )
+        filter_jobs.return_value.first.side_effect = [None, existing]
         create.side_effect = IntegrityError("concurrent insert")
+
         job, status, error = create_or_reuse_transfer_job(
             session_fingerprint=self.fingerprint,
             source_url="https://vk.com/music/playlist/3_4",
         )
+
         self.assertEqual(job.pk, existing.pk)
         self.assertEqual(status, 202)
         self.assertIsNone(error)
+        self.assertEqual(filter_jobs.return_value.first.call_count, 2)
         enqueue.assert_not_called()
 
     @patch("transfer.services.api_transfer_service.TransferJob.objects.create")
