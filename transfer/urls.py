@@ -20,12 +20,14 @@ from . import (
     library_transfer_review_views,
     library_vk_import_views,
     library_vk_playback_views,
+    landing_views,
     oauth_views,
+    system_views,
     views,
 )
 
 urlpatterns = [
-    path("", views.home, name="home"),
+    path("", landing_views.home, name="home"),
     path("accounts/register/", auth_views.register, name="register"),
     path("accounts/login/", auth_views.sign_in, name="login"),
     path("accounts/logout/", auth_views.sign_out, name="logout"),
@@ -38,7 +40,7 @@ urlpatterns = [
     path("transfers/", account_page_views.transfers, name="transfers"),
     path("profile/", account_page_views.profile, name="profile"),
     path("player/popout/", account_page_views.player_popout, name="player_popout"),
-    path("healthz/", views.healthz, name="healthz"),
+    path("healthz/", system_views.healthz, name="healthz"),
     path("spotify/login/", oauth_views.spotify_login, name="spotify_login"),
     path("spotify/callback/", oauth_views.spotify_callback, name="spotify_callback"),
     path("spotify/disconnect/", oauth_views.disconnect_spotify, name="disconnect_spotify"),
