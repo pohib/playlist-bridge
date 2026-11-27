@@ -174,7 +174,7 @@ class ProviderImportWorkflowTests(TestCase):
         )
 
     def test_spotify_playlist_import_rejects_invalid_url_before_oauth(self):
-        with patch("transfer.library_import_views._spotify_access") as access:
+        with patch("transfer.library_spotify_import_views._spotify_access") as access:
             response = self.client.post(
                 reverse("library_import_spotify_playlist"),
                 {"source_url": "https://attacker.example/playlist/" + "A" * 22},
@@ -210,7 +210,7 @@ class ProviderImportWorkflowTests(TestCase):
             },
         ]
 
-        with patch("transfer.library_import_views._spotify_access", return_value=(client, "token")):
+        with patch("transfer.library_spotify_import_views._spotify_access", return_value=(client, "token")):
             response = self.client.post(
                 reverse("library_import_spotify_playlist"),
                 {"source_url": "https://open.spotify.com/playlist/" + "B" * 22},
@@ -236,7 +236,7 @@ class ProviderImportWorkflowTests(TestCase):
         ]
         before = self.profile.playlists.count()
 
-        with patch("transfer.library_import_views._spotify_access", return_value=(client, "token")):
+        with patch("transfer.library_spotify_import_views._spotify_access", return_value=(client, "token")):
             response = self.client.post(
                 reverse("library_import_spotify_playlist"),
                 {"source_url": "https://open.spotify.com/playlist/" + "C" * 22},
@@ -246,7 +246,7 @@ class ProviderImportWorkflowTests(TestCase):
         self.assertEqual(self.profile.playlists.count(), before)
 
     def test_soundcloud_import_rejects_host_suffix_trick_before_oauth(self):
-        with patch("transfer.library_import_views._soundcloud_access") as access:
+        with patch("transfer.library_soundcloud_import_views._soundcloud_access") as access:
             response = self.client.post(
                 reverse("library_import_soundcloud_playlist"),
                 {"source_url": "https://soundcloud.com.attacker.example/user/playlist"},
@@ -275,7 +275,7 @@ class ProviderImportWorkflowTests(TestCase):
             },
         ]
 
-        with patch("transfer.library_import_views._soundcloud_access", return_value=(client, "token")):
+        with patch("transfer.library_soundcloud_import_views._soundcloud_access", return_value=(client, "token")):
             response = self.client.post(
                 reverse("library_import_soundcloud_playlist"),
                 {"source_url": "https://soundcloud.com/uploader/playlist"},
@@ -292,7 +292,7 @@ class ProviderImportWorkflowTests(TestCase):
         client.playlist_tracks.assert_called_once_with("token", 123)
 
     def test_vk_track_import_rejects_invalid_url_before_provider_request(self):
-        with patch("transfer.library_import_views.VKClient") as vk:
+        with patch("transfer.library_vk_import_views.VKClient") as vk:
             response = self.client.post(
                 reverse("library_import_vk_track"),
                 {"source_url": "https://attacker.example/audio123"},
@@ -312,7 +312,7 @@ class ProviderImportWorkflowTests(TestCase):
             owner_id=10,
             track_id=99,
         )
-        with patch("transfer.library_import_views.VKClient") as vk:
+        with patch("transfer.library_vk_import_views.VKClient") as vk:
             vk.return_value.fetch_track.return_value = track
             response = self.client.post(
                 reverse("library_import_vk_track"),
@@ -334,7 +334,7 @@ class ProviderImportWorkflowTests(TestCase):
             title="Manual",
             provider=LibraryPlaylist.Provider.MANUAL,
         )
-        with patch("transfer.library_import_views.VKClient") as vk:
+        with patch("transfer.library_vk_import_views.VKClient") as vk:
             response = self.client.post(
                 reverse("library_refresh_vk_artwork", kwargs={"playlist_id": playlist.pk})
             )
@@ -362,7 +362,7 @@ class ProviderImportWorkflowTests(TestCase):
             cover_url="https://cdn.okcdn.ru/new-cover.jpg",
             audio_id="resolved-audio-id",
         )
-        with patch("transfer.library_import_views.VKClient") as vk:
+        with patch("transfer.library_vk_import_views.VKClient") as vk:
             vk.return_value.fetch_playlist.return_value = ("VK playlist", [source])
             response = self.client.post(
                 reverse("library_refresh_vk_artwork", kwargs={"playlist_id": playlist.pk})
