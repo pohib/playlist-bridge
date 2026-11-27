@@ -191,7 +191,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - name: Prepare integration environment
         run: |
-          printf 'DJANGO_SECRET_KEY=ci-only-secret\\nDJANGO_DEBUG=false\\nDJANGO_ALLOWED_HOSTS=localhost,127.0.0.1\\nPOSTGRES_PASSWORD=ci-db-password\\nSESSION_COOKIE_SECURE=false\\nCSRF_COOKIE_SECURE=false\\n' > .env
+          cat > .env <<'EOF'
+          DJANGO_SECRET_KEY=ci-only-secret
+          DJANGO_DEBUG=false
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+          POSTGRES_PASSWORD=ci-db-password
+          SESSION_COOKIE_SECURE=false
+          CSRF_COOKIE_SECURE=false
+          EOF
       - name: Start application stack
         run: |
           if ! docker compose up -d --build; then
@@ -207,10 +214,7 @@ jobs:
           exit 1
       - name: Run OWASP ZAP full DAST scan
         run: |
-          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py \\
-            -t http://127.0.0.1:8000 \\
-            -c .zap/rules.tsv -i -m 5 -j \\
-            -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
+          docker run --rm --network=host -v "$PWD:/zap/wrk/:rw" ghcr.io/zaproxy/zaproxy:2.17.0 zap-full-scan.py -t http://127.0.0.1:8000 -c .zap/rules.tsv -i -m 5 -j -J zap-full-report.json -r zap-full-report.html -w zap-full-report.md
       - name: Upload OWASP ZAP report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
