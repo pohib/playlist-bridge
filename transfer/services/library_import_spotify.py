@@ -148,3 +148,11 @@ def import_spotify_library(profile, client, token, *, limit=30):
         except TransferError:
             skipped += 1
     return imported, track_count, skipped
+
+
+
+def import_spotify_playlist(profile, client, token, playlist_id, source_url):
+    """Fetch and persist one Spotify playlist after URL validation."""
+    resource = client.api("playlist_details", token, playlist_id=playlist_id)
+    entries = client.get_playlist_items(token, playlist_id)
+    return save_spotify_playlist(profile, resource, entries, source_url)
