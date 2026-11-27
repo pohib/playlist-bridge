@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist
-from .services import TransferError
+from .services.common import TransferError
 from .services.library_imports import save_soundcloud_playlist, validate_soundcloud_permalink
 from .services.library_management import append_provider_track
 
