@@ -1,4 +1,3 @@
-# ruff: noqa: I001
 """Resumable orchestration for importing a VK playlist into Spotify."""
 import re
 from collections import Counter
