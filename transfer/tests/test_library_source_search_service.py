@@ -88,4 +88,7 @@ class LibrarySourceSearchOrchestrationTests(SimpleTestCase):
             soundcloud_access=lambda: (None, None),
         )
         self.assertEqual(result["results"][0]["provider"], "apple_music")
-        self.assertEqual(result["statuses"]["spotify"], "Spotify needs reconnect")
+        self.assertEqual(
+            result["statuses"]["spotify"],
+            "Не удалось выполнить поиск в этом сервисе. Проверь подключение и повтори попытку.",
+        )
