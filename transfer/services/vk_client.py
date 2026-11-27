@@ -1,7 +1,13 @@
 """VK anonymous public-audio API client implementation."""
+
 import requests
 
-from .common import TransferError, VKTrack, parse_vk_playlist_url, parse_vk_track_reference
+from .common import (
+    TransferError,
+    VKTrack,
+    parse_vk_playlist_url,
+    parse_vk_track_reference,
+)
 from .vk_anonymous_token import VKAnonymousTokenProvider
 
 
