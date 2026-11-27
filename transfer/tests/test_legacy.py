@@ -650,7 +650,7 @@ class LibraryWorkspaceTests(TestCase):
 
 
 class VKLibraryImportTests(TestCase):
-    @patch("transfer.library_import_views.VKClient.fetch_playlist", return_value=(
+    @patch("transfer.library_vk_import_views.VKClient.fetch_playlist", return_value=(
         "VK imported playlist",
         [
             VKTrack(10, 101, "Artist A", "Track A", 185),
@@ -729,7 +729,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(query["code_challenge_method"], ["S256"])
         self.assertEqual(query["state"], ["state-value"])
 
-    @patch("transfer.library_import_views._soundcloud_access")
+    @patch("transfer.library_soundcloud_import_views._soundcloud_access")
     def test_import_soundcloud_playlist_preserves_track_metadata(self, access):
         client = Mock()
         client.resolve.return_value = {"kind": "playlist", "id": 123, "title": "SC Mix"}
@@ -754,7 +754,7 @@ class SoundCloudIntegrationTests(TestCase):
         self.assertEqual(track.artist, "Artist One")
         client.playlist_tracks.assert_called_once_with("sc-token", 123)
 
-    @patch("transfer.library_import_views._soundcloud_access")
+    @patch("transfer.library_soundcloud_import_views._soundcloud_access")
     def test_import_soundcloud_track_creates_single_track_collection(self, access):
         client = Mock()
         client.resolve.return_value = {
@@ -812,7 +812,7 @@ class SoundCloudIntegrationTests(TestCase):
         track = LibraryTrack.objects.get(external_id="321")
         self.assertEqual(track.title, "Demo")
 
-    @patch("transfer.library_import_views._spotify_access")
+    @patch("transfer.library_spotify_import_views._spotify_access")
     def test_import_spotify_track_uses_official_track_endpoint(self, access):
         client = Mock()
         client.track_details.return_value = {
