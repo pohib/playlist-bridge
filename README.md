@@ -178,6 +178,39 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 Для подключения провайдеров зарегистрируйте приложения в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. В режиме Development Mode тестовые аккаунты необходимо добавить в Users Management приложения Spotify.
 
+## Режимы разработки и production
+
+Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` оставлен production-like стеком для Gunicorn/Nginx и сценария Quick Tunnel. Для повседневной разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию.
+
+### Development (Windows / Docker Desktop)
+
+```powershell
+# Запуск отдельного dev-режима; .env должен содержать локальные секреты
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+
+# Открыть приложение напрямую с Django DEBUG
+Start-Process http://127.0.0.1:8000/
+
+# Nginx reverse proxy для проверки локально
+Start-Process http://127.0.0.1:8001/
+
+# Логи и остановка (данные PostgreSQL сохраняются)
+docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker
+docker compose -f compose.yaml -f compose.dev.yaml down
+```
+
+Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies только для loopback-разработки. Он не должен использоваться как публичный endpoint или для production-трафика. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
+
+```powershell
+docker compose -f compose.yaml -f compose.dev.yaml restart worker
+```
+
+### Production-like / HTTPS Quick Tunnel
+
+Обычный `docker compose up -d --build` и `scripts/start-tunnel.ps1` продолжают использовать базовый `compose.yaml`: Gunicorn, Nginx, отдельный Celery worker, PostgreSQL и Redis. Dev overlay в этом режиме не подключается. Скрипт Quick Tunnel по-прежнему обновляет callback URLs и HTTPS-параметры в локальном `.env`.
+
+Для постоянного production-хоста не используйте Quick Tunnel: задайте постоянные HTTPS callback URLs, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SESSION_COOKIE_SECURE=true`, `CSRF_COOKIE_SECURE=true` и `SECURE_SSL_REDIRECT=true`; TLS должен завершаться на доверенном reverse proxy. Не переносите dev-переменные в production secret store.
+
 ## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
 
 Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах Spotify и SoundCloud.
