@@ -142,3 +142,10 @@ class ApiDocumentationTests(TestCase):
         self.assertEqual(schema["openapi"], "3.1.0")
         self.assertNotIn("access_token", str(schema))
         self.assertNotIn("refresh_token", str(schema))
+
+    @override_settings(DEBUG=False)
+    def test_unknown_api_routes_return_json_404(self):
+        response = self.client.get("/api/v1/does-not-exist/")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertEqual(response.json(), {"error": {"message": "API endpoint not found."}})
