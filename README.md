@@ -66,7 +66,9 @@ View-слой библиотеки разделён на специализир�
 | transfer/services/oauth_session_service.py | Session fingerprint rotation for credentials/jobs/library profiles and connected-provider lookup | 
 | transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
 | transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
-| transfer/services/vk_client.py | VK API transport, получение плейлиста/трека и разрешение аудиопотоков |\n| transfer/services/vk_anonymous_token.py | Получение и кеширование анонимного токена веб-клиента VK |\n| transfer/services/vk_audio_metadata.py | Извлечение доверенной обложки и нормализация VK audio payload в VKTrack |
+| transfer/services/vk_client.py | VK API transport, получение плейлиста/трека и разрешение аудиопотоков |
+| transfer/services/vk_anonymous_token.py | Получение и кеширование анонимного токена веб-клиента VK |
+| transfer/services/vk_audio_metadata.py | Извлечение доверенной обложки и нормализация VK audio payload в VKTrack |
 | transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
 | transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
@@ -233,11 +235,13 @@ Backup включает:
 
 Каталог `backups/` исключён из Git, но локальный диск компьютера не является надёжным off-site backup. Для реального production указывай внешний зашифрованный диск или защищённое удалённое хранилище и проверяй возможность восстановления регулярно. Архивы скрипта не шифруются.
 
-`.env` и секреты намеренно не входят в архив. Отдельно сохрани в менеджере секретов/защищённой резервной копии как минимум `TOKEN_ENCRYPTION_KEY`, `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` и OAuth client secrets. Без исходного `TOKEN_ENCRYPTION_KEY` восстановленные OAuth credentials в PostgreSQL нельзя расшифровать. Для восстановления используй совместимый `.env` и ту же encryption key.
+`.env` и секреты намеренно не входят в архив. Отдельно сохрани в менеджере секретов/защищённой резервной копии как минимум `TOKEN_ENCRYPTION_KEY`, `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` и OAuth client secrets. Без исходного `TOKEN_ENCRYPTION_KEY` восстановленные OAuth credentials в PostgreSQL нельзя расшифровать. Для восстановления используй совместимый `.env` и тот же ключ шифрования.
+
+CI пока проверяет синтаксис PowerShell-скриптов, но не выполняет runtime backup/restore на реальной Docker-инсталляции. Перед тем как считать резервирование рабочим, создай backup на своей машине и проведи restore drill только на отдельной копии окружения с тестовыми данными; не проверяй восстановление поверх единственного рабочего экземпляра.
 
 ### Production-like / HTTPS Quick Tunnel
 
-Команда `scripts/start-tunnel-dev.ps1` использует только базовый `compose.yaml`: Gunicorn, Nginx, отдельный Celery worker, PostgreSQL и Redis. Dev overlay в этом режиме не подключается. Production-скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false` и использует Gunicorn. Несмотря на название файла `start-tunnel-dev.ps1`, это production-like сценарий, а не debug-сервер.
+`scripts/start-tunnel-dev.ps1` запускает production-like конфигурацию только с базовым `compose.yaml`: Nginx, Gunicorn, Celery worker, PostgreSQL и Redis; `compose.dev.yaml` не подключается. Скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false`. `scripts/start-tunnel.ps1`, напротив, запускает dev overlay с `DEBUG=true` и требует явного ввода `DEBUG` перед публичной публикацией. Для остановки туннеля и Compose-контейнеров используй `scripts/stop-tunnel.ps1`.
 
 Для постоянного production-хоста не используйте Quick Tunnel: задайте постоянные HTTPS callback URLs, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SESSION_COOKIE_SECURE=true`, `CSRF_COOKIE_SECURE=true` и `SECURE_SSL_REDIRECT=true`; TLS должен завершаться на доверенном reverse proxy. Не переносите dev-переменные в production secret store.
 
@@ -450,7 +454,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### Границы покрытия и незакрытые зоны
 
 - Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
-- Последний подтверждённый полный CI на предыдущем этапе декомпозиции завершился успешно, включая tests, CodeQL, SAST/SCA/secrets, container и authenticated DAST. Конкретные цифры coverage и число тестов следует брать из актуального Actions run для проверяемого commit SHA, а не переносить из старых запусков.
+- Результаты CI относятся только к конкретному commit SHA. Не считай предыдущий успешный запуск подтверждением текущего состояния: проверяй актуальный Actions run, включая authenticated DAST, перед следующим изменением.
 - Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
 - Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
 - Authenticated ZAP DAST использует CI-пользователя и проверяет доступные ему страницы/API; отдельный smoke-check проверяет, что пользователь не читает transfer job и отчёт другого пользователя. Это не исчерпывающий IDOR-аудит всех объектов библиотеки и не browser E2E.
@@ -517,7 +521,8 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
 - Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
 - Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
-- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
+- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи, отдельный debug overlay и production-like Cloudflare Quick Tunnel.
+- PowerShell backup/restore для production-like Compose: PostgreSQL custom dump, media archive, SHA-256 manifest, pre-restore backup и сохранение предыдущего media-каталога. Архивы не зашифрованы, секреты хранятся отдельно; runtime restore drill ещё не подтверждён.
 - CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
 - Проверка полного CI и coverage выполняется для каждого commit; фиксированные числа тестов и coverage в README намеренно не закрепляются, поскольку они меняются вместе с кодом.
 
@@ -527,11 +532,11 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Ввести единый интерфейс провайдера там, где это уменьшит связанность; не создавать абстракции ради абстракций.
 - Улучшить matching: пороги уверенности, неоднозначные совпадения, версии/ремастеры/featuring и причины отклонения кандидатов.
 - Усилить отчёт переноса: объяснение ошибок и пропусков, экспорт CSV; JSON report уже доступен через API прямого переноса.
-- Реализовать retry/resume для частично завершённых библиотечных переносов и защиту от дубликатов при неопределённом результате API-запроса.
-- Расширить обработку больших коллекций, rate limits и временных ошибок API с корректным Retry-After/backoff.
+- **Текущий этап — надёжность Celery:** восстановление потерянных queued jobs, выявление зависших running jobs, безопасное поведение после аварии worker и защита Spotify от повторного добавления уже записанных треков. Нельзя включать автоматический retry для операций с внешними побочными эффектами без reconciliation/idempotency.
+- Расширить обработку больших коллекций, rate limits и временных ошибок API с корректным Retry-After/backoff; для небезопасных POST не повторять запрос автоматически при неопределённом результате.
 - Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.
 - Добавить browser-based E2E для плеера: реальное воспроизведение, очередь, навигация, адаптивность и анимации. Текущий Python coverage не измеряет JS/CSS/templates.
-- Добавить автоматическое расписание backup, off-site encrypted retention и регулярный restore drill в изолированное окружение.
+- После локальной проверки backup/restore добавить автоматическое расписание backup, off-site encrypted retention и регулярный restore drill в изолированное окружение.
 - Подготовить постоянный production-домен, TLS-конфигурацию для Nginx/Cloudflare, отдельные окружения и управляемые секреты.
 - Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.
