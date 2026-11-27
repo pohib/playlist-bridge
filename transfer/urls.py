@@ -2,9 +2,12 @@ from django.contrib.auth import views as django_auth_views
 from django.urls import path, reverse_lazy
 
 from . import (
+    account_page_views,
     api_views,
     auth_views,
+    dashboard_views,
     library_local_playback_views,
+    library_page_views,
     library_management_views,
     library_media_views,
     library_provider_upload_views,
@@ -16,7 +19,6 @@ from . import (
     library_vk_import_views,
     library_vk_playback_views,
     oauth_views,
-    site_views,
     views,
 )
 
@@ -26,14 +28,14 @@ urlpatterns = [
     path("accounts/login/", auth_views.sign_in, name="login"),
     path("accounts/logout/", auth_views.sign_out, name="logout"),
     path("accounts/password_change/", django_auth_views.PasswordChangeView.as_view(template_name="transfer/auth/password_change.html", success_url=reverse_lazy("profile")), name="password_change"),
-    path("app/", site_views.dashboard, name="dashboard"),
-    path("library/", site_views.library, name="library"),
+    path("app/", dashboard_views.dashboard, name="dashboard"),
+    path("library/", library_page_views.library, name="library"),
     path("library/cover/", library_media_views.library_cover_proxy, name="library_cover_proxy"),
-    path("library/<uuid:playlist_id>/", site_views.playlist_detail, name="playlist_detail"),
-    path("connections/", site_views.connections, name="connections"),
-    path("transfers/", site_views.transfers, name="transfers"),
-    path("profile/", site_views.profile, name="profile"),
-    path("player/popout/", site_views.player_popout, name="player_popout"),
+    path("library/<uuid:playlist_id>/", library_page_views.playlist_detail, name="playlist_detail"),
+    path("connections/", account_page_views.connections, name="connections"),
+    path("transfers/", account_page_views.transfers, name="transfers"),
+    path("profile/", account_page_views.profile, name="profile"),
+    path("player/popout/", account_page_views.player_popout, name="player_popout"),
     path("healthz/", views.healthz, name="healthz"),
     path("spotify/login/", oauth_views.spotify_login, name="spotify_login"),
     path("spotify/callback/", oauth_views.spotify_callback, name="spotify_callback"),
