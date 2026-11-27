@@ -2,6 +2,7 @@ import json
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -35,6 +36,66 @@ class VKPlaybackApiTests(TestCase):
         )
         self.stream_url = reverse("library_vk_track_stream", kwargs={"track_id": self.track.pk})
         self.audio_url = reverse("library_vk_track_audio", kwargs={"track_id": self.track.pk})
+
+    def _attach_local_audio(self, content=b"0123456789"):
+        self.track.source_provider = LibraryPlaylist.Provider.MANUAL
+        self.track.audio_file.save(
+            "range-test.mp3",
+            SimpleUploadedFile("range-test.mp3", content, content_type="audio/mpeg"),
+            save=True,
+        )
+        return reverse("library_stream_local_track", kwargs={"track_id": self.track.pk})
+
+    def test_local_audio_supports_byte_range_for_seeking(self):
+        audio_url = self._attach_local_audio()
+        response = self.client.get(audio_url, HTTP_RANGE="bytes=3-6")
+        content = b"".join(response.streaming_content)
+
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(content, b"3456")
+        self.assertEqual(response["Content-Range"], "bytes 3-6/10")
+        self.assertEqual(response["Content-Length"], "4")
+        self.assertEqual(response["Accept-Ranges"], "bytes")
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+
+    def test_local_audio_supports_suffix_byte_range(self):
+        audio_url = self._attach_local_audio()
+        response = self.client.get(audio_url, HTTP_RANGE="bytes=-4")
+        content = b"".join(response.streaming_content)
+
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(content, b"6789")
+        self.assertEqual(response["Content-Range"], "bytes 6-9/10")
+
+    def test_local_audio_rejects_unsatisfiable_byte_range(self):
+        audio_url = self._attach_local_audio()
+        response = self.client.get(audio_url, HTTP_RANGE="bytes=20-30")
+
+        self.assertEqual(response.status_code, 416)
+        self.assertEqual(response["Content-Range"], "bytes */10")
+
+    def test_local_audio_full_response_advertises_range_support(self):
+        audio_url = self._attach_local_audio()
+        response = self.client.get(audio_url)
+        content = b"".join(response.streaming_content)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(content, b"0123456789")
+        self.assertEqual(response["Content-Length"], "10")
+        self.assertEqual(response["Accept-Ranges"], "bytes")
+
+    def test_local_audio_is_not_accessible_to_another_user(self):
+        audio_url = self._attach_local_audio()
+        self.client.logout()
+        other_user = get_user_model().objects.create_user(
+            username="local-playback-other",
+            password=get_random_string(32),
+        )
+        self.client.force_login(other_user)
+
+        response = self.client.get(audio_url, HTTP_RANGE="bytes=0-2")
+
+        self.assertEqual(response.status_code, 404)
 
     def test_stream_resolution_returns_fresh_mp3_url_without_cache(self):
         with patch("transfer.library_vk_playback_views.VKClient") as client_class:
