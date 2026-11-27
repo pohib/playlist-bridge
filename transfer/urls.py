@@ -10,8 +10,8 @@ from . import (
     library_provider_upload_views,
     library_search_views,
     library_transfer_views,
-    oauth_views,
     library_media_views,
+    oauth_views,
     site_views,
     views,
 )
