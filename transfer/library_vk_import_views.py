@@ -11,12 +11,13 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile
 from .models import LibraryPlaylist
-from .services import TransferError, VKClient, parse_vk_playlist_url, parse_vk_track_url
-from .services.library_imports import (
+from .services.common import TransferError, parse_vk_playlist_url, parse_vk_track_url
+from .services.library_import_vk import (
     refresh_vk_track_metadata,
     save_vk_playlist,
     save_vk_track,
 )
+from .services.vk_client import VKClient
 
 logger = logging.getLogger(__name__)
 
