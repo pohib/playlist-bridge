@@ -8,10 +8,10 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .services.credential_service import get_access_token, get_session_fingerprint
 from .library_support import _profile, _safe_candidate_url
 from .models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem
 from .services import SoundCloudClient, SpotifyClient, TransferError
+from .services.credential_service import get_access_token, get_session_fingerprint
 from .services.library_transfer_matching import match_soundcloud_tracks, match_spotify_tracks
 
 logger = logging.getLogger(__name__)
