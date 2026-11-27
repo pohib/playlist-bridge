@@ -5,10 +5,8 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from .library_support import _profile
-from .services.library_management import (
-    LibraryManagementError,
-    update_profile as update_profile_service,
-)
+from .services.library_management import LibraryManagementError
+from .services.library_management import update_profile as update_profile_service
 
 
 @require_POST
