@@ -8,6 +8,7 @@ from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
 from .services.library_imports import (
+    import_soundcloud_library as import_soundcloud_library_service,
     save_soundcloud_playlist,
     save_soundcloud_track,
     validate_soundcloud_permalink,
@@ -69,20 +70,11 @@ def import_soundcloud_track(request):
 def import_soundcloud_library(request):
     try:
         client, token = _soundcloud_access(request)
-        resources = client.my_playlists(token)
-        profile = _profile(request)
-        imported = 0
-        track_count = 0
-        for resource in resources[:30]:
-            resource_id = resource.get("id")
-            if not resource_id:
-                continue
-            tracks = client.playlist_tracks(token, resource_id)
-            source_url = resource.get("permalink_url") or ""
-            if source_url:
-                _save_soundcloud_playlist(profile, resource, tracks, source_url)
-                imported += 1
-                track_count += len(tracks)
+        imported, track_count = import_soundcloud_library_service(
+            _profile(request),
+            client,
+            token,
+        )
     except TransferError as exc:
         messages.error(request, str(exc))
         return redirect("library")
