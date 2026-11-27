@@ -199,7 +199,7 @@ docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker
 docker compose -f compose.yaml -f compose.dev.yaml down
 ```
 
-Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies только для loopback-разработки. Он не должен использоваться как публичный endpoint или для production-трафика. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
+Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies только для loopback-разработки. Он не должен использоваться как публичный endpoint или для production-трафика. Redis в обоих режимах сохраняет брокерную очередь через AOF (`appendfsync everysec`) в отдельном Docker volume; `docker compose down` сохраняет этот volume, а `docker compose down -v` удаляет его вместе с PostgreSQL. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
 
 ```powershell
 docker compose -f compose.yaml -f compose.dev.yaml restart worker
