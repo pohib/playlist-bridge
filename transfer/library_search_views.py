@@ -14,11 +14,7 @@ from .library_support import (
 )
 from .models import LibraryPlaylist, LibraryTrack
 from .services.library_source_links import safe_provider_source_url
-from .services.library_source_search_service import (
-    LibrarySourceSearchError,
-    parse_library_source_search_request,
-    search_library_sources as search_library_sources_service,
-)
+from .services import library_source_search_service
 
 
 @require_GET
@@ -54,16 +50,16 @@ def search_library_sources(request):
     """Validate the HTTP payload and delegate provider search orchestration."""
     try:
         payload = json.loads(request.body or b"{}")
-        title, artist, providers = parse_library_source_search_request(payload)
+        title, artist, providers = library_source_search_service.parse_library_source_search_request(payload)
     except (TypeError, ValueError) as exc:
         message = (
             str(exc)
-            if isinstance(exc, LibrarySourceSearchError)
+            if isinstance(exc, library_source_search_service.LibrarySourceSearchError)
             else "Некорректный JSON запроса."
         )
         return JsonResponse({"error": message}, status=400)
 
-    result = search_library_sources_service(
+    result = library_source_search_service.search_library_sources(
         title,
         artist,
         providers,
