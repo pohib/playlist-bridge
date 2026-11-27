@@ -17,11 +17,11 @@ _save_spotify_playlist = save_spotify_playlist
 def import_spotify_playlist(request):
     source_url = request.POST.get("source_url", "").strip()
     try:
-        playlist_id = spotify_resource_id(source_url, "playlist")
+        playlist_id = _spotify_resource_id(source_url, "playlist")
         client, token = _spotify_access(request)
         resource = client.api("playlist_details", token, playlist_id=playlist_id)
         entries = client.get_playlist_items(token, playlist_id)
-        playlist, count = save_spotify_playlist(_profile(request), resource, entries, source_url)
+        playlist, count = _save_spotify_playlist(_profile(request), resource, entries, source_url)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
