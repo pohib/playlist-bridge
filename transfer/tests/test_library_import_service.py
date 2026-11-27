@@ -11,7 +11,9 @@ from ..services import (
 )
 from ..services.library_imports import (
     import_soundcloud_library,
+    import_soundcloud_playlist,
     import_spotify_library,
+    import_spotify_playlist,
     refresh_vk_track_metadata,
     save_soundcloud_playlist,
     save_soundcloud_track,
@@ -27,7 +29,9 @@ from ..services.library_imports import (
 class LibraryImportServiceTests(TestCase):
     def test_compatibility_facade_reexports_provider_specific_services(self):
         self.assertIs(import_spotify_library, library_import_spotify.import_spotify_library)
+        self.assertIs(import_spotify_playlist, library_import_spotify.import_spotify_playlist)
         self.assertIs(import_soundcloud_library, library_import_soundcloud.import_soundcloud_library)
+        self.assertIs(import_soundcloud_playlist, library_import_soundcloud.import_soundcloud_playlist)
         self.assertIs(save_spotify_playlist, library_import_spotify.save_spotify_playlist)
         self.assertIs(save_spotify_track, library_import_spotify.save_spotify_track)
         self.assertIs(spotify_resource_id, library_import_spotify.spotify_resource_id)
