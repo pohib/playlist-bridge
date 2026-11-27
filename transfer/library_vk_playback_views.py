@@ -43,7 +43,7 @@ def get_vk_track_stream(request, track_id):
     api = VKClient(version=settings.VK_API_VERSION)
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
     try:
-        stream = resolve_vk_track_stream(
+        resolve_vk_track_stream(
             api, track.playlist, track.external_id, stream_format
         )
     except VKPlaybackError as exc:
