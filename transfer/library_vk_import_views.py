@@ -5,6 +5,7 @@ import logging
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
@@ -57,6 +58,8 @@ def import_vk_track(request):
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
+    except Http404:
+        raise
     except Exception:
         logger.exception("Unexpected error during VK track import")
         messages.error(request, "Не удалось импортировать трек VK.")
