@@ -5,9 +5,7 @@ from django.conf import settings
 from .models import LibraryProfile
 from .services import SoundCloudClient, SpotifyClient
 from .services.credential_service import get_access_token, get_session_fingerprint
-from .services.library_source_links import (
-    safe_provider_candidate_url as _safe_candidate_url,
-)
+from .services.library_source_links import safe_provider_candidate_url as _safe_candidate_url  # noqa: F401
 
 
 def _profile(request):
