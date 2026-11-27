@@ -13,8 +13,8 @@ from .library_support import (
     _spotify_access,
 )
 from .models import LibraryPlaylist, LibraryTrack
-from .services.library_source_links import safe_provider_source_url
 from .services import library_source_search_service
+from .services.library_source_links import safe_provider_source_url
 
 
 @require_GET
