@@ -127,13 +127,22 @@ def run_transfer(self, job_id):
 @shared_task(ignore_result=True)
 def dispatch_queued_transfers():
     """Recover PostgreSQL queued jobs whose Redis message was lost or unavailable."""
-    from .services.transfer_dispatch import dispatch_pending_transfers
+    from .services.transfer_dispatch import (
+        dispatch_pending_transfers,
+        recover_stale_transfers,
+    )
 
-    result = dispatch_pending_transfers()
+    recovery = recover_stale_transfers()
+    dispatch = dispatch_pending_transfers()
+    result = {"recovery": recovery, **dispatch}
     logger.info(
-        "Queued transfer dispatch completed: eligible=%s dispatched=%s failed=%s",
-        result["eligible"],
-        result["dispatched"],
-        result["failed"],
+        "Queued transfer dispatch completed: stale_resumed=%s stale_failed=%s "
+        "stale_dispatch_failed=%s eligible=%s dispatched=%s failed=%s",
+        recovery["resumed"],
+        recovery["failed"],
+        recovery["dispatch_failed"],
+        dispatch["eligible"],
+        dispatch["dispatched"],
+        dispatch["failed"],
     )
     return result

@@ -23,7 +23,7 @@ class FailStaleTransfersCommandTests(TestCase):
             checkpoint=checkpoint or {},
         )
 
-    @patch("transfer.management.commands.fail_stale_transfers.dispatch_transfer_job", return_value=True)
+    @patch("transfer.services.transfer_dispatch.dispatch_transfer_job", return_value=True)
     def test_resumes_stale_jobs_only_when_safe_checkpoint_exists(self, dispatch):
         now = timezone.now()
         recoverable = self.create_job(

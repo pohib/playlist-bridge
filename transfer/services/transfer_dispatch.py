@@ -78,3 +78,74 @@ def dispatch_pending_transfers(
             failed += 1
 
     return {"eligible": len(job_ids), "dispatched": dispatched, "failed": failed}
+
+
+def recover_stale_transfers(*, older_than_minutes=60, dry_run=False):
+    """Requeue stale jobs only when their Spotify side effects can be reconciled."""
+    if older_than_minutes < 1:
+        raise ValueError("older_than_minutes must be greater than zero")
+
+    now = timezone.now()
+    cutoff = now - timedelta(minutes=older_than_minutes)
+    stale_jobs = TransferJob.objects.filter(
+        status=TransferJob.Status.RUNNING,
+    ).filter(
+        Q(heartbeat_at__lt=cutoff)
+        | Q(heartbeat_at__isnull=True, started_at__lt=cutoff)
+    )
+
+    recoverable_ids = []
+    failed_ids = []
+    for job in stale_jobs.only("pk", "checkpoint", "target_playlist"):
+        checkpoint = job.checkpoint if isinstance(job.checkpoint, dict) else {}
+        if (
+            checkpoint.get("target_playlist_id")
+            or job.target_playlist
+            or (checkpoint.get("report") and not checkpoint.get("playlist_create_pending"))
+        ):
+            recoverable_ids.append(job.pk)
+        else:
+            failed_ids.append(job.pk)
+
+    if dry_run:
+        return {
+            "stale": len(recoverable_ids) + len(failed_ids),
+            "resumable": len(recoverable_ids),
+            "failed": len(failed_ids),
+            "resumed": 0,
+            "dispatched": 0,
+            "dispatch_failed": 0,
+        }
+
+    failed = TransferJob.objects.filter(pk__in=failed_ids).update(
+        status=TransferJob.Status.FAILED,
+        error=(
+            "Задача прервана: worker перестал отправлять heartbeat. "
+            "Перед повтором проверь целевой плейлист Spotify — часть треков могла уже добавиться."
+        ),
+        finished_at=now,
+    )
+    resumed = TransferJob.objects.filter(
+        pk__in=recoverable_ids,
+        status=TransferJob.Status.RUNNING,
+    ).update(
+        status=TransferJob.Status.QUEUED,
+        error="",
+        started_at=None,
+        heartbeat_at=None,
+        finished_at=None,
+        dispatch_attempted_at=None,
+    )
+    dispatched = 0
+    for job_id in recoverable_ids:
+        if dispatch_transfer_job(job_id, retry_after_seconds=1):
+            dispatched += 1
+
+    return {
+        "stale": len(recoverable_ids) + len(failed_ids),
+        "resumable": len(recoverable_ids),
+        "failed": failed,
+        "resumed": resumed,
+        "dispatched": dispatched,
+        "dispatch_failed": max(0, resumed - dispatched),
+    }

@@ -12,6 +12,7 @@ from transfer.models import TransferJob
 from transfer.services.transfer_dispatch import (
     dispatch_pending_transfers,
     dispatch_transfer_job,
+    recover_stale_transfers,
 )
 
 
@@ -20,6 +21,46 @@ class TransferDispatchTests(TestCase):
         entry = celery_app.conf.beat_schedule["dispatch-queued-transfers-every-minute"]
         self.assertEqual(entry["task"], "transfer.tasks.dispatch_queued_transfers")
         self.assertEqual(entry["schedule"], 60.0)
+
+    @patch("transfer.services.transfer_dispatch.dispatch_transfer_job", return_value=True)
+    def test_stale_recovery_requeues_checkpointed_job(self, dispatch):
+        old = timezone.now() - timedelta(hours=2)
+        job = TransferJob.objects.create(
+            session_fingerprint="9" * 64,
+            source_url="https://vk.com/music/playlist/1_2",
+            status=TransferJob.Status.RUNNING,
+            started_at=old,
+            heartbeat_at=old,
+            checkpoint={
+                "report": [{"index": 1, "status": "matched"}],
+                "matched_uris": ["spotify:track:" + "A" * 22],
+                "playlist_create_pending": False,
+            },
+        )
+
+        result = recover_stale_transfers()
+
+        job.refresh_from_db()
+        self.assertEqual(result["resumed"], 1)
+        self.assertEqual(result["dispatched"], 1)
+        self.assertEqual(job.status, TransferJob.Status.QUEUED)
+        dispatch.assert_called_once_with(job.pk, retry_after_seconds=1)
+
+    @patch("transfer.services.transfer_dispatch.recover_stale_transfers")
+    @patch("transfer.services.transfer_dispatch.dispatch_pending_transfers")
+    def test_periodic_dispatch_task_runs_stale_recovery(self, dispatch_pending, recover):
+        recover.return_value = {
+            "stale": 0, "resumable": 0, "failed": 0,
+            "resumed": 0, "dispatched": 0, "dispatch_failed": 0,
+        }
+        dispatch_pending.return_value = {"eligible": 0, "dispatched": 0, "failed": 0}
+
+        from transfer.tasks import dispatch_queued_transfers
+
+        dispatch_queued_transfers.run()
+
+        recover.assert_called_once_with()
+        dispatch_pending.assert_called_once_with()
 
     def create_job(self, fingerprint, *, status=TransferJob.Status.QUEUED, attempted_at=None, attempts=0):
         return TransferJob.objects.create(
