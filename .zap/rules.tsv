@@ -30,3 +30,4 @@
 10049	INFO	(Cacheability heuristic; review per endpoint)
 10111	INFO	(Authentication request identification)
 10112	INFO	(Session management identification)
+90027	INFO	(Cookie Slack Detector is informational; explicit two-user access checks verify session isolation)
