@@ -61,7 +61,8 @@ View-слой библиотеки вынесен из прежнего обще
 | transfer/domain_models/credentials.py | OAuthCredential |
 | transfer/domain_models/jobs.py | TransferJob |
 | transfer/domain_models/library.py | LibraryProfile, LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem, cleanup audio files signal |
-| transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh |\n| transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
+| transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh | 
+| transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
 | transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
 | transfer/services/vk_client.py | Анонимный токен VK, получение плейлиста/трека и stream metadata |
 | transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
