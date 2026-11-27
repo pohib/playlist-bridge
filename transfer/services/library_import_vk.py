@@ -85,3 +85,22 @@ def refresh_vk_track_metadata(playlist, vk_tracks):
             track.save(update_fields=changed)
             updated += 1
     return updated
+
+
+
+def import_vk_playlist(profile, client, source_url):
+    """Fetch one public VK playlist and persist its local representation."""
+    title, tracks = client.fetch_playlist(source_url)
+    return save_vk_playlist(profile, title, tracks, source_url)
+
+
+def import_vk_track(profile, client, source_url, playlist=None):
+    """Fetch one VK track and save it as a playlist or append it to one."""
+    track = client.fetch_track(source_url)
+    return save_vk_track(profile, track, source_url, playlist=playlist), track
+
+
+def refresh_vk_playlist_artwork(playlist, client):
+    """Refresh provider metadata for an existing VK playlist."""
+    _title, tracks = client.fetch_playlist(playlist.external_url)
+    return refresh_vk_track_metadata(playlist, tracks)
