@@ -16,7 +16,9 @@ _CHUNK_SIZE = 64 * 1024
 
 def _parse_byte_range(value, size):
     """Return an inclusive (start, end) range, or None for an invalid range."""
-    match = _RANGE_PATTERN.fullmatch(value or "")
+    if not value or len(value) > 128:
+        return None
+    match = _RANGE_PATTERN.fullmatch(value)
     if not match or size <= 0:
         return None
 
@@ -86,7 +88,7 @@ def stream_local_track(request, track_id):
 
     if request.method == "HEAD":
         file_handle.close()
-        response = HttpResponse(status=206 if byte_range else 200)
+        response = HttpResponse(status=206 if byte_range else 200, content_type=content_type)
     else:
         response = StreamingHttpResponse(
             _stream_file(file_handle, length),
