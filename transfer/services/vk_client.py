@@ -4,7 +4,6 @@ import requests
 
 from .common import (
     TransferError,
-    VKTrack,
     parse_vk_playlist_url,
     parse_vk_track_reference,
 )
