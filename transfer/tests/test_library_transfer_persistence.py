@@ -66,20 +66,22 @@ class LibraryTransferPersistenceTests(TestCase):
 
     def test_persistence_rolls_back_target_playlist_when_review_items_fail(self):
         before = LibraryPlaylist.objects.count()
-        with patch(
-            "transfer.services.library_transfer_persistence.LibraryTransferItem.objects.bulk_create",
-            side_effect=RuntimeError("database write failed"),
+        with (
+            patch(
+                "transfer.services.library_transfer_persistence.LibraryTransferItem.objects.bulk_create",
+                side_effect=RuntimeError("database write failed"),
+            ),
+            self.assertRaisesMessage(RuntimeError, "database write failed"),
         ):
-            with self.assertRaisesMessage(RuntimeError, "database write failed"):
-                persist_library_transfer(
-                    playlist=self.source,
-                    target_provider=LibraryPlaylist.Provider.SPOTIFY,
-                    tracks=[self.first],
-                    matched={},
-                    unmatched=[(self.first, [])],
-                    target_id="",
-                    target_url="",
-                )
+            persist_library_transfer(
+                playlist=self.source,
+                target_provider=LibraryPlaylist.Provider.SPOTIFY,
+                tracks=[self.first],
+                matched={},
+                unmatched=[(self.first, [])],
+                target_id="",
+                target_url="",
+            )
 
         self.assertEqual(LibraryPlaylist.objects.count(), before)
         self.assertFalse(LibraryTransfer.objects.exists())
