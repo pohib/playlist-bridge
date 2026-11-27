@@ -11,7 +11,7 @@ from .library_support import (
     _spotify_access,
 )
 from .models import LibraryTransfer, LibraryTransferItem
-from .services import library_transfer_review
+from .services import TransferError, library_transfer_review
 from .services.library_transfer_review_search import search_pending_transfer_item
 
 
