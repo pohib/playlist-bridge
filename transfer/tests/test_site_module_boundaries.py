@@ -7,6 +7,7 @@ from transfer import (
     library_page_views,
     library_support,
     site_views,
+    views,
 )
 from transfer.services import library_request_context, library_source_links
 
@@ -29,7 +30,7 @@ class SitePageModuleBoundaryTests(SimpleTestCase):
 
     def test_legacy_site_facade_reexports_page_handlers(self):
         expected = {
-            "landing": __import__("transfer.views", fromlist=["home"]).home,
+            "landing": views.home,
             "dashboard": dashboard_views.dashboard,
             "library": library_page_views.library,
             "playlist_detail": library_page_views.playlist_detail,
