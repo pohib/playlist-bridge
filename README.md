@@ -17,12 +17,12 @@ Django-приложение для сбора плейлистов и треко
 
 Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn. Nginx возвращает нейтральную HTML-страницу для 404 и блокирует прямые запросы к dotfiles, репозиторным метаданным, конфигурации и служебным каталогам.
 
-View-слой библиотеки вынесен из прежнего общего модуля в специализированные обработчики: **library_views.py — compatibility facade**, который только реэкспортирует прежний публичный интерфейс. Декомпозиция монолита продолжается: view-модули постепенно освобождаются от бизнес-логики, которая переносится в `transfer/services/`. До завершения этой работы PR остаётся незавершённым.
+View-слой библиотеки разделён на специализированные HTTP-обработчики, а бизнес-сценарии постепенно вынесены в `transfer/services/`. URL-маршруты подключают конкретные модули напрямую. Старые модули (`library_views.py`, `library_management_views.py`, `library_playback_views.py`, `library_transfer_views.py`, `library_import_views.py`, `site_views.py` и `views.py`) сохранены как compatibility facades для обратной совместимости; новые обработчики в них добавлять не следует. Это по-прежнему модульный Django-монолит, а не набор микросервисов.
 
 Основные границы ответственности:
 
 - config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
-- transfer/site_views.py — страницы dashboard, библиотеки, профиля и подключений;
+- transfer/dashboard_views.py, transfer/library_page_views.py, transfer/account_page_views.py и transfer/landing_views.py — специализированные обработчики страниц; transfer/site_views.py — compatibility facade;
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
 - transfer/api/ — отдельные HTTP API-модули: transfer_views.py (создание/просмотр задач), status_views.py (состояние провайдеров), docs_views.py (OpenAPI и публичная документация), serializers.py и common.py;
@@ -30,18 +30,18 @@ View-слой библиотеки вынесен из прежнего обще
 - transfer/error_views.py — единые HTML-обработчики 400/403/404/500 для браузера и JSON-ошибки для API;
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
 - transfer/library_import_views.py — compatibility facade импорта;
-- transfer/library_vk_import_views.py — HTTP-обработчики импорта VK и обновления обложек; сохранение и синхронизация метаданных вынесены в `services/library_imports.py`;
-- transfer/library_spotify_import_views.py — HTTP-обработчики импорта Spotify-плейлистов, треков и библиотеки;
-- transfer/library_soundcloud_import_views.py — HTTP-обработчики импорта SoundCloud-плейлистов, треков и библиотеки;
-- transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
-- transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
-- transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
+- transfer/library_vk_import_views.py — HTTP-обработчики импорта VK и обновления обложек; сохранение и синхронизация метаданных вынесены в `services/library_import_vk.py`;
+- transfer/library_spotify_import_views.py и transfer/library_soundcloud_import_views.py — HTTP-обработчики импорта плейлистов, треков и библиотек соответствующих провайдеров;
+
+- transfer/library_playlist_management_views.py, transfer/library_track_management_views.py и transfer/library_profile_management_views.py — CRUD плейлистов/треков, локальная загрузка и обновление профиля; transfer/library_management_views.py — compatibility facade;
+- transfer/library_local_playback_views.py и transfer/library_vk_playback_views.py — локальное воспроизведение с HTTP Range и VK streaming proxy; transfer/library_playback_views.py — compatibility facade;
+- transfer/library_provider_upload_views.py — HTTP endpoint загрузки в SoundCloud; валидация, вызов провайдера и сохранение локальной копии делегируются `services/library_soundcloud_upload.py`;
 - transfer/library_search_views.py — поиск источников для плейлистов и треков;
 - transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
-- transfer/library_transfer_views.py — compatibility facade переноса;
+- transfer/library_transfer_views.py — compatibility facade переноса; специализированные обработчики находятся в transfer/library_transfer_create_views.py и transfer/library_transfer_review_views.py;
 - transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;
 - transfer/library_transfer_review_views.py — HTTP-обработчики ручного поиска, выбора и пропуска совпадений при переносе; нормализация ответов провайдеров вынесена в `services/library_transfer_search.py`;
-- transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
+- transfer/library_support.py — compatibility facade общих функций доступа к профилю, токенам и безопасным ссылкам;
 - nginx/default.conf — конфигурация локального reverse proxy;
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, `library_imports.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
@@ -85,7 +85,7 @@ View-слой библиотеки вынесен из прежнего обще
 
 ### Основные бизнес-процессы
 
-1. **Импорт в библиотеку.** HTTP handlers в library_import_views.py валидируют ссылку, получают credentials через credentials.py, вызывают provider clients и сохраняют локальную копию метаданных в LibraryPlaylist/LibraryTrack. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
+1. **Импорт в библиотеку.** Специализированные HTTP handlers `library_vk_import_views.py`, `library_spotify_import_views.py` и `library_soundcloud_import_views.py` валидируют входные данные, получают доступ к провайдерам и делегируют сохранение метаданных сервисам. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
 2. **Перенос библиотечного плейлиста.** `library_transfer_create_views.py` отвечает за HTTP workflow и создание записей; `services/library_transfer_matching.py` выполняет поиск/ранжирование кандидатов Spotify и SoundCloud. Уверенные совпадения добавляются в целевой плейлист, остальные сохраняются в `LibraryTransferItem` для ручного review.
 3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
 4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer валидирует запрос и делегирует создание TransferJob сервису api_transfer_service.py, который повторно использует активную задачу при повторном запросе и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
@@ -426,7 +426,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 
 ## Ограничения
 
-- Импорт публичного аудио зависит от доступности внутренних VK web API и анонимной выдачи токена; VK может менять этот механизм или ограничивать его. Сейчас список ID запрашивается одним вызовом `audio.getIdsBySource`; пагинация этого метода не установлена, поэтому очень большие плейлисты могут быть ограничены самим VK. Метаданные загружаются пакетами по 50 записей. Название коллекции пока сохраняется как `VK playlist`, поскольку исследованный ответ со списком ID не содержал названия.
+- Импорт публичного аудио зависит от доступности внутренних VK web API и анонимной выдачи токена; VK может менять этот механизм или ограничивать его. Сейчас список ID запрашивается одним вызовом `audio.getIdsBySource`; пагинация этого метода не установлена, поэтому очень большие плейлисты могут быть ограничены самим VK. Метаданные загружаются пакетами по 50 записей. Название плейлиста запрашивается отдельно через `audio.getPlaylistById`; если VK не возвращает название, используется информативное резервное имя с ID плейлиста.
 - Spotify access token обновляется через refresh token; refresh token Spotify истекает через 6 месяцев после исходной авторизации, после чего пользователь должен подключить аккаунт заново.
 - Spotify rate limits и отдельная Development Mode quota могут замедлять или временно блокировать перенос.
 - DAST использует временную локальную Django-сессию, но не подключает реальные Spotify/SoundCloud OAuth-аккаунты. Провайдерские OAuth callback, импорт/перенос с реальными API и воспроизведение аудио требуют отдельных интеграционных/E2E проверок.
@@ -453,7 +453,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 
 ### Ближайшие задачи
 
-- Провести аудит оставшихся view-модулей и сервисного слоя на циклические импорты и лишнюю связанность; не дробить уже специализированные модули без практической причины.
+- Завершить аудит оставшихся view-модулей и сервисного слоя на циклические импорты и лишнюю связанность; не дробить уже специализированные модули без практической причины.
 - Ввести единый интерфейс провайдера там, где это уменьшит связанность; не создавать абстракции ради абстракций.
 - Улучшить matching: пороги уверенности, неоднозначные совпадения, версии/ремастеры/featuring и причины отклонения кандидатов.
 - Усилить отчёт переноса: объяснение ошибок и пропусков, экспорт CSV; JSON report уже доступен через API прямого переноса.
