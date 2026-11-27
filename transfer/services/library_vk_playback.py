@@ -46,12 +46,14 @@ def resolve_vk_track_stream(api, playlist, external_id, stream_format):
     ) from last_error
 
 
-def open_vk_track_audio(api, playlist, external_id, range_header=""):
-    """Open a fresh MP3 upstream response and validate its Range semantics."""
-    stream = resolve_vk_track_stream(api, playlist, external_id, "mp3")
+def open_vk_track_audio(api, playlist, external_id, range_header="", stream_format="mp3"):
+    """Open a fresh VK audio response and validate its Range semantics."""
+    if stream_format not in {"mp3", "hls_ts"}:
+        raise VKPlaybackError("Неподдерживаемый формат потока.", 400)
+    stream = resolve_vk_track_stream(api, playlist, external_id, stream_format)
     headers = {
         **api.token_provider.BROWSER_HEADERS,
-        "Accept": "audio/mpeg,audio/*;q=0.9,*/*;q=0.8",
+        "Accept": "audio/*,application/vnd.apple.mpegurl,video/mp2t,*/*;q=0.8",
         "Referer": api.token_provider.referer,
     }
     if range_header:
