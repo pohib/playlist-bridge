@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
+from django.http import HttpResponseNotFound, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -190,3 +190,10 @@ def api_openapi(request):
 def api_docs(request):
     """Render the safe, user-facing API guide."""
     return render(request, "transfer/api_docs.html")
+
+
+def api_not_found(request, exception=None):
+    """Keep unknown API routes on the JSON error contract."""
+    if request.path == "/api/v1" or request.path.startswith("/api/v1/"):
+        return api_error("API endpoint not found.", 404)
+    return HttpResponseNotFound("Not found")
