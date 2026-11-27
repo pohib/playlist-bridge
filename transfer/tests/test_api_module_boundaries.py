@@ -91,7 +91,7 @@ class ApiModuleBoundaryTests(TestCase):
 
         self.assertEqual(
             payload["error"],
-            "Перенос не выполнен. Проверь подключение к сервисам и повтори попытку.",
+            "Перенос не выполнен. Перед повтором проверь целевой плейлист: часть композиций могла уже добавиться.",
         )
         self.assertNotIn("Traceback", payload["error"])
         self.assertNotIn("secret provider response", payload["error"])
