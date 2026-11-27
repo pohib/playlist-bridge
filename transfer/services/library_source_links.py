@@ -1,6 +1,6 @@
 """Safe outbound links to supported music-provider source pages."""
 
-from urllib.parse import urlsplit
+import urllib.parse
 
 
 _PROVIDER_HOSTS = {
@@ -18,7 +18,7 @@ def safe_provider_source_url(value, provider):
         return ""
 
     try:
-        parsed = urlsplit(value)
+        parsed = urllib.parse.urlsplit(value)
         port = parsed.port
     except ValueError:
         return ""
