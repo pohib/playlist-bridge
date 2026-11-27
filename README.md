@@ -15,7 +15,7 @@ Django-приложение для сбора плейлистов и треко
 
 ## Архитектура приложения
 
-Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Caddy принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Caddy (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn.
+Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn.
 
 Разделение view-слоя библиотеки завершено: **library_views.py — compatibility facade**, который только реэкспортирует обработчики специализированных модулей. Новые обработчики следует размещать в соответствующих модулях, не возвращая бизнес-логику в фасад.
 
@@ -31,10 +31,10 @@ Django-приложение для сбора плейлистов и треко
 - transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
 - transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
 - transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
-- transfer/library_search_views.py — поиск источников для плейлистов и треков;
+- transfer/library_search_views.py — поиск источников для плейлистов и треков;\n- transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
 - transfer/library_transfer_views.py — сценарий переноса библиотеки между провайдерами;
 - transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
-- Caddyfile — конфигурация локального reverse proxy;
+- nginx/default.conf — конфигурация локального reverse proxy;
 - transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление и orchestration;
 - transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
 - transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
@@ -216,12 +216,12 @@ VK не требует регистрации приложения и отдел
 
 Скрипт:
 1. Проверяет обязательные секреты в .env;
-2. собирает контейнеры и запускает Caddy reverse proxy, Django/Gunicorn, PostgreSQL, Redis и Celery worker;
+2. собирает контейнеры и запускает Nginx reverse proxy, Django/Gunicorn, PostgreSQL, Redis и Celery worker;
 3. ждёт успешного ответа /healthz/;
 4. запускает Cloudflare Quick Tunnel;
 5. получает временный HTTPS URL;
 6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и callback URI Spotify/SoundCloud;
-7. пересоздаёт web и worker с новыми настройками; Caddy продолжает принимать трафик на прежнем локальном порту 8000 и передаёт его в web:8000.
+7. пересоздаёт web и worker с новыми настройками; Nginx продолжает принимать трафик на прежнем локальном порту 8000 и передаёт его в web:8000.
 
 После завершения скрипт покажет URL и точные callback URI. Не закрывай процесс cloudflared: туннель должен оставаться запущенным, пока используешь приложение. Чтобы остановить его, выполни команду с PID, который напечатал скрипт:
 
@@ -361,7 +361,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ### Границы покрытия и незакрытые зоны
 
 - Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
-- Последний подтверждённый успешный tests job на commit `8ab7b24689e590726fe51a0915cc46faf11055b6`: **176 passed**, **26 subtests passed**, **76.46%** coverage для `transfer`. Это результат тестового job; после изменений Caddy и URL routing требуется дождаться нового полного CI.
+- Последний подтверждённый успешный tests job на commit `8ab7b24689e590726fe51a0915cc46faf11055b6`: **176 passed**, **26 subtests passed**, **76.46%** coverage для `transfer`. Это результат тестового job; после изменений Nginx и URL routing требуется дождаться нового полного CI.
 - Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
 - Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
 - OWASP ZAP baseline DAST не авторизуется и не проверяет всю библиотеку/плеер за логином.
@@ -427,7 +427,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
 - Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
 - Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
-- Docker Compose для Caddy reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
+- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker, PostgreSQL и Redis; health checks, логи и Cloudflare Quick Tunnel для локального OAuth.
 - CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
 - Последний подтверждённый тестовый job: 176 passed, 26 subtests passed; coverage пакета transfer — 76.46%.
 
@@ -442,7 +442,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.
 - Добавить browser-based E2E для плеера: реальное воспроизведение, очередь, навигация, адаптивность и анимации. Текущий Python coverage не измеряет JS/CSS/templates.
 - Добавить нагрузочные тесты, резервное копирование PostgreSQL и проверку восстановления.
-- Подготовить постоянный production-домен, TLS-конфигурацию для Caddy/Cloudflare, отдельные окружения и управляемые секреты.
+- Подготовить постоянный production-домен, TLS-конфигурацию для Nginx/Cloudflare, отдельные окружения и управляемые секреты.
 - Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.
 
