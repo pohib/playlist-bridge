@@ -6,8 +6,8 @@ import time
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 
-from .services.common import ReauthorizationRequired, TransferError
-from .domain_models.credentials import OAuthCredential
+from .common import ReauthorizationRequired, TransferError
+from ..domain_models.credentials import OAuthCredential
 
 
 def get_session_fingerprint(request):
