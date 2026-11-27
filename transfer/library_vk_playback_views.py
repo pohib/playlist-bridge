@@ -40,7 +40,7 @@ def get_vk_track_stream(request, track_id):
     api = VKClient(version=settings.VK_API_VERSION)
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
     audio_id = track.external_id
-    if re.fullmatch(r"-?\\d+_\\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
+    if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
         try:
             audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
         except (ValueError, TransferError) as exc:
@@ -82,7 +82,7 @@ def stream_vk_track_audio(request, track_id):
     api.token_provider.referer = track.playlist.external_url or "https://vk.ru/"
     audio_id = track.external_id
     try:
-        if re.fullmatch(r"-?\\d+_\\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
+    if re.fullmatch(r"-?\d+_\d+", audio_id) and "/music/playlist/" in track.playlist.external_url:
             audio_id = api.resolve_playlist_audio_id(track.playlist.external_url, audio_id)
         stream = api.get_track_stream(audio_id, "mp3")
     except (TransferError, ValueError) as exc:
