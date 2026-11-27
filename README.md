@@ -25,7 +25,8 @@ Django-приложение для сбора плейлистов и треко
 - transfer/site_views.py — страницы dashboard, библиотеки, профиля и подключений;
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
-- transfer/api_views.py — versioned API переноса, статусы и отчёты;
+- transfer/api/ — отдельные HTTP API-модули: transfer_views.py (создание/просмотр задач), status_views.py (состояние провайдеров), docs_views.py (OpenAPI и публичная документация), serializers.py и common.py;
+- transfer/api_views.py — compatibility facade для прежних API imports и handler404;
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
 - transfer/library_import_views.py — compatibility facade импорта;
 - transfer/library_vk_import_views.py — импорт VK-плейлистов/треков и обновление обложек;
@@ -66,7 +67,13 @@ Django-приложение для сбора плейлистов и треко
 | transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
 | transfer/services/track_matcher.py | normalize_track_text, score_candidate |
 | transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
-| transfer/api_views.py + transfer/tasks.py | API → очередь Celery → job claim/progress/result |
+| transfer/api/transfer_views.py | HTTP validation, session ownership и JSON endpoints для TransferJob |
+| transfer/api/status_views.py | Provider connection/configuration status endpoint |
+| transfer/api/docs_views.py | OpenAPI schema, public API guide и JSON 404 fallback |
+| transfer/api/serializers.py + common.py | Стабильный JSON job serializer и общий error envelope |
+| transfer/services/api_transfer_service.py | Создание/повторное использование активной TransferJob, race handling и Celery dispatch |
+| transfer/api_views.py | Compatibility facade; URL callbacks используют специализированные API modules |
+| transfer/tasks.py | Celery job claim/progress/result для прямого VK → Spotify workflow |
 | transfer/library_views.py | Compatibility facade; новые маршруты используют специализированные модули напрямую |
 | transfer/site_views.py | Page rendering, ownership-filtered querysets, playback payload, artwork proxy |
 
@@ -75,7 +82,7 @@ Django-приложение для сбора плейлистов и треко
 1. **Импорт в библиотеку.** HTTP handlers в library_import_views.py валидируют ссылку, получают credentials через credentials.py, вызывают provider clients и сохраняют локальную копию метаданных в LibraryPlaylist/LibraryTrack. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
 2. **Перенос библиотечного плейлиста.** Handler в library_transfer_views.py ищет совпадения в Spotify или SoundCloud, создаёт целевой плейлист из найденных треков, сохраняет локальное зеркало и создаёт LibraryTransfer/LibraryTransferItem. Ненайденные и неоднозначные элементы остаются в review.
 3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
-4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer создаёт TransferJob и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
+4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer валидирует запрос и делегирует создание TransferJob сервису api_transfer_service.py, который повторно использует активную задачу при повторном запросе и отправляет UUID в Celery; run_transfer атомарно claim-ит queued job; execute_transfer получает VK playlist, ищет совпадения и пишет в Spotify; API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
 5. **Плеер.** site_views.py формирует playback payload, app.js управляет очередью и воспроизведением. Локальные аудиофайлы и VK воспроизводятся через HTMLAudioElement; Spotify и SoundCloud — через их embed iframe. Плеер не получает аудио Spotify/SoundCloud напрямую.
 
 ### Важные правила изменения архитектуры
