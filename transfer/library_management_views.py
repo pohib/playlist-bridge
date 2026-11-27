@@ -18,6 +18,7 @@ from .services.library_management import delete_playlist as delete_playlist_serv
 from .services.library_management import delete_track as delete_track_service
 from .services.library_management import move_track as move_track_service
 from .services.library_management import update_playlist as update_playlist_service
+from .services.library_management import update_track as update_track_service
 from .services.library_management import merge_playlists as merge_playlists_service
 from .services.library_management import update_profile as update_profile_service
 from .services.library_management import upload_local_track as upload_local_track_service
@@ -97,6 +98,26 @@ def add_track(request, playlist_id):
         return redirect("library")
     messages.success(request, "Композиция добавлена.")
     return redirect("library")
+
+
+@require_POST
+def update_track(request, playlist_id, track_id):
+    playlist = get_object_or_404(
+        LibraryPlaylist, pk=playlist_id, profile=_profile(request)
+    )
+    track = get_object_or_404(LibraryTrack, pk=track_id, playlist=playlist)
+    try:
+        update_track_service(
+            track,
+            title=request.POST.get("title"),
+            artist=request.POST.get("artist"),
+            album=request.POST.get("album"),
+        )
+    except LibraryManagementError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Данные композиции обновлены.")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
 
 
 @require_POST
