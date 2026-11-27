@@ -55,7 +55,7 @@ def search_library_sources(request):
     try:
         payload = json.loads(request.body or b"{}")
         title, artist, providers = parse_library_source_search_request(payload)
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+    except (TypeError, ValueError) as exc:
         message = (
             str(exc)
             if isinstance(exc, LibrarySourceSearchError)
