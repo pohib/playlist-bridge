@@ -1,0 +1,73 @@
+"""Spotify playlist import validation and persistence."""
+
+import re
+from urllib.parse import urlparse
+
+from django.db import transaction
+
+from ..models import LibraryPlaylist, LibraryTrack
+from .common import TransferError
+
+
+def spotify_resource_id(value, resource_type):
+    value = (value or "").strip()
+    parsed = urlparse(value)
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Укажи ссылку на Spotify.") from exc
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"open.spotify.com", "www.open.spotify.com"}
+        or port not in (None, 443)
+        or parsed.username
+        or parsed.password
+    ):
+        raise ValueError("Укажи ссылку на Spotify.")
+    parts = [part for part in parsed.path.split("/") if part]
+    if (
+        len(parts) < 2
+        or parts[-2] != resource_type
+        or not re.fullmatch(r"[A-Za-z0-9]{22}", parts[-1])
+    ):
+        raise ValueError("Ссылка Spotify имеет неверный формат.")
+    return parts[-1]
+
+
+def save_spotify_playlist(profile, resource, entries, source_url):
+    """Persist valid Spotify track items, preserving provider order."""
+    with transaction.atomic():
+        playlist = LibraryPlaylist.objects.create(
+            profile=profile,
+            title=str(resource.get("name") or "Spotify playlist")[:120],
+            provider=LibraryPlaylist.Provider.SPOTIFY,
+            external_url=source_url,
+            description="Импортировано из Spotify",
+        )
+        rows = []
+        for index, entry in enumerate(entries):
+            track = entry.get("item") or entry.get("track") or {}
+            if track.get("type") not in (None, "track") or not track.get("id"):
+                continue
+            artists = track.get("artists") or []
+            artist = ", ".join(
+                str(item.get("name") or "") for item in artists if item.get("name")
+            )
+            album = (track.get("album") or {}).get("name") or ""
+            external_url = (track.get("external_urls") or {}).get("spotify", "")
+            rows.append(
+                LibraryTrack(
+                    playlist=playlist,
+                    title=str(track.get("name") or "Unknown track")[:180],
+                    artist=artist[:180] or "Unknown artist",
+                    album=str(album)[:180],
+                    duration_ms=track.get("duration_ms"),
+                    external_id=str(track.get("id"))[:200],
+                    external_url=str(external_url)[:2048],
+                    position=index,
+                )
+            )
+        if not rows:
+            raise TransferError("Spotify не вернул доступные композиции этого плейлиста.")
+        LibraryTrack.objects.bulk_create(rows)
+    return playlist, len(rows)
