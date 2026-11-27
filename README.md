@@ -15,7 +15,7 @@ Django-приложение для сбора плейлистов и треко
 
 ## Архитектура приложения
 
-Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn.
+Это модульный Django-монолит, не набор микросервисов. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis и Celery worker. Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn. Nginx возвращает нейтральную HTML-страницу для 404 и блокирует прямые запросы к dotfiles, репозиторным метаданным, конфигурации и служебным каталогам.
 
 View-слой библиотеки вынесен из прежнего общего модуля в специализированные обработчики: **library_views.py — compatibility facade**, который только реэкспортирует прежний публичный интерфейс. Декомпозиция монолита продолжается: view-модули постепенно освобождаются от бизнес-логики, которая переносится в `transfer/services/`. До завершения этой работы PR остаётся незавершённым.
 
@@ -26,7 +26,8 @@ View-слой библиотеки вынесен из прежнего обще
 - transfer/auth_views.py — регистрация, вход, выход и смена пароля;
 - transfer/oauth_views.py — OAuth state/PKCE, callback, привязка сессии, подключение/отключение Spotify и SoundCloud;
 - transfer/api/ — отдельные HTTP API-модули: transfer_views.py (создание/просмотр задач), status_views.py (состояние провайдеров), docs_views.py (OpenAPI и публичная документация), serializers.py и common.py;
-- transfer/api_views.py — compatibility facade для прежних API imports и handler404;
+- transfer/api_views.py — compatibility facade для прежних API imports;
+- transfer/error_views.py — единые HTML-обработчики 400/403/404/500 для браузера и JSON-ошибки для API;
 - transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
 - transfer/library_import_views.py — compatibility facade импорта;
 - transfer/library_vk_import_views.py — HTTP-обработчики импорта VK и обновления обложек; сохранение и синхронизация метаданных вынесены в `services/library_imports.py`;
@@ -413,7 +414,8 @@ API использует ту же браузерную сессию и CSRF:
 - pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
 - Bandit, Semgrep и CodeQL (security-extended) как обязательные jobs CI с SARIF публикацией в GitHub Code Scanning;
 - pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
-- OWASP ZAP authenticated full DAST против запущенного приложения и active API DAST по OpenAPI; временные учётные записи создаются только в изолированном CI;
+- OWASP ZAP authenticated full DAST против запущенного приложения и active API DAST по OpenAPI; временные учётные записи и IDOR fixtures создаются только в изолированном CI. Тестовые уязвимости в само приложение не внедряются;
+- HTML-обработчики 400/403/404/500 не раскрывают внутренние исключения; API сохраняет JSON-контракт. Nginx скрывает служебные файлы и каталоги, отдавая общий 404;
 - Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
 - Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
 - Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.

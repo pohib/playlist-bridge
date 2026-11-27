@@ -6,4 +6,7 @@ urlpatterns = [
     path("", include("transfer.urls")),
 ]
 
-handler404 = "transfer.api_views.api_not_found"
+handler400 = "transfer.error_views.bad_request"
+handler403 = "transfer.error_views.permission_denied"
+handler404 = "transfer.error_views.page_not_found"
+handler500 = "transfer.error_views.server_error"
