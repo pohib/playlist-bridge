@@ -130,6 +130,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
       - run: docker build -t vk-to-spotify:ci .
+      - name: Validate production and development Compose configurations
+        run: docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
       - name: Validate Nginx reverse-proxy configuration
         run: |
           grep -Fq 'resolver 127.0.0.11 valid=10s ipv6=off;' nginx/default.conf
