@@ -193,7 +193,7 @@ try {
     }
     [System.IO.File]::WriteAllLines($envPath, $envLines.ToArray(), [System.Text.UTF8Encoding]::new($false))
 
-    Write-Host "[4/5] Recreating web and worker with HTTPS settings..."
+    Write-Host "[4/5] Recreating development web and worker with public callback settings..."
     docker compose -f compose.yaml -f compose.dev.yaml up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) { throw "Could not restart web and worker." }
 
