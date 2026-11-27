@@ -38,6 +38,16 @@ jobs:
           DJANGO_SECRET_KEY: ci-only-test-key
           DJANGO_DEBUG: "true"
           TOKEN_ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      - name: Production Django security checks
+        run: python manage.py check --deploy
+        env:
+          DJANGO_SECRET_KEY: ci-only-production-check-key-with-more-than-fifty-characters
+          DJANGO_DEBUG: "false"
+          DJANGO_ALLOWED_HOSTS: localhost
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://localhost
+          SESSION_COOKIE_SECURE: "true"
+          CSRF_COOKIE_SECURE: "true"
+          SECURE_SSL_REDIRECT: "true"
       - name: Tests
         run: pytest -q --cov=transfer --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=60
         env:
