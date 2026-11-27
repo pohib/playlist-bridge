@@ -10,7 +10,7 @@ from .library_support import (
     _soundcloud_access,
     _spotify_access,
 )
-from .models import LibraryTransfer, LibraryTransferItem
+from .models import LibraryPlaylist, LibraryTransfer, LibraryTransferItem
 from .services import TransferError
 from .services.library_transfer_review import (
     select_transfer_candidate as apply_transfer_candidate,
@@ -89,7 +89,7 @@ def search_transfer_item(request, transfer_id, item_id):
         return redirect("transfer_review", transfer_id=review.pk)
 
     try:
-        if review.target_provider == LibraryTransfer.TargetProvider.SPOTIFY:
+        if review.target_provider == LibraryPlaylist.Provider.SPOTIFY:
             client, token = _spotify_access(request)
             results = client.search_tracks(token, query)
             candidates = [{

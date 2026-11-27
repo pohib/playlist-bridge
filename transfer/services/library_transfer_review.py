@@ -5,7 +5,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import LibraryTrack, LibraryTransfer, LibraryTransferItem
+from ..models import LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem
 from .common import TransferError
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def select_transfer_candidate(
             "Выбранный вариант отсутствует в результатах поиска. Выполни поиск повторно."
         )
 
-    if review.target_provider == LibraryTransfer.TargetProvider.SPOTIFY:
+    if review.target_provider == LibraryPlaylist.Provider.SPOTIFY:
         client, token = spotify_access()
         if not candidate.get("uri"):
             raise TransferError("Spotify не вернул URI выбранной композиции.")
@@ -94,7 +94,7 @@ def select_transfer_candidate(
                 [candidate["uri"]],
                 position=insert_position,
             )
-    elif review.target_provider == LibraryTransfer.TargetProvider.SOUNDCLOUD:
+    elif review.target_provider == LibraryPlaylist.Provider.SOUNDCLOUD:
         client, token = soundcloud_access()
         existing = list(
             review.items.filter(status=LibraryTransferItem.Status.MATCHED)
