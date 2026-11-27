@@ -1,6 +1,9 @@
 from django.test import SimpleTestCase
 
-from transfer.services.library_source_links import safe_provider_source_url
+from transfer.services.library_source_links import (
+    safe_provider_candidate_url,
+    safe_provider_source_url,
+)
 
 
 class SafeProviderSourceURLTests(SimpleTestCase):
@@ -41,3 +44,25 @@ class SafeProviderSourceURLTests(SimpleTestCase):
         for value in (None, "", 123, "https://open.spotify.com/" + "a" * 2048):
             with self.subTest(value=type(value).__name__):
                 self.assertEqual(safe_provider_source_url(value, "spotify"), "")
+
+
+class SafeProviderCandidateURLTests(SimpleTestCase):
+    def test_candidate_urls_trim_surrounding_whitespace(self):
+        value = "  https://open.spotify.com/track/abc  "
+
+        self.assertEqual(
+            safe_provider_candidate_url(value, "spotify"),
+            "https://open.spotify.com/track/abc",
+        )
+
+    def test_candidate_urls_reject_untrusted_hosts(self):
+        self.assertEqual(
+            safe_provider_candidate_url(
+                " https://open.spotify.com.attacker.example/track/abc ",
+                "spotify",
+            ),
+            "",
+        )
+
+    def test_candidate_urls_reject_non_string_values(self):
+        self.assertEqual(safe_provider_candidate_url(None, "spotify"), "")
