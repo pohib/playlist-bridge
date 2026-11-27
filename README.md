@@ -208,6 +208,33 @@ Dev overlay принудительно выставляет `DJANGO_DEBUG=true`,
 docker compose -f compose.yaml -f compose.dev.yaml restart worker
 ```
 
+
+### Резервное копирование и восстановление (production-like Compose)
+
+Скрипты работают с основным `compose.yaml` и текущим production-like проектом; отдельные dev volumes из `compose.dev.yaml` они не затрагивают. Запускай их из PowerShell на машине с Docker Desktop:
+
+```powershell
+# Создать backup в .\\backups (по умолчанию хранить 30 дней)
+.\\scripts\\backup.ps1
+
+# Указать отдельный диск/каталог и срок хранения
+.\\scripts\\backup.ps1 -OutputRoot 'E:\\PlaylistBridgeBackups' -RetentionDays 14
+
+# Восстановить конкретную копию (перед заменой создаётся pre-restore backup)
+.\\scripts\\restore.ps1 -BackupPath '.\\backups\\20261128-120000-000'
+```
+
+Backup включает:
+- PostgreSQL custom dump (`database.dump`), проверяемый через `pg_restore --list`;
+- всё содержимое `media/` в `media.tar.gz`;
+- `manifest.json` с датой, размерами и SHA-256 обоих архивов.
+
+Для согласованного снимка backup временно останавливает `web` и `worker` (Celery получает graceful stop), затем запускает те сервисы, которые работали до операции. PostgreSQL остаётся запущенным. Во время операции сайт может быть недоступен. Восстановление требует явного ввода `RESTORE`, проверяет SHA-256 и безопасные пути в media-архиве, автоматически создаёт резервную копию текущего состояния и только затем заменяет базу и media. Предыдущий каталог `media` сохраняется как `media.before-restore-<timestamp>`.
+
+Каталог `backups/` исключён из Git, но локальный диск компьютера не является надёжным off-site backup. Для реального production указывай внешний зашифрованный диск или защищённое удалённое хранилище и проверяй возможность восстановления регулярно. Архивы скрипта не шифруются.
+
+`.env` и секреты намеренно не входят в архив. Отдельно сохрани в менеджере секретов/защищённой резервной копии как минимум `TOKEN_ENCRYPTION_KEY`, `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` и OAuth client secrets. Без исходного `TOKEN_ENCRYPTION_KEY` восстановленные OAuth credentials в PostgreSQL нельзя расшифровать. Для восстановления используй совместимый `.env` и ту же encryption key.
+
 ### Production-like / HTTPS Quick Tunnel
 
 Команда `scripts/start-tunnel-dev.ps1` использует только базовый `compose.yaml`: Gunicorn, Nginx, отдельный Celery worker, PostgreSQL и Redis. Dev overlay в этом режиме не подключается. Production-скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false` и использует Gunicorn. Несмотря на название файла `start-tunnel-dev.ps1`, это production-like сценарий, а не debug-сервер.
@@ -222,8 +249,8 @@ docker compose -f compose.yaml -f compose.dev.yaml restart worker
 
 В PowerShell:
 
-    git clone https://github.com/pohib/vk-to-spotify.git
-    cd vk-to-spotify
+    git clone https://github.com/pohib/playlist-bridge.git
+    cd playlist-bridge
     Copy-Item .env.example .env
     notepad .env
 
@@ -504,7 +531,7 @@ SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, �
 - Расширить обработку больших коллекций, rate limits и временных ошибок API с корректным Retry-After/backoff.
 - Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.
 - Добавить browser-based E2E для плеера: реальное воспроизведение, очередь, навигация, адаптивность и анимации. Текущий Python coverage не измеряет JS/CSS/templates.
-- Добавить нагрузочные тесты, резервное копирование PostgreSQL и проверку восстановления.
+- Добавить автоматическое расписание backup, off-site encrypted retention и регулярный restore drill в изолированное окружение.
 - Подготовить постоянный production-домен, TLS-конфигурацию для Nginx/Cloudflare, отдельные окружения и управляемые секреты.
 - Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
 - Добавить понятные процедуры экспорта и удаления пользовательских данных.

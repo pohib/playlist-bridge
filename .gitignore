@@ -12,5 +12,9 @@ staticfiles/
 reports/*.log
 reports/*.log.*
 !reports/.gitkeep
-\n# Private user-uploaded audio; persisted via the media volume.
-media/\n
+
+# Private user-uploaded audio and generated backups must never enter Git.
+media/
+backups/
+media.before-restore-*/
+media.restore-*/
