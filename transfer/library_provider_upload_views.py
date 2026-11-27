@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist, LibraryTrack
-from .services import TransferError
+from .services.common import TransferError
 from .services.audio_file_validation import (
     SOUNDCLOUD_AUDIO_EXTENSIONS,
     has_audio_file_signature,
