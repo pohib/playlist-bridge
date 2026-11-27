@@ -35,7 +35,7 @@ class Command(BaseCommand):
                     f"{result['failed']} job(s) would be marked failed."
                 )
             )
-            return result
+            return
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -45,4 +45,4 @@ class Command(BaseCommand):
                 f"marked failed {result['failed']}."
             )
         )
-        return result
+        return
