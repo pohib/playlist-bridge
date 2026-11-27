@@ -10,12 +10,9 @@ from .library_support import (
     _soundcloud_access,
     _spotify_access,
 )
-from .models import LibraryPlaylist, LibraryTransfer, LibraryTransferItem
-from .services import TransferError, library_transfer_review
-from .services.library_transfer_search import (
-    normalize_soundcloud_search_results,
-    normalize_spotify_search_results,
-)
+from .models import LibraryTransfer, LibraryTransferItem
+from .services import library_transfer_review
+from .services.library_transfer_review_search import search_pending_transfer_item
 
 
 @require_GET
@@ -66,52 +63,23 @@ def transfer_review(request, transfer_id):
 
 @require_POST
 def search_transfer_item(request, transfer_id, item_id):
-    review = get_object_or_404(LibraryTransfer, pk=transfer_id, profile=_profile(request))
-    item = get_object_or_404(
-        LibraryTransferItem.objects.select_related("source_track"),
-        pk=item_id,
-        transfer=review,
-        status=LibraryTransferItem.Status.PENDING,
-    )
-    if review.items.filter(
-        status=LibraryTransferItem.Status.PENDING,
-        position__lt=item.position,
-    ).exists():
-        messages.error(
-            request,
-            "Сначала разберись с предыдущими треками, чтобы сохранить порядок.",
-        )
-        return redirect("transfer_review", transfer_id=review.pk)
-
-    query = (request.POST.get("query") or "").strip()
-    if not query or len(query) > 180:
-        messages.error(request, "Введи поисковый запрос длиной до 180 символов.")
-        return redirect("transfer_review", transfer_id=review.pk)
-
     try:
-        if review.target_provider == LibraryPlaylist.Provider.SPOTIFY:
-            client, token = _spotify_access(request)
-            results = client.search_tracks(token, query)
-            candidates = normalize_spotify_search_results(
-                results,
-                _safe_candidate_url,
-            )
-        else:
-            client, token = _soundcloud_access(request)
-            results = client.search_tracks(token, query)
-            candidates = normalize_soundcloud_search_results(
-                results,
-                _safe_candidate_url,
-            )
+        review, item, candidates = search_pending_transfer_item(
+            profile=_profile(request),
+            transfer_id=transfer_id,
+            item_id=item_id,
+            query=(request.POST.get("query") or "").strip(),
+            spotify_access=lambda: _spotify_access(request),
+            soundcloud_access=lambda: _soundcloud_access(request),
+            safe_candidate_url=_safe_candidate_url,
+        )
     except TransferError as exc:
         messages.error(request, str(exc))
-        return redirect("transfer_review", transfer_id=review.pk)
+        return redirect("transfer_review", transfer_id=transfer_id)
 
-    item.candidates = candidates
-    item.save(update_fields=["candidates", "updated_at"])
     messages.success(
         request,
-        f"Найдено вариантов: {len(item.candidates)}. Выбери правильную композицию.",
+        f"Найдено вариантов: {len(candidates)}. Выбери правильную композицию.",
     )
     return redirect("transfer_review", transfer_id=review.pk)
 
