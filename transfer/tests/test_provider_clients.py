@@ -7,6 +7,8 @@ from django.test import SimpleTestCase
 from ..services import ReauthorizationRequired, TransferError
 from ..services.soundcloud_client import SoundCloudClient
 from ..services.spotify_client import SpotifyClient
+from ..services.vk_audio_metadata import cover_from_item, track_from_item
+from ..services.vk_client import VKClient
 
 
 class SpotifyClientBehaviorTests(SimpleTestCase):
@@ -183,3 +185,58 @@ class SoundCloudClientBehaviorTests(SimpleTestCase):
         self.assertEqual(kwargs["data"]["track[sharing]"], "private")
         self.assertEqual(kwargs["files"]["track[asset_data]"][0], "track.mp3")
         self.assertIs(kwargs["allow_redirects"], False)
+
+
+
+class VKAudioMetadataTests(SimpleTestCase):
+    def test_cover_extraction_accepts_only_trusted_https_hosts(self):
+        self.assertEqual(
+            cover_from_item({"album": {"thumb": {"photo_600": "https://cdn.userapi.com/cover.jpg"}}}),
+            "https://cdn.userapi.com/cover.jpg",
+        )
+        self.assertEqual(
+            cover_from_item({"cover_url": "https://attacker.example/cover.jpg"}),
+            "",
+        )
+        self.assertEqual(
+            cover_from_item({"cover_url": "http://cdn.userapi.com/cover.jpg"}),
+            "",
+        )
+
+    def test_cover_extraction_supports_protocol_relative_vk_artwork(self):
+        self.assertEqual(
+            cover_from_item({"photo_300": "//sun9.userapi.com/cover.jpg"}),
+            "https://sun9.userapi.com/cover.jpg",
+        )
+
+    def test_track_normalization_returns_none_for_malformed_provider_payload(self):
+        self.assertIsNone(track_from_item({"owner_id": "bad", "id": 12}))
+        self.assertIsNone(track_from_item(None))
+
+    def test_track_normalization_preserves_access_key_audio_reference(self):
+        track = track_from_item(
+            {
+                "owner_id": 241688629,
+                "id": 456241110,
+                "artist": "Artist",
+                "title": "Title",
+                "duration": 180,
+                "photo_600": "https://sun9.userapi.com/cover.jpg",
+            },
+            "241688629_456241110_secretKey",
+        )
+        self.assertIsNotNone(track)
+        self.assertEqual(track.audio_id, "241688629_456241110_secretKey")
+        self.assertEqual(track.cover_url, "https://sun9.userapi.com/cover.jpg")
+
+    def test_vk_client_legacy_metadata_helpers_delegate_to_pure_functions(self):
+        item = {
+            "owner_id": 1,
+            "id": 2,
+            "artist": "Artist",
+            "title": "Title",
+            "duration": 10,
+            "photo_300": "https://sun9.userapi.com/cover.jpg",
+        }
+        self.assertEqual(VKClient._cover_from_item(item), cover_from_item(item))
+        self.assertEqual(VKClient._track_from_item(item), track_from_item(item))
