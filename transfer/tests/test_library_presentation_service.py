@@ -74,6 +74,20 @@ class LibraryPresentationTests(TestCase):
         self.assertEqual(data["stream_url"], "")
         self.assertEqual(data["stream_resolve_url"], "")
 
+    def test_playlist_detail_serialization_attaches_cover_proxy_to_template_tracks(self):
+        track = LibraryTrack.objects.create(
+            playlist=self.playlist,
+            title="Template artwork",
+            artist="Artist",
+            cover_url="https://images.example/cover.jpg",
+        )
+        build_playlist_playback_tracks(self.playlist)
+        rendered_track = self.playlist.tracks.get(pk=track.pk)
+        self.assertEqual(
+            rendered_track.cover_proxy_url,
+            f"{reverse('library_cover_proxy')}?track_id={track.pk}",
+        )
+
     def test_playlist_detail_serialization_preserves_track_order(self):
         first = LibraryTrack.objects.create(
             playlist=self.playlist, title="First", artist="Artist", position=1,

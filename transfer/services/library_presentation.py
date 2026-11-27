@@ -37,11 +37,11 @@ def build_track_playback_data(track, playlist):
 
 
 def build_playlist_playback_tracks(playlist):
-    """Build ordered playback data for a playlist detail page."""
-    return [
-        build_track_playback_data(track, playlist)
-        for track in playlist.tracks.all()
-    ]
+    """Build ordered playback data and artwork URLs for a playlist detail page."""
+    tracks = list(playlist.tracks.all())
+    for track in tracks:
+        track.cover_proxy_url = cover_proxy_url(track)
+    return [build_track_playback_data(track, playlist) for track in tracks]
 
 
 def prepare_library_playlist(playlist):
