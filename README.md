@@ -186,7 +186,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 ```powershell
 # DEBUG=True + autoreload + отдельные dev volumes + временный публичный HTTPS tunnel
-.\\scripts\\start-tunnel.ps1
+.\scripts\start-tunnel.ps1
 
 # Локальный dev-режим без туннеля (если публичный URL не нужен)
 docker compose -f compose.yaml -f compose.dev.yaml up --build
@@ -268,9 +268,9 @@ VK не требует регистрации приложения и отдел
 Из корня проекта:
 
     Set-ExecutionPolicy -Scope Process Bypass
-    .\scripts\start-tunnel.ps1
+    .\scripts\start-tunnel-dev.ps1
 
-Скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
+Для запуска DEBUG-версии используй `scripts/start-tunnel.ps1`: он работает через `compose.dev.yaml`, требует подтверждения `DEBUG` и публикует DEBUG=True. Не используй его для публичной эксплуатации. Production-like скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel-dev.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
 
 Скрипт:
 1. Проверяет обязательные секреты в .env;
@@ -393,8 +393,11 @@ docker compose ps
 docker compose logs -f web worker
 docker compose exec web python manage.py check
 
-# Запуск локального HTTPS Quick Tunnel
+# Запуск production-like HTTPS Quick Tunnel (DEBUG=False)
 Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\start-tunnel-dev.ps1
+
+# Для временной DEBUG-отладки (требует ручного подтверждения)
 .\scripts\start-tunnel.ps1
 
 # Остановка туннеля и Compose (volume БД сохраняется)
