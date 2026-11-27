@@ -1,4 +1,3 @@
-# ruff: noqa: I001
 from django.core.management.base import BaseCommand, CommandError
 
 from transfer.services.transfer_dispatch import recover_stale_transfers
