@@ -231,7 +231,7 @@ class VKPlaybackApiTests(TestCase):
                 response = self.client.get(self.audio_url)
 
         self.assertEqual(response.status_code, 422)
-        self.assertIn("не предоставил поток", response.json()["error"])
+        self.assertIn("не предоставил аудиопоток", response.json()["error"])
         self.assertEqual(response["Cache-Control"], "private, no-store")
         upstream.assert_not_called()
 
