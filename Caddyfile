@@ -1,0 +1,16 @@
+{
+    servers {
+        trusted_proxies static private_ranges
+    }
+}
+
+:8080 {
+    encode zstd gzip
+
+    log {
+        output stdout
+        format json
+    }
+
+    reverse_proxy web:8000
+}
