@@ -1763,7 +1763,7 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
 .player-eq-power input:checked+.player-eq-switch{border-color:rgba(84,230,145,.65);background:rgba(42,193,116,.3)}
 .player-eq-power input:checked+.player-eq-switch:after{transform:translateX(13px);background:#a5ffc5;box-shadow:0 0 9px rgba(82,237,151,.55)}
 .player-eq-power input:focus-visible+.player-eq-switch{outline:2px solid #a5ffc5;outline-offset:3px}
-.player-eq-toolbar>button{padding:5px 9px;border:1px solid rgba(174,194,226,.13);border-radius:7px;background:rgba(255,255,255,.035);color:#9eafc5;font:700 10px inherit;cursor:pointer}
+.player-eq-toolbar>button{padding:5px 9px;border:1px solid rgba(174,194,226,.13);border-radius:7px;background:rgba(255,255,255,.035);color:#9eafc5;font:inherit;font-size:10px;font-weight:700;cursor:pointer}
 .player-eq-toolbar>button:hover{border-color:rgba(112,225,157,.35);color:#c8f7d8}
 .player-eq-graph{padding:5px 0 0}
 .player-eq-graph svg{display:block;width:100%;height:auto;max-height:142px;overflow:visible;touch-action:pan-y;cursor:ns-resize}
