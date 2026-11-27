@@ -180,7 +180,7 @@ Django и приложение пишут логи в stdout и в `reports/appl
 
 ## Режимы разработки и production
 
-Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` оставлен production-like стеком для Gunicorn/Nginx и сценария Quick Tunnel. Для повседневной разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию.
+Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` оставлен production-like стеком для Gunicorn/Nginx и сценария Quick Tunnel. Для повседневной разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию. Dev overlay задаёт отдельное имя Compose-проекта `playlist-bridge-dev`, поэтому PostgreSQL/Redis volumes разработки изолированы от volumes обычного Compose; данные двух режимов не смешиваются.
 
 ### Development (Windows / Docker Desktop)
 
