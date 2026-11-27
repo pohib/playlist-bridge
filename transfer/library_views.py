@@ -16,9 +16,9 @@ from .library_management_views import (
     update_profile,  # noqa: F401
     upload_local_track,  # noqa: F401
 )
-from .library_provider_upload_views import (
-    _has_audio_file_signature,  # noqa: F401
-    upload_track_to_soundcloud,  # noqa: F401
+from .library_provider_upload_views import upload_track_to_soundcloud  # noqa: F401
+from .services.audio_file_validation import (
+    has_audio_file_signature as _has_audio_file_signature,  # noqa: F401
 )
 from .library_search_views import (
     open_playlist_source,  # noqa: F401
