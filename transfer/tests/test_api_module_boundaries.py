@@ -79,6 +79,23 @@ class ApiModuleBoundaryTests(TestCase):
         )
         self.assertIsNone(serialize_job(job)["target_playlist_id"])
 
+    def test_failed_transfer_serializer_hides_internal_exception_details(self):
+        job = TransferJob.objects.create(
+            session_fingerprint="private-session-fingerprint",
+            source_url="https://vk.com/music/playlist/1_2",
+            status=TransferJob.Status.FAILED,
+            error="Traceback (most recent call last): secret provider response",
+        )
+
+        payload = serialize_job(job)
+
+        self.assertEqual(
+            payload["error"],
+            "Перенос не выполнен. Проверь подключение к сервисам и повтори попытку.",
+        )
+        self.assertNotIn("Traceback", payload["error"])
+        self.assertNotIn("secret provider response", payload["error"])
+
     def test_create_endpoint_rejects_non_json_content_type(self):
         response = self.client.post(reverse("api_create_transfer"), data="source_url=x", content_type="application/x-www-form-urlencoded")
         self.assertEqual(response.status_code, 415)
