@@ -152,7 +152,7 @@ class VKPlaybackApiTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 422)
-        self.assertIn("не предоставил поток", response.json()["error"])
+        self.assertIn("не предоставил аудиопоток", response.json()["error"])
         self.assertEqual(response["Cache-Control"], "private, no-store")
 
     def test_stream_resolution_rejects_malformed_json(self):
