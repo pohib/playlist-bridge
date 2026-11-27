@@ -21,25 +21,35 @@ def run_transfer(self, job_id):
         return
 
     # Claim atomically: duplicate Celery deliveries must never run the same job twice.
+    started_at = timezone.now()
     claimed = TransferJob.objects.filter(
         pk=job_id,
         status=TransferJob.Status.QUEUED,
-    ).update(status=TransferJob.Status.RUNNING, started_at=timezone.now())
+    ).update(
+        status=TransferJob.Status.RUNNING,
+        started_at=started_at,
+        heartbeat_at=started_at,
+    )
     if claimed != 1:
         return
-    job.refresh_from_db()
+
     try:
         spotify = SpotifyClient(
             settings.SPOTIFY_CLIENT_ID,
             settings.SPOTIFY_CLIENT_SECRET,
             settings.SPOTIFY_REDIRECT_URI,
         )
+
         def spotify_token():
             return get_access_token(job.session_fingerprint, "spotify", spotify)[0]
 
-
         def update_progress(values):
-            TransferJob.objects.filter(pk=job.pk, status=TransferJob.Status.RUNNING).update(**values)
+            update_values = dict(values)
+            update_values["heartbeat_at"] = timezone.now()
+            TransferJob.objects.filter(
+                pk=job.pk,
+                status=TransferJob.Status.RUNNING,
+            ).update(**update_values)
 
         result = execute_transfer(
             vk_version=settings.VK_API_VERSION,
@@ -50,24 +60,57 @@ def run_transfer(self, job_id):
             target_playlist=job.target_playlist or None,
             progress_callback=update_progress,
         )
-        job.refresh_from_db()
-        job.status = TransferJob.Status.SUCCEEDED
-        job.progress = 100
-        job.total = result["total"]
-        job.matched = result["matched"]
-        job.not_found = result["not_found"]
-        job.ambiguous = result["ambiguous"]
-        job.result = result
-        job.finished_at = timezone.now()
-        job.save()
+
+        finished_at = timezone.now()
+        updated = TransferJob.objects.filter(
+            pk=job.pk,
+            status=TransferJob.Status.RUNNING,
+        ).update(
+            status=TransferJob.Status.SUCCEEDED,
+            progress=100,
+            total=result["total"],
+            matched=result["matched"],
+            not_found=result["not_found"],
+            ambiguous=result["ambiguous"],
+            result=result,
+            finished_at=finished_at,
+            heartbeat_at=finished_at,
+        )
+        if updated != 1:
+            logger.warning(
+                "Transfer job %s changed state before completion; preserving its current state",
+                job_id,
+            )
     except TransferError as exc:
-        job.status = TransferJob.Status.FAILED
-        job.error = str(exc)[:500]
-        job.finished_at = timezone.now()
-        job.save(update_fields=["status", "error", "finished_at"])
+        finished_at = timezone.now()
+        updated = TransferJob.objects.filter(
+            pk=job.pk,
+            status=TransferJob.Status.RUNNING,
+        ).update(
+            status=TransferJob.Status.FAILED,
+            error=str(exc)[:500],
+            finished_at=finished_at,
+            heartbeat_at=finished_at,
+        )
+        if updated != 1:
+            logger.warning(
+                "Transfer job %s changed state before failure handling; preserving its current state",
+                job_id,
+            )
     except Exception:
         logger.exception("Transfer job %s failed unexpectedly", job_id)
-        job.status = TransferJob.Status.FAILED
-        job.error = "Перенос не выполнен. Подробности сохранены в серверном журнале."
-        job.finished_at = timezone.now()
-        job.save(update_fields=["status", "error", "finished_at"])
+        finished_at = timezone.now()
+        updated = TransferJob.objects.filter(
+            pk=job.pk,
+            status=TransferJob.Status.RUNNING,
+        ).update(
+            status=TransferJob.Status.FAILED,
+            error="Перенос не выполнен. Подробности сохранены в серверном журнале.",
+            finished_at=finished_at,
+            heartbeat_at=finished_at,
+        )
+        if updated != 1:
+            logger.warning(
+                "Transfer job %s changed state before unexpected-failure handling; preserving its current state",
+                job_id,
+            )
