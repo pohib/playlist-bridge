@@ -16,6 +16,8 @@ from .services.library_management import add_track as add_track_service
 from .services.library_management import create_playlist as create_playlist_service
 from .services.library_management import delete_playlist as delete_playlist_service
 from .services.library_management import delete_track as delete_track_service
+from .services.library_management import move_track as move_track_service
+from .services.library_management import update_playlist as update_playlist_service
 from .services.library_management import merge_playlists as merge_playlists_service
 from .services.library_management import update_profile as update_profile_service
 from .services.library_management import upload_local_track as upload_local_track_service
@@ -38,6 +40,41 @@ def create_playlist(request):
         return redirect("library")
     messages.success(request, "Плейлист добавлен в библиотеку.")
     return redirect("library")
+
+
+@require_POST
+def update_playlist(request, playlist_id):
+    playlist = get_object_or_404(
+        LibraryPlaylist, pk=playlist_id, profile=_profile(request)
+    )
+    try:
+        update_playlist_service(
+            playlist,
+            title=request.POST.get("title"),
+            description=request.POST.get("description"),
+        )
+    except LibraryManagementError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Плейлист обновлён.")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
+
+
+@require_POST
+def move_track(request, playlist_id, track_id):
+    playlist = get_object_or_404(
+        LibraryPlaylist, pk=playlist_id, profile=_profile(request)
+    )
+    try:
+        moved = move_track_service(
+            playlist, track_id, request.POST.get("direction", "")
+        )
+    except LibraryManagementError as exc:
+        messages.error(request, str(exc))
+    else:
+        if moved:
+            messages.success(request, "Порядок композиций обновлён.")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
 
 
 @require_POST
