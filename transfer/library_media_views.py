@@ -1,7 +1,7 @@
 """Authenticated provider artwork proxy with strict upstream URL validation."""
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
 
