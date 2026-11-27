@@ -8,6 +8,8 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile
 from .models import LibraryPlaylist, LibraryTrack
 from .services.library_management import LibraryManagementError
+from .services.library_management import _normalized_track_key  # noqa: F401
+from .services.library_management import _safe_optional_url  # noqa: F401
 from .services.library_management import add_track as add_track_service
 from .services.library_management import create_playlist as create_playlist_service
 from .services.library_management import delete_playlist as delete_playlist_service
