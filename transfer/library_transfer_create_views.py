@@ -6,7 +6,7 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _safe_candidate_url
 from .models import LibraryPlaylist
-from .services import TransferError
+from .services.common import TransferError
 from .services.credential_service import get_session_fingerprint
 from .services.library_transfer_workflow import create_library_transfer_workflow
 
