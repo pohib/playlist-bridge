@@ -6,8 +6,8 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist
-from .services.common import TransferError
 from .services import library_import_soundcloud
+from .services.common import TransferError
 
 # Keep the previous private helper names importable for compatibility.
 _validate_soundcloud_permalink = library_import_soundcloud.validate_soundcloud_permalink
