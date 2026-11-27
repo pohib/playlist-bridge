@@ -4,7 +4,9 @@ from django.test import TestCase
 
 from ..models import LibraryPlaylist, LibraryProfile
 from ..services import TransferError
+from ..services import library_import_soundcloud, library_import_spotify, library_import_vk
 from ..services.library_imports import (
+    refresh_vk_track_metadata,
     save_soundcloud_playlist,
     save_spotify_playlist,
     save_vk_playlist,
@@ -14,6 +16,15 @@ from ..services.library_imports import (
 
 
 class LibraryImportServiceTests(TestCase):
+    def test_compatibility_facade_reexports_provider_specific_services(self):
+        self.assertIs(save_spotify_playlist, library_import_spotify.save_spotify_playlist)
+        self.assertIs(spotify_resource_id, library_import_spotify.spotify_resource_id)
+        self.assertIs(save_soundcloud_playlist, library_import_soundcloud.save_soundcloud_playlist)
+        self.assertIs(validate_soundcloud_permalink, library_import_soundcloud.validate_soundcloud_permalink)
+        self.assertIs(save_vk_playlist, library_import_vk.save_vk_playlist)
+        self.assertIs(save_vk_track, library_import_vk.save_vk_track)
+        self.assertIs(refresh_vk_track_metadata, library_import_vk.refresh_vk_track_metadata)
+
     def setUp(self):
         self.profile = LibraryProfile.objects.create(session_fingerprint="f" * 64)
 
