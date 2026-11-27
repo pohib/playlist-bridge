@@ -29,7 +29,12 @@ def library_cover_proxy(request):
             HttpResponseBadRequest if exc.status_code == 400
             else HttpResponseNotFound
         )
-        return response_class(str(exc))
+        message = (
+            "Invalid artwork reference."
+            if exc.status_code == 400
+            else "Artwork is currently unavailable."
+        )
+        return response_class(message)
 
     response = HttpResponse(body, content_type=content_type)
     response["Cache-Control"] = "private, max-age=3600"
