@@ -51,13 +51,11 @@ def search_library_sources(request):
     try:
         payload = json.loads(request.body or b"{}")
         title, artist, providers = library_source_search_service.parse_library_source_search_request(payload)
-    except (TypeError, ValueError) as exc:
-        message = (
-            str(exc)
-            if isinstance(exc, library_source_search_service.LibrarySourceSearchError)
-            else "Некорректный JSON запроса."
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"error": "Некорректный запрос поиска."},
+            status=400,
         )
-        return JsonResponse({"error": message}, status=400)
 
     result = library_source_search_service.search_library_sources(
         title,
