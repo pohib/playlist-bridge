@@ -13,8 +13,8 @@ from .library_support import (
 from .models import LibraryPlaylist, LibraryTransfer, LibraryTransferItem
 from .services import TransferError
 from .services.library_transfer_review import (
-    select_transfer_candidate as apply_transfer_candidate,
     skip_transfer_item as apply_skip_transfer_item,
+    select_transfer_candidate as apply_transfer_candidate,
 )
 
 
