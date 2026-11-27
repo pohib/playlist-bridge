@@ -191,6 +191,12 @@ try {
     docker compose up -d --force-recreate web worker
     if ($LASTEXITCODE -ne 0) { throw "Could not restart web and worker." }
 
+    # web receives a new container IP on recreation. Recreate Nginx after it so
+    # the proxy starts with the current upstream; runtime DNS also handles later changes.
+    Write-Host "Refreshing Nginx upstream after the Django restart..."
+    docker compose up -d --force-recreate proxy
+    if ($LASTEXITCODE -ne 0) { throw "Could not restart the Nginx proxy." }
+
     $healthy = $false
     for ($i = 0; $i -lt 60; $i++) {
         $tunnel.Refresh()
