@@ -3,7 +3,7 @@
 from cryptography.fernet import Fernet
 from django.conf import settings
 
-from ..credentials import get_session_fingerprint
+from ..services.credential_service import get_session_fingerprint
 from ..models import LibraryProfile, OAuthCredential, TransferJob
 
 
