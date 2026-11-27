@@ -6,13 +6,11 @@ from django.views.decorators.http import require_POST
 
 from .library_support import _profile
 from .models import LibraryPlaylist
-from .services.library_management import (
-    LibraryManagementError,
-    create_playlist as create_playlist_service,
-    delete_playlist as delete_playlist_service,
-    merge_playlists as merge_playlists_service,
-    update_playlist as update_playlist_service,
-)
+from .services.library_management import LibraryManagementError
+from .services.library_management import create_playlist as create_playlist_service
+from .services.library_management import delete_playlist as delete_playlist_service
+from .services.library_management import merge_playlists as merge_playlists_service
+from .services.library_management import update_playlist as update_playlist_service
 
 
 @require_POST
