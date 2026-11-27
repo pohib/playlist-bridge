@@ -838,8 +838,8 @@ class SoundCloudIntegrationTests(TestCase):
 
 
 class UnifiedLibraryTransferTests(TestCase):
-    @patch("transfer.library_transfer_create_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_create_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_unmatched_track_can_be_searched_and_added_manually(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
@@ -896,8 +896,8 @@ class UnifiedLibraryTransferTests(TestCase):
         client.create_playlist.assert_called_once_with("sc-token", "Unmatched", ["988"])
         self.assertEqual(review.target_playlist.tracks.get().external_id, "988")
 
-    @patch("transfer.library_transfer_create_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_create_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_manual_candidate_id_not_in_server_results_is_rejected(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack, LibraryTransfer, LibraryTransferItem
@@ -928,8 +928,8 @@ class UnifiedLibraryTransferTests(TestCase):
         client.update_playlist_tracks.assert_not_called()
 
 
-    @patch("transfer.library_transfer_create_views.get_access_token", return_value=("sc-token", {}))
-    @patch("transfer.library_transfer_create_views.SoundCloudClient")
+    @patch("transfer.services.library_transfer_workflow.get_access_token", return_value=("sc-token", {}))
+    @patch("transfer.services.library_transfer_workflow.SoundCloudClient")
     def test_transfer_library_playlist_to_soundcloud(self, soundcloud_class, _token):
         from ..credentials import get_session_fingerprint
         from ..models import LibraryPlaylist, LibraryProfile, LibraryTrack
