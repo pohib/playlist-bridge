@@ -1,7 +1,6 @@
 """Library source opening and cross-provider search endpoints."""
 
 import json
-from urllib.parse import urlparse
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect, JsonResponse
@@ -11,6 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .library_support import _profile, _soundcloud_access, _spotify_access
 from .models import LibraryPlaylist, LibraryTrack
 from .services import TransferError
+from .services.library_source_links import safe_provider_source_url
 
 
 @require_GET
@@ -18,62 +18,26 @@ def open_playlist_source(request, playlist_id):
     playlist = get_object_or_404(
         LibraryPlaylist, pk=playlist_id, profile=_profile(request)
     )
-    allowed_hosts = {
-        "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
-        "spotify": {"open.spotify.com", "www.open.spotify.com"},
-        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
-        "youtube_music": {"music.youtube.com", "www.youtube.com", "youtube.com"},
-        "apple_music": {"music.apple.com"},
-    }
-    parsed = urlparse(playlist.external_url)
-    try:
-        port = parsed.port
-    except ValueError:
+    source_url = safe_provider_source_url(playlist.external_url, playlist.provider)
+    if not source_url:
         return redirect("library")
-    if (
-        parsed.scheme != "https"
-        or parsed.hostname not in allowed_hosts.get(playlist.provider, set())
-        or port not in (None, 443)
-        or parsed.username
-        or parsed.password
-    ):
-        return redirect("library")
-    return HttpResponseRedirect(playlist.external_url)
+    return HttpResponseRedirect(source_url)
 
 
 @require_GET
 def open_track_source(request, track_id):
-    from django.http import HttpResponseRedirect
-
     track = get_object_or_404(
         LibraryTrack.objects.select_related("playlist__profile"),
         pk=track_id,
         playlist__profile=_profile(request),
     )
-    from urllib.parse import urlparse
-
-    provider = track.playlist.provider
-    allowed_hosts = {
-        "vk": {"vk.com", "www.vk.com", "m.vk.com", "vk.ru"},
-        "spotify": {"open.spotify.com", "www.open.spotify.com"},
-        "soundcloud": {"soundcloud.com", "www.soundcloud.com", "m.soundcloud.com"},
-        "youtube_music": {"music.youtube.com", "www.youtube.com", "youtube.com"},
-        "apple_music": {"music.apple.com"},
-    }
-    parsed = urlparse(track.external_url)
-    try:
-        port = parsed.port
-    except ValueError:
+    source_url = safe_provider_source_url(
+        track.external_url,
+        track.playlist.provider,
+    )
+    if not source_url:
         return redirect("library")
-    if (
-        parsed.scheme != "https"
-        or parsed.hostname not in allowed_hosts.get(provider, set())
-        or port not in (None, 443)
-        or parsed.username
-        or parsed.password
-    ):
-        return redirect("library")
-    return HttpResponseRedirect(track.external_url)
+    return HttpResponseRedirect(source_url)
 
 
 @login_required
