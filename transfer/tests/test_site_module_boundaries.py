@@ -12,7 +12,7 @@ from transfer import (
     site_views,
     views,
 )
-from transfer.services import library_request_context, library_source_links
+from transfer.services import library_request_context, library_source_links, vk_anonymous_token, vk_client
 
 
 class SitePageModuleBoundaryTests(SimpleTestCase):
@@ -88,3 +88,15 @@ class LibraryManagementModuleBoundaryTests(SimpleTestCase):
         self.assertIs(library_management_views.delete_track, library_track_management_views.delete_track)
         self.assertIs(library_management_views.upload_local_track, library_track_management_views.upload_local_track)
         self.assertIs(library_management_views.update_profile, library_profile_management_views.update_profile)
+
+
+class VKClientModuleBoundaryTests(SimpleTestCase):
+    def test_vk_client_reexports_extracted_anonymous_token_provider(self):
+        self.assertIs(
+            vk_client.VKAnonymousTokenProvider,
+            vk_anonymous_token.VKAnonymousTokenProvider,
+        )
+        self.assertEqual(
+            vk_anonymous_token.VKAnonymousTokenProvider.__module__,
+            "transfer.services.vk_anonymous_token",
+        )
