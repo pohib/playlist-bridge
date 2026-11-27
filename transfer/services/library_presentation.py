@@ -36,11 +36,17 @@ def build_track_playback_data(track, playlist):
     }
 
 
-def build_playlist_playback_tracks(playlist):
-    """Build ordered playback data and artwork URLs for a playlist detail page."""
+def prepare_playlist_detail_tracks(playlist):
+    """Load playlist tracks and attach the artwork URLs used by the detail template."""
     tracks = list(playlist.tracks.all())
     for track in tracks:
         track.cover_proxy_url = cover_proxy_url(track)
+    return tracks
+
+
+def build_playlist_playback_tracks(playlist):
+    """Build ordered playback data for a playlist detail page."""
+    tracks = prepare_playlist_detail_tracks(playlist)
     return [build_track_playback_data(track, playlist) for track in tracks]
 
 

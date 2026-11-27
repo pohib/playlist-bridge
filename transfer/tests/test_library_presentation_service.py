@@ -7,6 +7,7 @@ from transfer.services.library_presentation import (
     build_track_playback_data,
     cover_proxy_url,
     prepare_library_playlist,
+    prepare_playlist_detail_tracks,
 )
 
 
@@ -81,8 +82,7 @@ class LibraryPresentationTests(TestCase):
             artist="Artist",
             cover_url="https://images.example/cover.jpg",
         )
-        build_playlist_playback_tracks(self.playlist)
-        rendered_track = self.playlist.tracks.get(pk=track.pk)
+        rendered_track = prepare_playlist_detail_tracks(self.playlist)[0]
         self.assertEqual(
             rendered_track.cover_proxy_url,
             f"{reverse('library_cover_proxy')}?track_id={track.pk}",
