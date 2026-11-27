@@ -15,6 +15,9 @@ from ..services.library_imports import (
     import_soundcloud_playlist,
     import_spotify_library,
     import_spotify_playlist,
+    import_vk_playlist,
+    import_vk_track,
+    refresh_vk_playlist_artwork,
     refresh_vk_track_metadata,
     save_soundcloud_playlist,
     save_soundcloud_track,
@@ -41,6 +44,9 @@ class LibraryImportServiceTests(TestCase):
         self.assertIs(validate_soundcloud_permalink, library_import_soundcloud.validate_soundcloud_permalink)
         self.assertIs(save_vk_playlist, library_import_vk.save_vk_playlist)
         self.assertIs(save_vk_track, library_import_vk.save_vk_track)
+        self.assertIs(import_vk_playlist, library_import_vk.import_vk_playlist)
+        self.assertIs(import_vk_track, library_import_vk.import_vk_track)
+        self.assertIs(refresh_vk_playlist_artwork, library_import_vk.refresh_vk_playlist_artwork)
         self.assertIs(refresh_vk_track_metadata, library_import_vk.refresh_vk_track_metadata)
 
     def setUp(self):
@@ -275,6 +281,94 @@ class LibraryImportServiceTests(TestCase):
         self.assertEqual(count, 1)
         self.assertEqual(track.duration_ms, None)
         self.assertEqual(track.artist, "Uploader")
+
+    def test_vk_playlist_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://vk.ru/music/playlist/10_20"
+        track = SimpleNamespace(
+            title="VK track",
+            artist="Artist",
+            duration=120,
+            cover_url="",
+            audio_id="10_30",
+            owner_id=10,
+            track_id=30,
+        )
+        client.fetch_playlist.return_value = ("Fetched VK playlist", [track])
+
+        playlist, count = import_vk_playlist(
+            self.profile,
+            client,
+            source_url,
+        )
+
+        client.fetch_playlist.assert_called_once_with(source_url)
+        self.assertEqual(count, 1)
+        self.assertEqual(playlist.title, "Fetched VK playlist")
+        self.assertEqual(playlist.tracks.get().external_id, "10_30")
+
+    def test_vk_track_workflow_fetches_and_persists_provider_data(self):
+        client = Mock()
+        source_url = "https://vk.ru/audio10_31"
+        track = SimpleNamespace(
+            title="VK single",
+            artist="Artist",
+            duration=90,
+            cover_url="",
+            audio_id="10_31",
+            owner_id=10,
+            track_id=31,
+        )
+        client.fetch_track.return_value = track
+
+        playlist, saved_track = import_vk_track(
+            self.profile,
+            client,
+            source_url,
+        )
+
+        client.fetch_track.assert_called_once_with(source_url)
+        self.assertIs(saved_track, track)
+        self.assertEqual(playlist.tracks.get().external_id, "10_31")
+
+    def test_vk_artwork_refresh_workflow_uses_playlist_source_url(self):
+        playlist, _count = save_vk_playlist(
+            self.profile,
+            "VK playlist",
+            [
+                SimpleNamespace(
+                    title="Track",
+                    artist="Artist",
+                    duration=90,
+                    cover_url="",
+                    audio_id="10_32",
+                    owner_id=10,
+                    track_id=32,
+                )
+            ],
+            "https://vk.ru/music/playlist/10_20",
+        )
+        client = Mock()
+        client.fetch_playlist.return_value = (
+            "VK playlist",
+            [
+                SimpleNamespace(
+                    title="Track",
+                    artist="Artist",
+                    duration=90,
+                    cover_url="https://cdn.example/cover.jpg",
+                    audio_id="10_32",
+                    owner_id=10,
+                    track_id=32,
+                )
+            ],
+        )
+
+        updated = refresh_vk_playlist_artwork(playlist, client)
+
+        client.fetch_playlist.assert_called_once_with(playlist.external_url)
+        self.assertEqual(updated, 1)
+        self.assertEqual(playlist.tracks.get().cover_url, "https://cdn.example/cover.jpg")
 
     def test_vk_playlist_persists_order_and_provider_metadata(self):
         tracks = [
