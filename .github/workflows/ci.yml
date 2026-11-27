@@ -183,9 +183,8 @@ jobs:
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
 
-  # Temporarily disabled by request while the authenticated ZAP pipeline is being revised.
+  # Authenticated OWASP ZAP scans run after tests and container validation.
   dast:
-    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [tests, container]
