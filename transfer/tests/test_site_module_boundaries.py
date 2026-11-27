@@ -10,6 +10,7 @@ from transfer import (
     library_profile_management_views,
     library_support,
     library_track_management_views,
+    library_vk_playback_views,
     site_views,
     system_views,
     views,
@@ -102,6 +103,12 @@ class LibraryManagementModuleBoundaryTests(SimpleTestCase):
 
 
 class VKClientModuleBoundaryTests(SimpleTestCase):
+    def test_vk_playback_view_uses_concrete_client_module(self):
+        self.assertEqual(
+            library_vk_playback_views.VKClient.__module__,
+            "transfer.services.vk_client",
+        )
+
     def test_vk_client_reexports_extracted_anonymous_token_provider(self):
         self.assertIs(
             vk_client.VKAnonymousTokenProvider,
