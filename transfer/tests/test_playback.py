@@ -57,6 +57,27 @@ class VKPlaybackApiTests(TestCase):
         self.assertEqual(response["Pragma"], "no-cache")
         client.get_track_stream.assert_called_once_with("10_101", "mp3")
 
+    def test_hls_fallback_resolution_returns_same_origin_proxy_url(self):
+        with patch("transfer.library_vk_playback_views.VKClient") as client_class:
+            client_class.return_value.get_track_stream.return_value = {
+                "url": "https://cdn.okcdn.ru/audio.ts",
+                "format": "hls_ts",
+            }
+            response = self.client.post(
+                self.stream_url,
+                data=json.dumps({"format": "hls_ts"}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"url": self.audio_url + "?format=hls_ts", "format": "hls_ts"},
+        )
+        client_class.return_value.get_track_stream.assert_called_once_with(
+            "10_101", "hls_ts"
+        )
+
     def test_stream_resolution_returns_422_when_vk_has_no_mp3_stream(self):
         with patch("transfer.library_vk_playback_views.VKClient") as client_class:
             client_class.return_value.get_track_stream.side_effect = TransferError(
