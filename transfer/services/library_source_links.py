@@ -33,3 +33,10 @@ def safe_provider_source_url(value, provider):
         return ""
 
     return value
+
+
+def safe_provider_candidate_url(value, provider):
+    """Validate a provider candidate URL while tolerating surrounding whitespace."""
+    if not isinstance(value, str):
+        return ""
+    return safe_provider_source_url(value.strip(), provider)
