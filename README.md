@@ -31,7 +31,8 @@ Django-приложение для сбора плейлистов и треко
 - transfer/library_management_views.py — CRUD библиотеки, объединение плейлистов, локальная загрузка треков и обновление профиля;
 - transfer/library_playback_views.py — локальное и VK-воспроизведение/потоковая выдача;
 - transfer/library_provider_upload_views.py — загрузка треков в SoundCloud;
-- transfer/library_search_views.py — поиск источников для плейлистов и треков;\n- transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
+- transfer/library_search_views.py — поиск источников для плейлистов и треков;
+- transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
 - transfer/library_transfer_views.py — сценарий переноса библиотеки между провайдерами;
 - transfer/library_support.py — общие функции доступа к профилю и токенам провайдеров;
 - nginx/default.conf — конфигурация локального reverse proxy;
