@@ -40,6 +40,39 @@ def create_playlist(profile, *, title, provider, description="", external_url=""
     )
 
 
+
+def update_playlist(playlist, *, title, description=""):
+    title = (title or "").strip()
+    description = (description or "").strip()
+    if not title or len(title) > 120 or len(description) > 240:
+        raise LibraryManagementError(
+            "Название плейлиста обязательно (до 120 символов), описание — до 240."
+        )
+    playlist.title = title
+    playlist.description = description
+    playlist.save(update_fields=["title", "description", "updated_at"])
+    return playlist
+
+
+def move_track(playlist, track_id, direction):
+    if direction not in {"up", "down"}:
+        raise LibraryManagementError("Неизвестное направление перемещения.")
+    with transaction.atomic():
+        tracks = list(playlist.tracks.select_for_update().order_by("position", "created_at"))
+        index = next((i for i, item in enumerate(tracks) if str(item.pk) == str(track_id)), None)
+        if index is None:
+            raise LibraryManagementError("Композиция не найдена в этом плейлисте.")
+        target = index - 1 if direction == "up" else index + 1
+        if target < 0 or target >= len(tracks):
+            return False
+        first, second = tracks[index], tracks[target]
+        first.position, second.position = second.position, first.position
+        first.save(update_fields=["position"])
+        second.save(update_fields=["position"])
+        playlist.save(update_fields=["updated_at"])
+    return True
+
+
 def delete_playlist(playlist):
     playlist.delete()
 
