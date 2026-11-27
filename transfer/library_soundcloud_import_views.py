@@ -7,19 +7,11 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile, _soundcloud_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
-from .services.library_imports import (
-    import_soundcloud_library as import_soundcloud_library_service,
-    import_soundcloud_playlist as import_soundcloud_playlist_service,
-)
-from .services.library_imports import (
-    save_soundcloud_playlist,
-    save_soundcloud_track,
-    validate_soundcloud_permalink,
-)
+from .services import library_import_soundcloud
 
 # Keep the previous private helper names importable for compatibility.
-_validate_soundcloud_permalink = validate_soundcloud_permalink
-_save_soundcloud_playlist = save_soundcloud_playlist
+_validate_soundcloud_permalink = library_import_soundcloud.validate_soundcloud_permalink
+_save_soundcloud_playlist = library_import_soundcloud.save_soundcloud_playlist
 
 
 @require_POST
@@ -28,7 +20,7 @@ def import_soundcloud_playlist(request):
     try:
         source_url = _validate_soundcloud_permalink(source_url)
         client, token = _soundcloud_access(request)
-        playlist, count = import_soundcloud_playlist_service(
+        playlist, count = library_import_soundcloud.import_soundcloud_playlist(
             _profile(request),
             client,
             token,
@@ -56,7 +48,7 @@ def import_soundcloud_track(request):
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        playlist = save_soundcloud_track(
+        playlist = library_import_soundcloud.save_soundcloud_track(
             profile,
             resource,
             source_url,
@@ -73,7 +65,7 @@ def import_soundcloud_track(request):
 def import_soundcloud_library(request):
     try:
         client, token = _soundcloud_access(request)
-        imported, track_count = import_soundcloud_library_service(
+        imported, track_count = library_import_soundcloud.import_soundcloud_library(
             _profile(request),
             client,
             token,
