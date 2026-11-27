@@ -113,6 +113,16 @@ class PlayerAndProfileStyleRegressionTests(TestCase):
         self.assertIn('animation.addEventListener("finish",cleanup,{once:true})', self.player_script)
         self.assertIn('animation.addEventListener("cancel",cleanup,{once:true})', self.player_script)
 
+    def test_equalizer_exposes_per_band_q_knobs_and_wheel_control(self):
+        self.assertIn('data-eq-q-knob="0"', self.player_template)
+        self.assertIn('data-eq-q-value="4"', self.player_template)
+        self.assertIn('state.eqQs=Array.isArray(state.eqQs)', self.player_script)
+        self.assertIn('filter.Q.setTargetAtTime(state.eqQs[i]', self.player_script)
+        self.assertIn('addEventListener("wheel"', self.player_script)
+        self.assertIn('nearest.distance>22', self.player_script)
+        self.assertIn('player-eq-q-knob', self.stylesheet)
+        self.assertIn('font-size:8px;font-weight:950', self.stylesheet)
+
     def test_account_chip_has_full_box_geometry(self):
         self.assertIn(".account-chip { display:flex; align-items:center; gap:8px; min-height:43px; padding:5px 11px;", self.stylesheet)
         self.assertIn("border-radius:13px", self.stylesheet)
