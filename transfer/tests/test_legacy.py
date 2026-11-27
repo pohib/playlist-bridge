@@ -195,6 +195,7 @@ class VKPlaylistBatchTests(TestCase):
         with patch.object(client, "post", side_effect=[
             {"response": {"audios": audio_refs}},
             {"response": audio_items},
+            {"response": {"title": "VK playlist"}},
         ]) as post:
             name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9_testkey")
 
@@ -222,10 +223,11 @@ class VKPlaylistBatchTests(TestCase):
             ]}
             for start in (1, 51, 101)
         )
+        responses.append({"response": {"title": "VK playlist"}})
         with patch.object(client, "post", side_effect=responses) as post:
             _name, tracks = client.fetch_playlist("https://vk.ru/music/playlist/42_9")
         self.assertEqual(len(tracks), 101)
-        self.assertEqual(post.call_count, 4)
+        self.assertEqual(post.call_count, 5)
 
     def test_fetch_playlist_rejects_empty_playlist(self):
         client = self.make_client()
