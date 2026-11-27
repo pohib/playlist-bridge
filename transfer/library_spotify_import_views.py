@@ -7,8 +7,11 @@ from django.views.decorators.http import require_POST
 from .library_support import _profile, _spotify_access
 from .models import LibraryPlaylist
 from .services.common import TransferError
-from .services.library_imports import save_spotify_playlist, spotify_resource_id
-from .services.library_management import append_provider_track
+from .services.library_imports import (
+    save_spotify_playlist,
+    save_spotify_track,
+    spotify_resource_id,
+)
 
 # Keep the previous private helper names importable for compatibility.
 _spotify_resource_id = spotify_resource_id
@@ -44,31 +47,13 @@ def import_spotify_track(request):
             get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
             if playlist_id else None
         )
-        if playlist:
-            artists = track.get("artists") or []
-            artist = ", ".join(
-                str(item.get("name") or "") for item in artists if item.get("name")
-            ) or "Unknown artist"
-            album = (track.get("album") or {}).get("name") or ""
-            external_url = (track.get("external_urls") or {}).get("spotify", source_url)
-            images = (track.get("album") or {}).get("images") or []
-            cover_url = images[0].get("url", "") if images else ""
-            append_provider_track(
-                playlist,
-                title=track.get("name") or "Unknown track",
-                artist=artist,
-                album=album,
-                provider=LibraryPlaylist.Provider.SPOTIFY,
-                external_id=track.get("id") or track_id,
-                external_url=external_url,
-                duration_ms=track.get("duration_ms"),
-                cover_url=cover_url,
-            )
-        else:
-            resource = {"name": f"Spotify — {track.get('name') or 'Track'}"}
-            playlist, _count = _save_spotify_playlist(
-                profile, resource, [{"item": track}], source_url,
-            )
+        playlist = save_spotify_track(
+            profile,
+            track,
+            source_url,
+            playlist=playlist,
+            fallback_track_id=track_id,
+        )
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
