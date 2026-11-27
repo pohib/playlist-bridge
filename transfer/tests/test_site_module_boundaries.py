@@ -7,8 +7,8 @@ from transfer import (
     library_page_views,
     library_playlist_management_views,
     library_profile_management_views,
-    library_track_management_views,
     library_support,
+    library_track_management_views,
     site_views,
     views,
 )
