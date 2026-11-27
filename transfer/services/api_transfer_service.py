@@ -8,8 +8,6 @@ from django.db import IntegrityError, transaction
 from ..models import OAuthCredential, TransferJob
 from .transfer_dispatch import dispatch_transfer_job
 
-logger = logging.getLogger(__name__)
-
 
 def create_or_reuse_transfer_job(*, session_fingerprint, source_url, target_playlist=""):
     """Return (job, HTTP status, optional error message)."""
