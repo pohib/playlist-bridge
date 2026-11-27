@@ -107,3 +107,22 @@ def save_soundcloud_track(profile, resource, source_url, *, playlist=None):
         cover_url=resource.get("artwork_url") or "",
     )
     return playlist
+
+
+
+def import_soundcloud_library(profile, client, token, *, limit=30):
+    """Import a bounded batch of the user's SoundCloud playlists."""
+    resources = client.my_playlists(token)
+    imported = 0
+    track_count = 0
+    for resource in resources[:limit]:
+        resource_id = resource.get("id")
+        if not resource_id:
+            continue
+        tracks = client.playlist_tracks(token, resource_id)
+        source_url = resource.get("permalink_url") or ""
+        if source_url:
+            save_soundcloud_playlist(profile, resource, tracks, source_url)
+            imported += 1
+            track_count += len(tracks)
+    return imported, track_count
