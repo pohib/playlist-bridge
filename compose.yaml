@@ -24,7 +24,7 @@ services:
       - no-new-privileges:true
     cap_drop: [ALL]
   proxy:
-    image: nginx:1.28-alpine
+    image: nginxinc/nginx-unprivileged:1.28-alpine
     ports:
       - "127.0.0.1:8000:8080"
     volumes:
