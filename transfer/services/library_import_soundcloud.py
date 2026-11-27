@@ -6,6 +6,7 @@ from django.db import transaction
 
 from ..models import LibraryPlaylist, LibraryTrack
 from .common import TransferError
+from .library_track_management import append_provider_track
 
 
 def validate_soundcloud_permalink(value):
@@ -74,3 +75,35 @@ def save_soundcloud_playlist(profile, resource, tracks, source_url):
             raise TransferError("SoundCloud не вернул доступные композиции.")
         LibraryTrack.objects.bulk_create(rows)
     return playlist, len(rows)
+
+
+
+def save_soundcloud_track(profile, resource, source_url, *, playlist=None):
+    """Append a SoundCloud track or create a one-track playlist for it."""
+    if playlist is None:
+        playlist, _count = save_soundcloud_playlist(
+            profile,
+            {"title": f"SoundCloud — {resource.get('title') or 'Track'}"},
+            [resource],
+            source_url,
+        )
+        return playlist
+
+    user = resource.get("user")
+    if not isinstance(user, dict):
+        user = {}
+    append_provider_track(
+        playlist,
+        title=resource.get("title") or "Unknown track",
+        artist=(
+            resource.get("metadata_artist")
+            or user.get("username")
+            or "Unknown artist"
+        ),
+        provider=LibraryPlaylist.Provider.SOUNDCLOUD,
+        external_id=resource.get("id", ""),
+        external_url=resource.get("permalink_url") or source_url,
+        duration_ms=resource.get("duration"),
+        cover_url=resource.get("artwork_url") or "",
+    )
+    return playlist
