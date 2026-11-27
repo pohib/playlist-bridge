@@ -46,8 +46,14 @@ def import_vk_track(request):
     source_url = (request.POST.get("source_url") or "").strip()
     try:
         parse_vk_track_url(source_url)
+        profile = _profile(request)
+        playlist_id = (request.POST.get("playlist_id") or "").strip()
+        playlist = (
+            get_object_or_404(LibraryPlaylist, pk=playlist_id, profile=profile)
+            if playlist_id else None
+        )
         track = VKClient(version=settings.VK_API_VERSION).fetch_track(source_url)
-        save_vk_track(_profile(request), track, source_url)
+        playlist = save_vk_track(profile, track, source_url, playlist=playlist)
     except (ValueError, TransferError) as exc:
         messages.error(request, str(exc))
         return redirect("library")
@@ -55,8 +61,8 @@ def import_vk_track(request):
         logger.exception("Unexpected error during VK track import")
         messages.error(request, "Не удалось импортировать трек VK.")
         return redirect("library")
-    messages.success(request, f"Трек «{track.title}» добавлен в библиотеку.")
-    return redirect("library")
+    messages.success(request, f"Трек «{track.title}» добавлен в «{playlist.title}».")
+    return redirect("playlist_detail", playlist_id=playlist.pk)
 
 
 
