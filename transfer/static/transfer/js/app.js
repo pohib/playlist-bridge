@@ -119,7 +119,7 @@
   function clearPlaybackError(){ui.status.textContent="";delete ui.status.dataset.state;}
   window.addEventListener("offline",()=>showPlaybackError("Нет подключения к интернету. Проверь соединение — воспроизведение продолжится после восстановления сети."));
   window.addEventListener("online",()=>{if(ui.status.dataset.state==="error"&&/интернет|соединение/i.test(ui.status.textContent))showPlaybackError("Соединение восстановлено. Нажми Play, чтобы продолжить.");});
-  function togglePlayback(){if(audio.paused){const track=state.queue[state.index];if(providerFor(track)==="vk")playVkTrack(track).catch(error=>showPlaybackError(error.message));else audio.play().then(clearPlaybackError).catch(()=>showPlaybackError(!navigator.onLine?"Нет подключения к интернету.":"Браузер не разрешил воспроизведение. Попробуй ещё раз."));}else audio.pause();}
+  function togglePlayback(){if(audio.paused){const track=state.queue[state.index];if(providerFor(track)==="vk"&&!audio.getAttribute("src"))playVkTrack(track).catch(error=>showPlaybackError(error.message));else audio.play().then(clearPlaybackError).catch(()=>showPlaybackError(!navigator.onLine?"Нет подключения к интернету.":"Браузер не разрешил воспроизведение. Попробуй ещё раз."));}else audio.pause();}
   ui.play.addEventListener("click",togglePlayback);
   ui.progress.addEventListener("pointerdown",()=>{seeking=true;});
   ui.progress.addEventListener("input",()=>{if(Number.isFinite(audio.duration)&&audio.duration>0){const target=Number(ui.progress.value);ui.currentTime.textContent=formatClock(target);audio.currentTime=target;}});
