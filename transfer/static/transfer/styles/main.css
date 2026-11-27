@@ -1707,3 +1707,22 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
 .subtle-action:hover{border-color:rgba(135,224,170,.42);background:linear-gradient(135deg,rgba(86,130,205,.22),rgba(30,215,96,.13));color:#c4f4d2;transform:translateY(-1px)}
 .panel-title-row form{display:flex;align-items:center;margin:0}
 @media(max-width:620px){.panel-title-row{flex-wrap:wrap}.panel-title-row form{max-width:100%}.subtle-action{white-space:normal;text-align:center}}
+
+
+/* Playlist editing controls */
+.track-table-row { grid-template-columns:28px 54px minmax(0,1fr) 54px auto; }
+.track-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:5px; min-width:0; }
+.track-order-controls { display:flex; align-items:center; gap:2px; }
+.track-order-controls button { width:24px; height:26px; border:1px solid rgba(174,194,226,.13); border-radius:7px; background:rgba(255,255,255,.035); color:#aab8ca; cursor:pointer; }
+.track-order-controls button:disabled { opacity:.28; cursor:default; }
+.track-edit { margin-top:5px; }
+.track-edit summary { width:max-content; color:#8debad; font-size:10px; cursor:pointer; }
+.track-edit form { display:grid; grid-template-columns:repeat(3,minmax(90px,1fr)) auto; gap:6px; margin-top:7px; }
+.track-edit input { min-width:0; width:100%; min-height:30px; padding:0 8px; border:1px solid rgba(165,188,222,.17); border-radius:8px; background:rgba(3,8,15,.52); color:#edf4ff; font:inherit; font-size:10px; }
+.track-edit button { border:1px solid rgba(104,232,150,.25); border-radius:8px; padding:0 9px; background:rgba(30,215,96,.08); color:#a7f2bd; font-size:10px; cursor:pointer; }
+@media (max-width:700px) {
+  .track-table-row { grid-template-columns:20px 44px minmax(0,1fr) 30px auto; gap:6px; }
+  .track-row-actions { gap:2px; }
+  .track-edit form { grid-template-columns:1fr 1fr; }
+  .track-edit input:first-of-type { grid-column:1 / -1; }
+}
