@@ -4,10 +4,10 @@ from django.urls import resolve, reverse
 from transfer import (
     account_page_views,
     dashboard_views,
+    landing_views,
     library_page_views,
     library_playlist_management_views,
     library_profile_management_views,
-    landing_views,
     library_support,
     library_track_management_views,
     site_views,
