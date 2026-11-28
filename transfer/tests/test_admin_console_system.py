@@ -24,6 +24,13 @@ class AdminConsoleSystemTests(TestCase):
         response = self.client.get(reverse("admin_console_system"))
         self.assertEqual(response.status_code, 403)
 
+    def test_superuser_diagnostics_identify_active_database_backend(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(reverse("admin_console_system"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["database_backend"], "SQLite")
+        self.assertTrue(response.context["database_backend_is_sqlite"])
+
     @patch("transfer.admin_console_views._system_check_celery_workers", return_value={
         "status": "warning", "label": "Celery workers", "detail": "Нет активных worker."
     })

@@ -163,7 +163,8 @@ def console_system(request):
         {"name": "VK", "configured": bool(settings.VK_API_VERSION), "detail": "Версия API задана." if settings.VK_API_VERSION else "Не задана версия API."},
         {"name": "Шифрование токенов", "configured": bool(settings.TOKEN_ENCRYPTION_KEY), "detail": "Ключ шифрования задан." if settings.TOKEN_ENCRYPTION_KEY else "Ключ шифрования не задан."},
     ]
-    return render(request, "transfer/admin_console/system.html", {"checks": checks, "integrations": integrations, "debug_enabled": settings.DEBUG, "secure_redirect": settings.SECURE_SSL_REDIRECT})
+    database_backend = {"postgresql": "PostgreSQL", "sqlite": "SQLite"}.get(connection.vendor, connection.vendor)
+    return render(request, "transfer/admin_console/system.html", {"checks": checks, "integrations": integrations, "debug_enabled": settings.DEBUG, "secure_redirect": settings.SECURE_SSL_REDIRECT, "database_backend": database_backend, "database_backend_is_sqlite": connection.vendor == "sqlite"})
 
 
 @_staff

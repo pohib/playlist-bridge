@@ -8,6 +8,7 @@
 </div>
 <section class="admin-panel">
   <div class="admin-panel-heading"><div><span class="admin-overline">ИНФРАСТРУКТУРА</span><h2>Компоненты приложения</h2></div></div>
+  <p class="admin-muted">Активная СУБД: <strong>{{ database_backend }}</strong>{% if database_backend_is_sqlite %} · <span class="admin-tag tag-warn">SQLite — проверьте локальную конфигурацию; для production используется PostgreSQL</span>{% endif %}</p>
   <div class="admin-stat-grid">
     {% for check in checks %}
     <article class="admin-stat {% if check.status == 'error' %}stat-danger{% elif check.status == 'warning' %}stat-warn{% else %}stat-live{% endif %}">
