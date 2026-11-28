@@ -43,7 +43,7 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(audit.target_id, str(self.target.pk))
 
     def test_user_activity_filters_are_applied_only_for_superuser(self):
-        older = UserSecurityEvent.objects.create(
+        UserSecurityEvent.objects.create(
             user=self.target, username_snapshot=self.target.get_username(),
             event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
             ip_address="198.51.100.10",
