@@ -1,4 +1,5 @@
 """Safe recording and classification of provider/worker failures."""
+# ruff: noqa: I001
 import re
 from urllib.parse import urlsplit
 
@@ -57,7 +58,7 @@ def infer_provider(error, source_url=""):
         return ProviderIntegrationEvent.Provider.SOUNDCLOUD
     if "spotify" in message:
         return ProviderIntegrationEvent.Provider.SPOTIFY
-    if "vk" in message or host.endswith("vk.com") or host.endswith("vk.ru"):
+    if "vk" in message or host.endswith(("vk.com", "vk.ru")):
         return ProviderIntegrationEvent.Provider.VK
     return ProviderIntegrationEvent.Provider.TRANSFER
 
