@@ -12,7 +12,7 @@ from .services.credential_service import get_session_fingerprint
 from .services.login_throttle import (
     clear_login_failures,
     login_is_throttled,
-    record_login_failure,
+    record_login_failure as record_throttle_failure,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ def sign_in(request):
             return redirect("dashboard")
         else:
             try:
-                record_login_failure(request, username)
+                record_throttle_failure(request, username)
             except Exception:
                 logger.exception("Unable to record login failure")
                 form.add_error(None, "Авторизация временно недоступна. Попробуй немного позже.")

@@ -66,7 +66,10 @@ class LoginThrottleTests(TestCase):
         response = self._login("Correct-password-123!")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("dashboard"))
-        security_event = UserSecurityEvent.objects.get(user=self.user)\n        self.assertEqual(security_event.event_type, UserSecurityEvent.EventType.LOGIN_SUCCEEDED)\n        self.assertEqual(security_event.ip_address, "203.0.113.10")\n        event = AdminAuditEvent.objects.get(action="auth.login_succeeded")
+        security_event = UserSecurityEvent.objects.get(user=self.user)
+        self.assertEqual(security_event.event_type, UserSecurityEvent.EventType.LOGIN_SUCCEEDED)
+        self.assertEqual(security_event.ip_address, "203.0.113.10")
+        event = AdminAuditEvent.objects.get(action="auth.login_succeeded")
         self.assertEqual(event.actor, self.user)
         self.assertEqual(event.target_id, str(self.user.pk))
         self.assertIn("ip_fingerprint", event.metadata)
@@ -89,7 +92,10 @@ class LoginThrottleTests(TestCase):
 
     def test_failed_staff_login_audit_does_not_store_credentials_or_plaintext_ip(self):
         self._login("Never-store-this-password", remote_addr="203.0.113.77")
-        security_event = UserSecurityEvent.objects.get(user=self.user)\n        self.assertEqual(security_event.ip_address, "203.0.113.77")\n        self.assertEqual(security_event.event_type, UserSecurityEvent.EventType.LOGIN_FAILED)\n        event = AdminAuditEvent.objects.get(action="auth.login_failed")
+        security_event = UserSecurityEvent.objects.get(user=self.user)
+        self.assertEqual(security_event.ip_address, "203.0.113.77")
+        self.assertEqual(security_event.event_type, UserSecurityEvent.EventType.LOGIN_FAILED)
+        event = AdminAuditEvent.objects.get(action="auth.login_failed")
         self.assertIsNone(event.actor)
         self.assertEqual(event.target_id, str(self.user.pk))
         serialized = str(event.metadata)
