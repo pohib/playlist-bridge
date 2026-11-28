@@ -9,9 +9,9 @@ from ..models import ProviderIntegrationEvent
 
 
 _SECRET_PATTERN = re.compile(
-    r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b[\\"']?"
-    r"(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|\\"[^\\"]*\\"|'[^']*'|[^\s,;}]+)"
+    r"""(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"""
+    r"""password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b["']?"""
+    r"""(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|"[^"]*"|'[^']*'|[^\s,;}]+)"""
 )
 _BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
 _QUERY_SECRET_PATTERN = re.compile(
