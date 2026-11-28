@@ -1,6 +1,6 @@
 """Safe recording and classification of provider/worker failures."""
 import re
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 from django.db import DatabaseError
 
@@ -8,25 +8,25 @@ from ..models import ProviderIntegrationEvent
 
 
 _SECRET_PATTERN = re.compile(
-    r"(?i)\\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\\b"
-    r"(\\s*[:=]\\s*)(?:Bearer\\s+\\S+|Basic\\s+\\S+|\\"[^\\"]*\\"|'[^']*'|[^\\s,;]+)"
+    r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b"
+    r"(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|\"[^\"]*\"|'[^']*'|[^\s,;]+)"
 )
-_BEARER_PATTERN = re.compile(r"(?i)\\b(Bearer|Basic)\\s+[A-Za-z0-9._~+/-]+=*")
+_BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
 _QUERY_SECRET_PATTERN = re.compile(
-    r"(?i)([?&](?:access_token|refresh_token|client_secret|api_key|key)=)[^&#\\s]+"
+    r"(?i)([?&](?:access_token|refresh_token|client_secret|api_key|key)=)[^&#\s]+"
 )
 
 
 def sanitize_integration_message(value):
     """Remove common credential forms and URL query strings before persistence."""
     message = str(value or "Неизвестная ошибка")
-    message = _SECRET_PATTERN.sub(r"\\1\\2[скрыто]", message)
-    message = _BEARER_PATTERN.sub(r"\\1 [скрыто]", message)
-    message = _QUERY_SECRET_PATTERN.sub(r"\\1[скрыто]", message)
+    message = _SECRET_PATTERN.sub(r"\1\2[скрыто]", message)
+    message = _BEARER_PATTERN.sub(r"\1 [скрыто]", message)
+    message = _QUERY_SECRET_PATTERN.sub(r"\1[скрыто]", message)
     message = re.sub(
-        r"(https?://[^\\s?#]+)\\?[^\\s#]+",
-        r"\\1?[параметры скрыты]",
+        r"(https?://[^\s?#]+)\?[^\s#]+",
+        r"\1?[параметры скрыты]",
         message,
         flags=re.IGNORECASE,
     )
