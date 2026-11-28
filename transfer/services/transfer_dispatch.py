@@ -35,8 +35,15 @@ def dispatch_transfer_job(job_id, *, retry_after_seconds=120):
         from ..tasks import run_transfer
 
         run_transfer.delay(str(job_id))
-    except Exception:
+    except Exception as exc:
         logger.exception("Could not dispatch queued transfer job %s", job_id)
+        from .integration_event_recorder import record_worker_failure
+
+        record_worker_failure(
+            job_id=job_id,
+            error=exc,
+            operation="dispatch_transfer_job",
+        )
         return False
 
     return True
