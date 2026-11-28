@@ -16,7 +16,7 @@
   audio.crossOrigin="anonymous";
   let state={queue:[],index:0,sourceProviders:["auto"],repeat:"off",shuffle:false,shuffleOrder:[],eqGains:[0,0,0,0,0],eqEnabled:false};
   try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved&&Array.isArray(saved.queue)){state={...state,...saved};}}catch(_){}
-  state.repeat=["off","all","one"].includes(state.repeat)?state.repeat:"off";state.eqGains=Array.isArray(state.eqGains)&&state.eqGains.length===5?state.eqGains.map(value=>Math.max(-12,Math.min(12,Number(value)||0))):[0,0,0,0,0];state.eqFrequencies=Array.isArray(state.eqFrequencies)&&state.eqFrequencies.length===5?state.eqFrequencies.map(value=>Math.max(20,Math.min(20000,Number(value)||1000))):[60,250,1000,4000,12000];state.eqQs=Array.isArray(state.eqQs)&&state.eqQs.length===5?state.eqQs.map(value=>Math.round(Math.max(.3,Math.min(8,Number(value)||1))*10)/10):[1,1,1,1,1];state.eqPreset=({flat:"reference",bass:"sub808",pop:"silk",rock:"club",jazz:"dusty",electronic:"club"})[state.eqPreset]||(["reference","sub808","kick","darktrap","dusty","silk","vocal","club","air","custom"].includes(state.eqPreset)?state.eqPreset:"custom");state.eqEnabled=Boolean(state.eqEnabled);state.shuffle=Boolean(state.shuffle);state.shuffleOrder=Array.isArray(state.shuffleOrder)?state.shuffleOrder.filter(value=>typeof value==="string"):[];
+  state.repeat=["off","all","one"].includes(state.repeat)?state.repeat:"off";state.eqGains=Array.isArray(state.eqGains)&&state.eqGains.length===5?state.eqGains.map(value=>Math.max(-24,Math.min(24,Number(value)||0))):[0,0,0,0,0];state.eqFrequencies=Array.isArray(state.eqFrequencies)&&state.eqFrequencies.length===5?state.eqFrequencies.map(value=>Math.max(20,Math.min(20000,Number(value)||1000))):[60,250,1000,4000,12000];state.eqQs=Array.isArray(state.eqQs)&&state.eqQs.length===5?state.eqQs.map(value=>Math.round(Math.max(.3,Math.min(8,Number(value)||1))*10)/10):[1,1,1,1,1];state.eqPreset=({flat:"reference",bass:"sub808",pop:"silk",rock:"club",jazz:"dusty",electronic:"club"})[state.eqPreset]||(["reference","sub808","kick","darktrap","dusty","silk","vocal","club","air","custom"].includes(state.eqPreset)?state.eqPreset:"custom");state.eqEnabled=Boolean(state.eqEnabled);state.shuffle=Boolean(state.shuffle);state.shuffleOrder=Array.isArray(state.shuffleOrder)?state.shuffleOrder.filter(value=>typeof value==="string"):[];
   state.queue.forEach((track,index)=>{if(!track._queueKey)track._queueKey="queue-"+index+"-"+Math.random().toString(36).slice(2,9);});
   if(state.shuffle){const keys=new Set(state.queue.map(track=>track._queueKey));state.shuffleOrder=state.shuffleOrder.filter(key=>keys.has(key));state.queue.forEach(track=>{if(!state.shuffleOrder.includes(track._queueKey))state.shuffleOrder.push(track._queueKey);});}else{state.shuffleOrder=[];}
   function ensureShuffleOrder(){if(!state.shuffleOrder.length)state.shuffleOrder=state.queue.map(track=>track._queueKey);state.queue.forEach(track=>{if(!state.shuffleOrder.includes(track._queueKey))state.shuffleOrder.push(track._queueKey);});}
@@ -41,7 +41,7 @@
   function providerFor(track){let u;try{u=new URL(String(track.url||""),window.location.origin);}catch(_){return "";}const p=track.provider;if(p==="local"&&u.origin===window.location.origin&&u.pathname.startsWith("/library/tracks/"))return "local";if(p==="vk"&&typeof track.stream_url==="string"&&(/^\/library\/tracks\/[0-9a-f-]+\/vk-audio\/$/.test(track.stream_url)||/^\/api\/v1\/library\/tracks\/[0-9a-f-]+\/vk-stream\/$/.test(track.stream_url)))return "vk";if(u.protocol!=="https:")return "";const h=u.hostname.toLowerCase();if(p==="spotify"&&["open.spotify.com","www.open.spotify.com"].includes(h))return "spotify";if(p==="soundcloud"&&["soundcloud.com","www.soundcloud.com","m.soundcloud.com"].includes(h))return "soundcloud";if(p==="manual"){if(["soundcloud.com","www.soundcloud.com","m.soundcloud.com"].includes(h))return "soundcloud";if(["open.spotify.com","www.open.spotify.com"].includes(h))return "spotify";}return "";}
   function syncPopoutState(){if(!popoutChannel)return;const track=state.queue[state.index];const embedded=Boolean(track&&["spotify","soundcloud"].includes(providerFor(track)));popoutChannel.postMessage({type:"state",source:"main",state,playing:embedded||!audio.paused,currentTime:audio.currentTime||0,duration:Number.isFinite(audio.duration)?audio.duration:0,embedded,status:ui.status.textContent||" "});}
   function persist(){try{localStorage.setItem(key,JSON.stringify(state));}catch(_){}syncPopoutState();}
-  const eqMinHz=20,eqMaxHz=20000,eqLeft=24,eqRight=576,eqBottom=156,eqCenter=90,eqGainScale=5.2;
+  const eqMinHz=20,eqMaxHz=20000,eqLeft=24,eqRight=576,eqBottom=156,eqCenter=90,eqGainScale=2.6;
   const eqPresets={
     reference:{label:"REFERENCE / FLAT",description:"Без окраски: нейтральная отправная точка для честной оценки микса.",gains:[0,0,0,0,0]},
     sub808:{label:"808 FOUNDATION",description:"Глубокий саб с чистым низом: фундамент 808 без мутной середины.",gains:[4,-2,-1,0,2]},
@@ -72,7 +72,7 @@
         const width=.48/Math.sqrt(state.eqQs[i]);
         response+=g*Math.exp(-.5*Math.pow(Math.log(f/state.eqFrequencies[i])/width,2));
       });
-      samples.push({x,y:eqCenter-Math.max(-12,Math.min(12,response))*eqGainScale});
+      samples.push({x,y:eqCenter-Math.max(-24,Math.min(24,response))*eqGainScale});
     }
     const path=samples.map((p,i)=>(i?"L ":"M ")+p.x.toFixed(1)+" "+p.y.toFixed(1)).join(" ");
     ui.eqCurve.setAttribute("d",path);
@@ -106,7 +106,21 @@
       const f=state.eqFrequencies[Number(output.dataset.eqFrequencyValue)];
       output.textContent=f>=1000?(f/1000).toFixed(f%1000?1:0)+" kHz":Math.round(f)+" Hz";
     });
-    document.querySelectorAll("[data-eq-frequency-knob]").forEach(knob=>{
+    document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
+      const i=Number(knob.dataset.eqQKnob),q=state.eqQs[i];
+      knob.style.setProperty("--eq-knob-angle",(-135+(q-.3)/7.7*270)+"deg");
+      knob.setAttribute("aria-valuenow",q.toFixed(1));
+      knob.setAttribute("aria-valuetext","Q "+q.toFixed(1));
+      knob.title="Q "+q.toFixed(1)+" · колесо или перетаскивание";
+    });
+    document.querySelectorAll("[data-eq-q-value]").forEach(output=>{
+      output.textContent=state.eqQs[Number(output.dataset.eqQValue)].toFixed(1);
+    });
+    if(ui.eqEnabled)ui.eqEnabled.checked=state.eqEnabled;
+    if(ui.eqPreset)ui.eqPreset.value=state.eqSavedPresetId?"user:"+state.eqSavedPresetId:state.eqPreset;
+    if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты, уровни и Q изменены вручную.";
+  }
+document.querySelectorAll("[data-eq-frequency-knob]").forEach(knob=>{
     const index=Number(knob.dataset.eqFrequencyKnob);
     knob.addEventListener("pointerdown",event=>{
       if(!eqSupported())return;
@@ -134,20 +148,7 @@
       else if(event.key==="End")setEqFrequency(index,eqMaxHz);
     });
   });
-  document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
-      const i=Number(knob.dataset.eqQKnob),q=state.eqQs[i];
-      knob.style.setProperty("--eq-knob-angle",(-135+(q-.3)/7.7*270)+"deg");
-      knob.setAttribute("aria-valuenow",q.toFixed(1));
-      knob.setAttribute("aria-valuetext","Q "+q.toFixed(1));
-      knob.title="Q "+q.toFixed(1)+" · колесо или перетаскивание";
-    });
-    document.querySelectorAll("[data-eq-q-value]").forEach(output=>{
-      output.textContent=state.eqQs[Number(output.dataset.eqQValue)].toFixed(1);
-    });
-    if(ui.eqEnabled)ui.eqEnabled.checked=state.eqEnabled;
-    if(ui.eqPreset)ui.eqPreset.value=state.eqSavedPresetId?"user:"+state.eqSavedPresetId:state.eqPreset;
-    if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты, уровни и Q изменены вручную.";
-  }
+  
   function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band], [data-eq-q-knob], [data-eq-frequency-knob]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки на графике или выбирай полосу и крути FREQ: вверх/вниз меняет частоту; Q регулирует ширину полосы.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
   function setEqOpen(open){if(!ui.eqPanel)return;ui.eqPanel.hidden=!open;ui.eqOpen?.setAttribute("aria-expanded",String(open));if(open){updateEqAvailability();drawEqCurve();}}
   function applyEqPreset(name){if(name==="flat")name="reference";const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqSavedPresetId=null;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();state.eqQs=[1,1,1,1,1];applyEqGains();drawEqCurve();persist();}
@@ -231,7 +232,7 @@
     state.eqQs[index]=next;eqSelectedIndex=index;state.eqPreset="custom";state.eqSavedPresetId=null;
     applyEqGains();drawEqCurve();persist();
   }
-  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-12,Math.min(12,(eqCenter-p.y)/eqGainScale))*2)/2;eqSelectedIndex=eqDragIndex;state.eqPreset="custom";state.eqSavedPresetId=null;drawEqCurve();applyEqGains();persist();}
+  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-24,Math.min(24,(eqCenter-p.y)/eqGainScale))*2)/2;eqSelectedIndex=eqDragIndex;state.eqPreset="custom";state.eqSavedPresetId=null;drawEqCurve();applyEqGains();persist();}
   ui.eqGraph?.addEventListener("pointerdown",event=>{
     if(!eqSupported())return;
     const p=eqLocalPoint(event),nearest=nearestEqPoint(p);
@@ -253,14 +254,14 @@
     knob.addEventListener("pointerdown",event=>{
       if(!eqSupported())return;
       event.preventDefault();
-      eqKnobDrag={index,startY:event.clientY,startQ:state.eqQs[index],pointerId:event.pointerId};
+      eqKnobDrag={index,startY:event.clientY,startQ:state.eqQs[index],pointerId:event.pointerId,type:"q"};
       knob.setPointerCapture(event.pointerId);eqSelectedIndex=index;drawEqCurve();
     });
     knob.addEventListener("pointermove",event=>{
-      if(!eqKnobDrag||eqKnobDrag.index!==index||eqKnobDrag.pointerId!==event.pointerId)return;
+      if(!eqKnobDrag||eqKnobDrag.type!=="q"||eqKnobDrag.index!==index||eqKnobDrag.pointerId!==event.pointerId)return;
       setEqQ(index,eqKnobDrag.startQ+(eqKnobDrag.startY-event.clientY)*.05);
     });
-    const finishKnobDrag=()=>{eqKnobDrag=null;};
+    const finishKnobDrag=()=>{if(eqKnobDrag?.type==="q")eqKnobDrag=null;};
     knob.addEventListener("pointerup",finishKnobDrag);
     knob.addEventListener("pointercancel",finishKnobDrag);
     knob.addEventListener("wheel",event=>{
