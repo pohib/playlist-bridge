@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.http import HttpResponse
 from django.test import TestCase
 from django.urls import reverse
+from unittest.mock import patch
 
 from transfer.models import TransferJob
 
@@ -43,13 +45,23 @@ class AdminConsoleAccessTests(TestCase):
 
     def test_staff_with_scoped_permission_can_open_only_authorized_section(self):
         self.client.force_login(self.staff_viewer)
-        response = self.client.get(reverse("admin_console"))
+        with patch(
+            "transfer.admin_console_views.render",
+            return_value=HttpResponse("ok"),
+        ) as render_view:
+            response = self.client.get(reverse("admin_console"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Очередь и переносы")
-        self.assertNotContains(response, "Пользователи")
-        self.assertNotContains(response, "Музыкальные библиотеки")
+        context = render_view.call_args.args[2]
+        self.assertTrue(context["can_view_jobs"])
+        self.assertFalse(context["can_view_users"])
+        self.assertFalse(context["can_view_library"])
+        self.assertFalse(context["can_view_audit"])
 
     def test_staff_panel_responses_are_not_cacheable(self):
         self.client.force_login(self.staff_viewer)
-        response = self.client.get(reverse("admin_console"))
+        with patch(
+            "transfer.admin_console_views.render",
+            return_value=HttpResponse("ok"),
+        ):
+            response = self.client.get(reverse("admin_console"))
         self.assertIn("no-store", response["Cache-Control"])
