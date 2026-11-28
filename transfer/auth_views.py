@@ -6,10 +6,10 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from .forms import AccountCreationForm, AccountLoginForm
+from .services import login_throttle
 from .services.account_workspace import attach_anonymous_workspace
 from .services.auth_security_audit import record_login_failure, record_login_success
 from .services.credential_service import get_session_fingerprint
-from .services import login_throttle
 
 logger = logging.getLogger(__name__)
 
