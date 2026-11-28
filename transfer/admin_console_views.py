@@ -30,6 +30,7 @@ from .models import (
     AdminAuditEvent,
     LibraryPlaylist,
     LibraryProfile,
+    ProviderIntegrationEvent,
     TransferJob,
     UserAccountBan,
     UserIPBan,
@@ -214,6 +215,64 @@ def _system_check_celery_workers():
             "label": "Celery workers",
             "detail": "Не удалось получить ответ от worker-процессов.",
         }
+
+
+@_staff
+@require_GET
+def console_integrations(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    now = timezone.now()
+    events = ProviderIntegrationEvent.objects.select_related("transfer_job")
+    provider = (request.GET.get("provider") or "").strip()
+    category = (request.GET.get("category") or "").strip()
+    date_from_raw = (request.GET.get("date_from") or "").strip()
+    date_to_raw = (request.GET.get("date_to") or "").strip()
+    query = (request.GET.get("q") or "").strip()[:100]
+    date_from = parse_date(date_from_raw)
+    date_to = parse_date(date_to_raw)
+
+    valid_providers = {value for value, _label in ProviderIntegrationEvent.Provider.choices}
+    valid_categories = {value for value, _label in ProviderIntegrationEvent.Category.choices}
+    if provider in valid_providers:
+        events = events.filter(provider=provider)
+    else:
+        provider = ""
+    if category in valid_categories:
+        events = events.filter(category=category)
+    else:
+        category = ""
+    if date_from:
+        events = events.filter(created_at__date__gte=date_from)
+    if date_to:
+        events = events.filter(created_at__date__lte=date_to)
+    if query:
+        events = events.filter(Q(message__icontains=query) | Q(operation__icontains=query))
+
+    summary = ProviderIntegrationEvent.objects.aggregate(
+        total=Count("id"),
+        last_24h=Count("id", filter=Q(created_at__gte=now - timedelta(hours=24))),
+        errors_24h=Count("id", filter=Q(
+            created_at__gte=now - timedelta(hours=24),
+            severity=ProviderIntegrationEvent.Severity.ERROR,
+        )),
+        spotify=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.SPOTIFY)),
+        vk=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.VK)),
+        soundcloud=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.SOUNDCLOUD)),
+    )
+    page = Paginator(events, 30).get_page(request.GET.get("page"))
+    return render(request, "transfer/admin_console/integrations.html", {
+        "page": page,
+        "summary": summary,
+        "provider": provider,
+        "category": category,
+        "providers": ProviderIntegrationEvent.Provider.choices,
+        "categories": ProviderIntegrationEvent.Category.choices,
+        "date_from": date_from_raw,
+        "date_to": date_to_raw,
+        "query": query,
+    })
 
 
 @_staff
