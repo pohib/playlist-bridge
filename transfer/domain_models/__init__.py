@@ -11,7 +11,6 @@ from .library import (
 
 __all__ = [
     "AdminAuditEvent",
-    "UserSecurityEvent",
     "LibraryPlaylist",
     "LibraryProfile",
     "LibraryTrack",
@@ -19,4 +18,5 @@ __all__ = [
     "LibraryTransferItem",
     "OAuthCredential",
     "TransferJob",
+    "UserSecurityEvent",
 ]

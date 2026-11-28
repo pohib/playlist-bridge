@@ -9,11 +9,7 @@ from .forms import AccountCreationForm, AccountLoginForm
 from .services.account_workspace import attach_anonymous_workspace
 from .services.auth_security_audit import record_login_failure, record_login_success
 from .services.credential_service import get_session_fingerprint
-from .services.login_throttle import (
-    clear_login_failures,
-    login_is_throttled,
-    record_login_failure as record_throttle_failure,
-)
+from .services import login_throttle
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +44,7 @@ def sign_in(request):
         form = AccountLoginForm(request, data=request.POST)
         username = request.POST.get("username", "")
         try:
-            throttled = login_is_throttled(request, username)
+            throttled = login_throttle.login_is_throttled(request, username)
         except Exception:
             logger.exception("Login throttling backend is unavailable")
             form.add_error(None, "Авторизация временно недоступна. Попробуй немного позже.")
@@ -64,7 +60,7 @@ def sign_in(request):
             previous_fingerprint = get_session_fingerprint(request)
             user = form.get_user()
             try:
-                clear_login_failures(request, username)
+                login_throttle.clear_login_failures(request, username)
             except Exception:
                 logger.exception("Unable to clear login failure counter")
             login(request, user)
@@ -78,7 +74,7 @@ def sign_in(request):
             return redirect("dashboard")
         else:
             try:
-                record_throttle_failure(request, username)
+                login_throttle.record_login_failure(request, username)
             except Exception:
                 logger.exception("Unable to record login failure")
                 form.add_error(None, "Авторизация временно недоступна. Попробуй немного позже.")
