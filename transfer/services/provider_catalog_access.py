@@ -31,11 +31,12 @@ def get_catalog_access(provider):
         raise TransferError("Поиск в этом музыкальном сервисе не поддерживается.")
 
     if not client_id or not client_secret:
-        raise TransferError(
-            ("Публичный поиск Spotify не настроен на сервере. Пользовательское подключение не требуется."
-             if provider == "spotify" else
-             "Публичный поиск SoundCloud не настроен на сервере. Пользовательское подключение не требуется.")
+        error_message = (
+            "Публичный поиск Spotify не настроен на сервере. Пользовательское подключение не требуется."
+            if provider == "spotify"
+            else "Публичный поиск SoundCloud не настроен на сервере. Пользовательское подключение не требуется."
         )
+        raise TransferError(error_message)
 
     credential_fingerprint = sha256(
         f"{provider}:{client_id}:{client_secret}".encode()
