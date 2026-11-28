@@ -3,7 +3,9 @@ from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 
 from transfer.services.free_music_catalog_search import (
-    _deezer_search, _itunes_search, _youtube_music_search,
+    _deezer_search,
+    _itunes_search,
+    _youtube_music_search,
 )
 
 

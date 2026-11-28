@@ -3,9 +3,12 @@
 These endpoints are used only for discovery. They do not grant playback or
 playlist-write access to Spotify, SoundCloud, Apple Music, or YouTube.
 """
-from django.core.cache import cache
 import re
+
 import requests
+from django.core.cache import cache
+
+from redis.exceptions import RedisError
 
 SEARCH_CACHE_SECONDS = 10 * 60
 REQUEST_TIMEOUT = (3.05, 7)
@@ -19,13 +22,13 @@ def _cached(provider, query, loader):
         cached = cache.get(key)
         if cached is not None:
             return cached
-    except Exception:
-        pass
+    except (RedisError, OSError, TimeoutError):
+        cached = None
     results = loader()
     try:
         cache.set(key, results, SEARCH_CACHE_SECONDS)
-    except Exception:
-        pass
+    except (RedisError, OSError, TimeoutError):
+        return results
     return results
 
 
@@ -137,9 +140,9 @@ def search_free_music_catalogs(query, providers):
         if loader is None:
             continue
         try:
-            provider_results = _cached(provider, query, lambda: loader(query))
+            provider_results = _cached(provider, query, lambda loader=loader: loader(query))
             results.extend(provider_results)
             statuses[provider] = f"Найдено: {len(provider_results)}" if provider_results else "Совпадений не найдено."
-        except Exception:
+        except (requests.RequestException, ValueError, ImportError, OSError, TimeoutError, TypeError, KeyError):
             statuses[provider] = "Бесплатный каталог временно недоступен. Попробуй позже."
     return results[:24], statuses
