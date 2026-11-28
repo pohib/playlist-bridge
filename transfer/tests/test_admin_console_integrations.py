@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
 
 from transfer.models import ProviderIntegrationEvent, TransferJob
 from transfer.services.integration_event_recorder import (
