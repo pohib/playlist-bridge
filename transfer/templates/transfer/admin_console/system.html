@@ -1,0 +1,32 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Состояние системы{% endblock %}
+{% block page_heading %}Состояние системы{% endblock %}
+{% block content %}
+<div class="admin-page-intro">
+  <div><span class="admin-overline">ДИАГНОСТИКА / ТОЛЬКО SUPERUSER</span><h1>Состояние системы</h1><p>Проверки инфраструктуры и наличие настроек интеграций. Секреты, токены и значения переменных окружения не отображаются.</p></div>
+  <span class="admin-tag tag-danger">Привилегированный доступ</span>
+</div>
+<section class="admin-panel">
+  <div class="admin-panel-heading"><div><span class="admin-overline">ИНФРАСТРУКТУРА</span><h2>Компоненты приложения</h2></div></div>
+  <div class="admin-stat-grid">
+    {% for check in checks %}
+    <article class="admin-stat {% if check.status == 'error' %}stat-danger{% elif check.status == 'warning' %}stat-warn{% else %}stat-live{% endif %}">
+      <span>{{ check.label }}</span>
+      <strong>{% if check.status == "ok" %}Работает{% elif check.status == "warning" %}Внимание{% else %}Ошибка{% endif %}</strong>
+      <small>{{ check.detail }}</small>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+<section class="admin-panel">
+  <div class="admin-panel-heading"><div><span class="admin-overline">КОНФИГУРАЦИЯ</span><h2>Интеграции и ключи</h2></div></div>
+  <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Компонент</th><th>Конфигурация</th><th>Состояние</th></tr></thead><tbody>
+    {% for item in integrations %}<tr><td><strong>{{ item.name }}</strong></td><td>{{ item.detail }}</td><td>{% if item.configured %}<span class="admin-tag tag-success">Настроено</span>{% else %}<span class="admin-tag tag-danger">Не настроено</span>{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+<section class="admin-panel">
+  <div class="admin-panel-heading"><div><span class="admin-overline">БЕЗОПАСНОСТЬ РАЗВЁРТЫВАНИЯ</span><h2>Режим приложения</h2></div></div>
+  <div class="admin-list-row"><div class="admin-row-main"><strong>Режим DEBUG</strong><small>В production должен быть выключен.</small></div><span class="admin-tag {% if debug_enabled %}tag-danger{% else %}tag-success{% endif %}">{% if debug_enabled %}Включён{% else %}Выключен{% endif %}</span></div>
+  <div class="admin-list-row"><div class="admin-row-main"><strong>Принудительный HTTPS</strong><small>Проверка настройки SECURE_SSL_REDIRECT.</small></div><span class="admin-tag {% if secure_redirect %}tag-success{% else %}tag-warn{% endif %}">{% if secure_redirect %}Включён{% else %}Выключен{% endif %}</span></div>
+</section>
+{% endblock %}

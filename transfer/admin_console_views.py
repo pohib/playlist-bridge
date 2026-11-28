@@ -8,6 +8,9 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.hashers import check_password
+from django.conf import settings
+from django.core.cache import cache
+from django.db import connection
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -55,6 +58,74 @@ def console_dashboard(request):
         "recent_events": AdminAuditEvent.objects.select_related("actor")[:6] if permissions["can_view_audit"] else [],
     }
     return render(request, "transfer/admin_console/dashboard.html", context)
+
+
+def _system_check_database():
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        return {"status": "ok", "label": "База данных", "detail": "Подключение и простой запрос выполняются."}
+    except Exception:
+        return {"status": "error", "label": "База данных", "detail": "Не удалось выполнить проверочный запрос."}
+
+
+def _system_check_cache():
+    from uuid import uuid4
+
+    key = f"control:health:{uuid4().hex}"
+    try:
+        cache.set(key, "ok", timeout=5)
+        if cache.get(key) != "ok":
+            raise RuntimeError("Cache read-after-write check failed")
+        return {"status": "ok", "label": "Redis / кэш", "detail": "Запись и чтение тестового значения работают."}
+    except Exception:
+        return {"status": "error", "label": "Redis / кэш", "detail": "Проверка записи или чтения завершилась ошибкой."}
+    finally:
+        try:
+            cache.delete(key)
+        except Exception:
+            pass
+
+
+def _system_check_celery_broker():
+    try:
+        from config.celery import app as celery_app
+
+        with celery_app.connection_for_read(connect_timeout=1) as broker_connection:
+            broker_connection.ensure_connection(max_retries=0)
+        return {"status": "ok", "label": "Celery broker", "detail": "Соединение с брокером установлено."}
+    except Exception:
+        return {"status": "error", "label": "Celery broker", "detail": "Не удалось подключиться к брокеру задач."}
+
+
+def _system_check_celery_workers():
+    try:
+        from config.celery import app as celery_app
+
+        workers = celery_app.control.ping(timeout=1)
+        if workers:
+            names = ", ".join(sorted(item["worker"] for item in workers if item.get("worker")))
+            return {"status": "ok", "label": "Celery workers", "detail": f"Отвечают: {names}."}
+        return {"status": "warning", "label": "Celery workers", "detail": "Брокер не сообщил об активных worker-процессах."}
+    except Exception:
+        return {"status": "warning", "label": "Celery workers", "detail": "Не удалось получить ответ от worker-процессов."}
+
+
+@_staff
+@require_GET
+def console_system(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    checks = [_system_check_database(), _system_check_cache(), _system_check_celery_broker(), _system_check_celery_workers()]
+    integrations = [
+        {"name": "Spotify", "configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "detail": "OAuth-реквизиты заданы." if settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET else "Не заданы Client ID и/или Client Secret."},
+        {"name": "SoundCloud", "configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET), "detail": "OAuth-реквизиты заданы." if settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET else "Не заданы Client ID и/или Client Secret."},
+        {"name": "VK", "configured": bool(settings.VK_API_VERSION), "detail": "Версия API задана." if settings.VK_API_VERSION else "Не задана версия API."},
+        {"name": "Шифрование токенов", "configured": bool(settings.TOKEN_ENCRYPTION_KEY), "detail": "Ключ шифрования задан." if settings.TOKEN_ENCRYPTION_KEY else "Ключ шифрования не задан."},
+    ]
+    return render(request, "transfer/admin_console/system.html", {"checks": checks, "integrations": integrations, "debug_enabled": settings.DEBUG, "secure_redirect": settings.SECURE_SSL_REDIRECT})
 
 
 @_staff
