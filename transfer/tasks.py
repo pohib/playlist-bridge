@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .services import SpotifyClient, TransferError, execute_transfer
 from .services.credential_service import get_access_token
+from .services.integration_event_recorder import record_transfer_failure
 from .models import TransferJob
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ def run_transfer(self, job_id):
                 job_id,
             )
     except TransferError as exc:
+        record_transfer_failure(job=job, error=exc)
         finished_at = timezone.now()
         updated = TransferJob.objects.filter(
             pk=job.pk,
@@ -105,8 +107,9 @@ def run_transfer(self, job_id):
                 "Transfer job %s changed state before failure handling; preserving its current state",
                 job_id,
             )
-    except Exception:
+    except Exception as exc:
         logger.exception("Transfer job %s failed unexpectedly", job_id)
+        record_transfer_failure(job=job, error=exc)
         finished_at = timezone.now()
         updated = TransferJob.objects.filter(
             pk=job.pk,
