@@ -1,7 +1,6 @@
-from .admin import AdminAuditEvent, UserSecurityEvent
+from .admin import AdminAuditEvent, UserEQPreset, UserSecurityEvent
 from .credentials import OAuthCredential
 from .jobs import TransferJob
-from .admin import UserEQPreset
 from .library import (
     LibraryPlaylist,
     LibraryProfile,
@@ -19,6 +18,6 @@ __all__ = [
     "LibraryTransferItem",
     "OAuthCredential",
     "TransferJob",
-    "UserSecurityEvent",
     "UserEQPreset",
+    "UserSecurityEvent",
 ]

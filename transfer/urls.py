@@ -8,7 +8,6 @@ from . import (
     auth_views,
     dashboard_views,
     landing_views,
-    player_eq_views,
     library_local_playback_views,
     library_media_views,
     library_page_views,
@@ -24,6 +23,7 @@ from . import (
     library_vk_import_views,
     library_vk_playback_views,
     oauth_views,
+    player_eq_views,
     system_views,
     views,
 )

@@ -75,3 +75,161 @@ body.admin-body{background:radial-gradient(ellipse at 12% 0%,rgba(72,113,190,.19
 .admin-footer{flex-wrap:wrap}
 @media(max-width:1050px){.admin-two-column{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:700px){.admin-page-intro,.admin-welcome{flex-direction:column;align-items:flex-start}.admin-main{padding:0 12px}.admin-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-filter-wrap>*{flex:1 1 100%;min-width:0}.admin-filter-wrap label,.admin-filter-wrap label input{width:100%;min-width:0}.admin-panel{padding:14px}.admin-table-wrap{border-radius:12px}.admin-identity{max-width:48%;overflow:hidden;white-space:nowrap}.admin-identity a{white-space:nowrap}}
+
+
+/* Form controls: consistent dark glass styling across every control-center screen. */
+.admin-body input:not([type="checkbox]):not([type="radio]),
+.admin-body select,
+.admin-body textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 10px 13px;
+  border: 1px solid rgba(155,181,221,.2);
+  border-radius: 10px;
+  background: linear-gradient(145deg,rgba(8,15,28,.96),rgba(13,21,36,.94));
+  color: var(--text);
+  font: inherit;
+  line-height: 1.4;
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 5px 16px rgba(0,0,0,.08);
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.admin-body textarea { min-height: 110px; resize: vertical; }
+.admin-body input::placeholder,
+.admin-body textarea::placeholder { color: #71829a; opacity: 1; }
+.admin-body input:hover,
+.admin-body select:hover,
+.admin-body textarea:hover { border-color: rgba(130,174,225,.38); }
+.admin-body input:focus,
+.admin-body select:focus,
+.admin-body textarea:focus {
+  outline: none;
+  border-color: rgba(111,220,194,.72);
+  background: linear-gradient(145deg,rgba(10,20,34,.98),rgba(16,28,45,.98));
+  box-shadow: 0 0 0 3px rgba(93,201,187,.13), 0 8px 22px rgba(0,0,0,.12);
+}
+.admin-body input:focus-visible,
+.admin-body select:focus-visible,
+.admin-body textarea:focus-visible,
+.admin-body button:focus-visible,
+.admin-body a:focus-visible,
+.admin-body summary:focus-visible {
+  outline: 2px solid rgba(118,207,255,.9);
+  outline-offset: 3px;
+}
+.admin-body input:disabled,
+.admin-body select:disabled,
+.admin-body textarea:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: saturate(.55);
+}
+.admin-body input[type="checkbox"],
+.admin-body input[type="radio"] {
+  appearance: none;
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  min-height: 17px;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 1px solid rgba(155,181,221,.42);
+  border-radius: 5px;
+  background: linear-gradient(145deg,#101b2c,#0a1220);
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+  cursor: pointer;
+}
+.admin-body input[type="radio"] { border-radius: 50%; }
+.admin-body input[type="checkbox"]:checked,
+.admin-body input[type="radio"]:checked {
+  border-color: #73e5b1;
+  background: radial-gradient(circle at 35% 30%,#b4ffe0,#55cda2 72%);
+  box-shadow: 0 0 0 3px rgba(93,201,187,.12), 0 0 13px rgba(93,201,187,.18);
+}
+.admin-body input[type="checkbox"]:checked::after {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 4px;
+  margin: 4px 0 0 3px;
+  border: solid #082218;
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+}
+.admin-body input[type="radio"]:checked::after {
+  content: "";
+  display: block;
+  width: 7px;
+  height: 7px;
+  margin: 4px;
+  border-radius: 50%;
+  background: #082218;
+}
+.admin-body input[type="date"] { color-scheme: dark; }
+.admin-body input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .78; filter: invert(.8) sepia(.2) saturate(.8); }
+.admin-body input[type="search"] { appearance: none; }
+.admin-body input[type="file"] { padding: 7px; }
+.admin-body input[type="file"]::file-selector-button {
+  min-height: 28px;
+  margin-right: 10px;
+  padding: 0 11px;
+  border: 1px solid rgba(107,218,191,.3);
+  border-radius: 7px;
+  background: linear-gradient(110deg,rgba(75,203,159,.2),rgba(92,160,231,.16));
+  color: var(--green);
+  font: 600 11px system-ui,sans-serif;
+  cursor: pointer;
+}
+.admin-body select {
+  appearance: none;
+  padding-right: 38px;
+  background-image: linear-gradient(45deg,transparent 50%,#9fb5cc 50%),linear-gradient(135deg,#9fb5cc 50%,transparent 50%),linear-gradient(145deg,rgba(8,15,28,.96),rgba(13,21,36,.94));
+  background-position: calc(100% - 17px) 18px,calc(100% - 12px) 18px,0 0;
+  background-size: 5px 5px,5px 5px,100% 100%;
+  background-repeat: no-repeat;
+}
+.admin-body option { background: #101a2b; color: var(--text); }
+.admin-filter { align-items: center; flex-wrap: wrap; min-width: 0; }
+.admin-filter > input { flex: 1 1 220px; }
+.admin-filter > select { flex: 0 1 190px; }
+.admin-filter-wrap label input { margin-top: 2px; }
+.admin-role-create input[name="name"],
+.admin-role-editor input[name="name"] { max-width: 520px; }
+.admin-role-permissions label { min-width: 0; }
+.admin-role-permissions label span { min-width: 0; overflow-wrap: anywhere; }
+.admin-role-permissions input[type="checkbox"] { flex: 0 0 17px; width: 17px; }
+.admin-group-assignment .admin-role-permissions label,
+.admin-role-editor .admin-role-permissions label { background: linear-gradient(135deg,rgba(20,33,52,.9),rgba(11,19,32,.88)); }
+.admin-privilege-editor input,
+.admin-privilege-editor select { min-height: 38px; padding: 8px 10px; font-size: 12px; }
+.admin-privilege-editor input[type="checkbox"] { width: 17px; min-height: 17px; }
+.admin-filter-wrap button,
+.admin-filter button,
+.table-action,
+.admin-role-create button,
+.admin-role-editor button,
+.admin-group-assignment button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.admin-muted { color: var(--muted); }
+.tag-warn { background: rgba(245,196,109,.13); color: var(--amber); }
+.admin-panel + .admin-panel { margin-top: 16px; }
+.admin-two-column > * { min-width: 0; }
+.admin-detail-list dd { min-width: 0; }
+.admin-role-editor,
+.admin-privilege-editor { max-width: 100%; }
+.admin-role-editor form,
+.admin-privilege-editor form { min-width: 0; }
+.admin-body button:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+@media (max-width: 700px) {
+  .admin-filter > input,
+  .admin-filter > select,
+  .admin-filter > button { flex: 1 1 100%; width: 100%; }
+  .admin-filter > a { padding: 7px 2px; }
+  .admin-role-create input[name="name"],
+  .admin-role-editor input[name="name"] { max-width: 100%; }
+}
