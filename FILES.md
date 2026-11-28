@@ -73,13 +73,13 @@
 
 | Файл | Назначение |
 |---|---|
-| `Caddyfile` | Пример конфигурации Caddy для постоянного домена и автоматического HTTPS без Cloudflare Tunnel. |
+| `Caddyfile` | Пример конфигурации Caddy для постоянного домена, автоматического HTTPS и передачи доверенных forwarded headers без Cloudflare Tunnel. |
 
 ### nginx
 
 | Файл | Назначение |
 |---|---|
-| `default.conf` | Reverse proxy Nginx, передача host/IP/proto, access log и блокировка служебных путей. |
+| `default.conf` | Reverse proxy Nginx, безопасный Host для upstream, доверенные forwarded headers, access log и блокировка служебных путей. |
 
 ### nginx/errors
 

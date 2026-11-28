@@ -156,6 +156,7 @@ nano .env
 DJANGO_DEBUG=false
 DJANGO_ALLOWED_HOSTS=music.example.com,localhost,127.0.0.1,web
 DJANGO_CSRF_TRUSTED_ORIGINS=https://music.example.com
+USE_X_FORWARDED_HOST=true
 SESSION_COOKIE_SECURE=true
 CSRF_COOKIE_SECURE=true
 SECURE_SSL_REDIRECT=true

@@ -7,6 +7,7 @@ example.com {
         # Overwrite the client IP header; Nginx trusts this because port 8000
         # is published on loopback and is not directly reachable from the Internet.
         header_up X-Real-IP {http.request.remote.host}
+        header_up X-Forwarded-Host {http.request.host}
         header_up -CF-Connecting-IP
     }
 }
