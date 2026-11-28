@@ -78,7 +78,7 @@ body.admin-body{background:radial-gradient(ellipse at 12% 0%,rgba(72,113,190,.19
 
 
 /* Form controls: consistent dark glass styling across every control-center screen. */
-.admin-body input:not([type="checkbox]):not([type="radio]),
+.admin-body input:not([type="checkbox"]):not([type="radio"]),
 .admin-body select,
 .admin-body textarea {
   width: 100%;
