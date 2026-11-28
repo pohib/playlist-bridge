@@ -364,3 +364,109 @@ body.admin-body{background:radial-gradient(ellipse at 12% 0%,rgba(72,113,190,.19
   .admin-table { min-width: 760px; }
   .admin-groups-table { min-width: 900px; }
 }
+
+
+/* IP registry filters: one aligned row on desktop, deliberate stacking on narrow screens. */
+.admin-ip-ban-filter {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(180px, 230px) auto auto;
+  align-items: end;
+  gap: 12px;
+  width: 100%;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid rgba(151,177,218,.16);
+  border-radius: 14px;
+  background: linear-gradient(110deg,rgba(20,31,50,.88),rgba(14,22,38,.82));
+  box-shadow: inset 0 1px rgba(255,255,255,.025), 0 8px 24px rgba(0,0,0,.1);
+}
+.admin-ip-ban-filter label {
+  display: grid;
+  align-content: end;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  color: #aab9cc;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.admin-ip-ban-filter input,
+.admin-ip-ban-filter select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(155,181,221,.2);
+  border-radius: 12px;
+  background-color: rgba(7,13,24,.92);
+  color: var(--text);
+  font: 12px system-ui,sans-serif;
+}
+.admin-ip-ban-filter button {
+  min-width: 100px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 18px;
+  white-space: nowrap;
+}
+.admin-ip-ban-filter > a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: #c0ccdc;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.admin-ip-ban-filter > a:hover { color: var(--green); }
+.admin-ip-ban-filter input:focus,
+.admin-ip-ban-filter select:focus {
+  outline: 0;
+  border-color: rgba(111,220,194,.72);
+  box-shadow: 0 0 0 3px rgba(93,201,187,.12);
+}
+
+/* The table panel clips its own horizontal overflow; keep its heading padded. */
+.admin-panel.admin-table-wrap > .admin-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 62px;
+  margin: 0;
+  padding: 18px 20px 14px;
+}
+.admin-panel.admin-table-wrap > .admin-panel-heading h2 {
+  margin: 5px 0 0;
+  line-height: 1.35;
+}
+.admin-panel.admin-table-wrap > .admin-panel-heading .admin-overline {
+  display: block;
+  line-height: 1.4;
+}
+.admin-panel.admin-table-wrap > .admin-table {
+  margin-top: 0;
+}
+@media (max-width: 850px) {
+  .admin-ip-ban-filter {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  }
+  .admin-ip-ban-filter label:first-child { grid-column: 1 / -1; }
+  .admin-ip-ban-filter button,
+  .admin-ip-ban-filter > a { justify-self: start; }
+}
+@media (max-width: 560px) {
+  .admin-ip-ban-filter {
+    grid-template-columns: minmax(0,1fr);
+    gap: 11px;
+    padding: 13px;
+  }
+  .admin-ip-ban-filter label:first-child { grid-column: auto; }
+  .admin-ip-ban-filter button { width: 100%; }
+  .admin-ip-ban-filter > a { min-height: 32px; }
+  .admin-panel.admin-table-wrap > .admin-panel-heading { padding: 16px 14px 12px; }
+}

@@ -5,7 +5,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="same-origin">
   <link rel="stylesheet" href="{% static 'transfer/styles/main.css' %}?v=20261128-11">
-  <link id="admin-console-stylesheet" rel="stylesheet" href="{% static 'transfer/styles/admin-console.css' %}?v=20261128-12">
+  <link id="admin-console-stylesheet" rel="stylesheet" href="{% static 'transfer/styles/admin-console.css' %}?v=20261128-13">
   <title>{% block title %}Панель управления{% endblock %} · Playlist Bridge</title>
 </head>
 <body class="admin-body">
@@ -33,7 +33,7 @@
   </div>
   {% if user.is_authenticated %}
   {% include "transfer/partials/global_player.html" %}
-  <script src="{% static 'transfer/js/app.js' %}?v=20261128-08" defer></script>
+  <script src="{% static 'transfer/js/app.js' %}?v=20261128-09" defer></script>
   {% endif %}
 </body>
 </html>

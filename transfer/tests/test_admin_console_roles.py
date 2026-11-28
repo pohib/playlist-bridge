@@ -151,3 +151,10 @@ class AdminConsoleRoleManagementTests(TestCase):
             {"groups": [str(self.safe_group.pk)]},
         )
         self.assertEqual(response.status_code, 403)
+
+
+    def test_groups_table_heading_is_inside_a_dedicated_heading_wrapper(self):
+        response = self.client.get(reverse("admin_console_groups"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="admin-panel-heading"')
+        self.assertContains(response, 'class="admin-table admin-groups-table"')

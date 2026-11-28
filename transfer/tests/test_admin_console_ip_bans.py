@@ -167,3 +167,13 @@ class AdminConsoleIPBanRegistryTests(TestCase):
         protected_response = target_client.get(reverse("profile"))
         self.assertEqual(protected_response.status_code, 302)
         self.assertIn(reverse("login"), protected_response.url)
+
+
+    def test_registry_filter_form_is_present_and_uses_named_controls(self):
+        self.client.force_login(self.root)
+        response = self.client.get(reverse("admin_console_ip_bans"))
+        self.assertContains(response, 'class="admin-ip-ban-filter"')
+        self.assertContains(response, 'name="q"')
+        self.assertContains(response, 'name="status"')
+        self.assertContains(response, "admin-console.css")
+        self.assertContains(response, "20261128-13")
