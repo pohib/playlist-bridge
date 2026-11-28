@@ -17,6 +17,7 @@ from django.core.paginator import Paginator
 from django.db import DatabaseError, connection, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
@@ -458,6 +459,51 @@ def console_security(request):
     })
 
 
+
+@_staff
+@require_GET
+def console_events(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    now = timezone.now()
+    stale_before = now - timedelta(minutes=5)
+    events = []
+    labels = {'user.activated': 'Пользователь активирован', 'user.deactivated': 'Пользователь отключён', 'role.created': 'Роль создана', 'role.updated': 'Роль изменена', 'user.groups_updated': 'Группы пользователя изменены', 'privilege.updated': 'Изменены привилегии пользователя'}
+    user_label = get_user_model()._meta.label
+    for item in AdminAuditEvent.objects.select_related('actor').order_by('-created_at')[:300]:
+        target_url = reverse('admin_console_user_detail', args=[item.target_id]) if item.target_type == user_label and item.target_id.isdigit() else ''
+        events.append({'occurred_at': item.created_at, 'category': 'admin', 'category_label': 'Администрирование', 'severity': 'info', 'severity_label': 'Информация', 'title': labels.get(item.action, 'Системное действие'), 'actor': item.actor.get_username() if item.actor else 'Система', 'target': f'{item.target_type} · {item.target_id}'.strip(' ·') or '—', 'target_url': target_url, 'detail': 'Изменение записано в журнал аудита.'})
+    security_labels = {UserSecurityEvent.EventType.LOGIN_SUCCEEDED: ('Успешный вход', 'info', 'Информация'), UserSecurityEvent.EventType.LOGIN_FAILED: ('Неудачная попытка входа', 'warning', 'Предупреждение'), UserSecurityEvent.EventType.LOGIN_THROTTLED: ('Попытка входа ограничена', 'danger', 'Высокий риск')}
+    for item in UserSecurityEvent.objects.select_related('user').order_by('-created_at')[:300]:
+        title, severity, severity_label = security_labels.get(item.event_type, ('Событие безопасности', 'warning', 'Предупреждение'))
+        target_url = reverse('admin_console_user_detail', args=[item.user_id]) if item.user_id else ''
+        events.append({'occurred_at': item.created_at, 'category': 'security', 'category_label': 'Безопасность', 'severity': severity, 'severity_label': severity_label, 'title': title, 'actor': item.username_snapshot or 'Неизвестный пользователь', 'target': item.user.get_username() if item.user else 'Удалённая учётная запись', 'target_url': target_url, 'detail': 'Событие авторизации. Подробности доступны в журнале безопасности.'})
+    failed_jobs = TransferJob.objects.filter(status=TransferJob.Status.FAILED).order_by('-finished_at', '-created_at')[:150]
+    stale_jobs = TransferJob.objects.filter(status=TransferJob.Status.RUNNING).filter(Q(heartbeat_at__lt=stale_before) | Q(heartbeat_at__isnull=True, started_at__lt=stale_before)).order_by('heartbeat_at', 'started_at')[:150]
+    for item in failed_jobs:
+        events.append({'occurred_at': item.finished_at or item.created_at, 'category': 'transfer', 'category_label': 'Переносы', 'severity': 'danger', 'severity_label': 'Ошибка', 'title': 'Перенос завершился ошибкой', 'actor': 'Система', 'target': str(item.pk), 'target_url': reverse('admin_console_job_detail', args=[item.pk]), 'detail': 'Откройте карточку задачи для безопасной диагностики.'})
+    for item in stale_jobs:
+        events.append({'occurred_at': item.heartbeat_at or item.started_at or item.created_at, 'category': 'transfer', 'category_label': 'Переносы', 'severity': 'warning', 'severity_label': 'Требует внимания', 'title': 'Возможно, задача зависла', 'actor': 'Система', 'target': str(item.pk), 'target_url': reverse('admin_console_job_detail', args=[item.pk]), 'detail': 'Нет обновления состояния более пяти минут.'})
+    category = (request.GET.get('category') or '').strip()
+    severity = (request.GET.get('severity') or '').strip()
+    query = (request.GET.get('q') or '').strip()[:100]
+    date_from_raw = (request.GET.get('date_from') or '').strip()
+    date_to_raw = (request.GET.get('date_to') or '').strip()
+    date_from = parse_date(date_from_raw)
+    date_to = parse_date(date_to_raw)
+    if category in {'admin', 'security', 'transfer'}: events = [event for event in events if event['category'] == category]
+    else: category = ''
+    if severity in {'info', 'warning', 'danger'}: events = [event for event in events if event['severity'] == severity]
+    else: severity = ''
+    if query:
+        needle = query.casefold()
+        events = [event for event in events if needle in ' '.join((event['title'], event['actor'], event['target'], event['detail'])).casefold()]
+    if date_from: events = [event for event in events if timezone.localtime(event['occurred_at']).date() >= date_from]
+    if date_to: events = [event for event in events if timezone.localtime(event['occurred_at']).date() <= date_to]
+    events.sort(key=lambda event: event['occurred_at'], reverse=True)
+    page = Paginator(events, 50).get_page(request.GET.get('page'))
+    AdminAuditEvent.objects.create(actor=request.user, action='events.center_viewed', target_type='transfer.AdminEventFeed', metadata={'result_count': len(events), 'filters_applied': bool(category or severity or query or date_from or date_to)})
+    return render(request, 'transfer/admin_console/events.html', {'page': page, 'query': query, 'category': category, 'severity': severity, 'date_from': date_from_raw, 'date_to': date_to_raw})
 
 @_staff
 @require_GET
