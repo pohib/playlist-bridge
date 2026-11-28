@@ -152,6 +152,18 @@ class AdminConsoleAccessTests(TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
+
+    def test_staff_dashboard_does_not_expose_superuser_operational_analytics(self):
+        self.client.force_login(self.staff_viewer)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console"))
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertFalse(context["can_view_operational_analytics"])
+        self.assertIsNone(context["request_error_counts"])
+        self.assertEqual(context["top_error_routes"], [])
+        self.assertEqual(context["recent_request_errors"], [])
+
     def test_staff_panel_responses_are_not_cacheable(self):
         self.client.force_login(self.staff_viewer)
         with patch(

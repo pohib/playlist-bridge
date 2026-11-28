@@ -806,6 +806,16 @@ def console_security(request):
         raise PermissionDenied
     query = (request.GET.get("q") or "").strip()[:100]
     event_type = (request.GET.get("event_type") or "").strip()
+    raw_response_status = (request.GET.get("response_status") or "").strip()
+    response_status = None
+    if raw_response_status.isdigit():
+        candidate_status = int(raw_response_status)
+        if 100 <= candidate_status <= 599:
+            response_status = candidate_status
+        else:
+            raw_response_status = ""
+    else:
+        raw_response_status = ""
     date_from = parse_date((request.GET.get("date_from") or "").strip())
     date_to = parse_date((request.GET.get("date_to") or "").strip())
     events = UserSecurityEvent.objects.select_related("user")
@@ -814,6 +824,11 @@ def console_security(request):
         events = events.filter(event_type=event_type)
     else:
         event_type = ""
+    if response_status is not None:
+        events = events.filter(
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            response_status=response_status,
+        )
     if query:
         search_filter = (
             Q(username_snapshot__icontains=query)
@@ -836,10 +851,11 @@ def console_security(request):
         actor=request.user,
         action="security.events_viewed",
         target_type="transfer.UserSecurityEvent",
-        metadata={"event_count": len(page.object_list), "filters_applied": bool(query or event_type or date_from or date_to)},
+        metadata={"event_count": len(page.object_list), "filters_applied": bool(query or event_type or response_status or date_from or date_to)},
     )
     return render(request, "transfer/admin_console/security.html", {
         "page": page, "query": query, "event_type": event_type,
+        "response_status": raw_response_status,
         "date_from": request.GET.get("date_from", ""),
         "date_to": request.GET.get("date_to", ""),
         "event_types": UserSecurityEvent.EventType.choices,

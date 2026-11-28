@@ -213,6 +213,38 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(page.paginator.count, 1)
         self.assertEqual(page.object_list[0].route_name, "library_import_vk")
 
+
+    def test_global_security_timeline_filters_by_http_status(self):
+        matching = UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            route_name="library_import_vk", response_status=422,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            route_name="library_import_vk", response_status=200,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_security"), {"response_status": "422"})
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(list(context["page"].object_list), [matching])
+        self.assertEqual(context["response_status"], "422")
+
+    def test_global_security_timeline_ignores_invalid_http_status(self):
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_security"), {"response_status": "700"})
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(context["response_status"], "")
+
     def test_security_views_are_not_cacheable(self):
         self.client.force_login(self.superuser)
         with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")):
