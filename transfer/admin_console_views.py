@@ -5,8 +5,8 @@ from urllib.parse import urlsplit
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
 from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -169,6 +169,7 @@ def console_audit(request):
     action_labels = {
         "user.activated": "Пользователь активирован",
         "user.deactivated": "Пользователь отключён",
+        "role.created": "Роль создана",
     }
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
