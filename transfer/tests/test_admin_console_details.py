@@ -51,6 +51,8 @@ class AdminConsoleDetailTests(TestCase):
 
 
     def test_jobs_overview_reports_queue_backlog_and_stale_workers(self):
+        # Remove the generic queued job created by setUp so this test owns its fixtures.
+        self.job.delete()
         now = timezone.now()
         TransferJob.objects.create(
             session_fingerprint="queued-job-fingerprint",
