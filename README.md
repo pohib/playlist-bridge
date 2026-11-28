@@ -1,594 +1,285 @@
 # Playlist Bridge
 
-Django-приложение для сбора плейлистов и треков из VK, Spotify и SoundCloud в единую библиотеку и переноса коллекций между поддерживаемыми сервисами.
+Playlist Bridge — Django-приложение для импорта музыкальных коллекций в личную библиотеку, сопоставления треков и переноса плейлистов между VK, Spotify и SoundCloud.
 
-## Пользовательская авторизация
+Проект построен как модульный Django-монолит, а не набор микросервисов.
 
-Пользователь подключает доступные сервисы кнопками на главной странице:
-- Spotify — OAuth Authorization Code.
-- VK — публичные плейлисты и отдельные треки импортируются по ссылке через анонимный API-токен веб-клиента VK; вход в VK и создание собственного VK-приложения не требуются.
-- SoundCloud — OAuth 2.1 Authorization Code с PKCE S256 и одноразовыми refresh tokens.
+## Возможности
 
-Пользовательские access/refresh tokens не задаются в .env, не сохраняются в браузерной сессии и не передаются в Celery arguments. Они шифруются Fernet и сохраняются в PostgreSQL в модели OAuthCredential. Worker получает токены из БД по HMAC-отпечатку сессии, расшифровывает их только в памяти и обновляет через refresh token. В Redis передаётся только UUID фоновой задачи.
+| Возможность | VK | Spotify | SoundCloud |
+|---|---:|---:|---:|
+| Импорт публичного плейлиста по ссылке | Да | Да | Да |
+| Импорт отдельного трека по ссылке | Да | Да | Да |
+| Импорт собственной библиотеки | — | Да | Да |
+| Поиск кандидатов для ручного сопоставления | Ограниченно | Да | Да |
+| Создание целевого плейлиста | Нет | Да | Да |
+| Загрузка аудиофайла, предоставленного пользователем | Нет | Нет | Да |
 
-При отключении провайдера соответствующая запись токенов удаляется. Сессионные cookie HttpOnly и SameSite=Lax.
+- Коллекции сохраняются в личной библиотеке. Доступ к плейлистам, трекам и задачам ограничивается владельцем.
+- При переносе приложение ищет существующие треки, создаёт целевой плейлист и предлагает вручную разобрать неоднозначные или ненайденные композиции.
+- Импорт VK использует методы публичного веб-клиента. Это не стабильный публичный API: методы, анонимный токен и ограничения могут измениться.
+- Spotify и SoundCloud подключаются через OAuth. SoundCloud использует Authorization Code с PKCE S256.
+- Пользовательские access/refresh tokens шифруются Fernet и хранятся в PostgreSQL. Они не помещаются в .env, браузерную сессию или аргументы Celery.
+- Встроенный плеер поддерживает очередь, shuffle/repeat, громкость и локальное воспроизведение. Spotify и SoundCloud воспроизводятся через embed-плееры; приложение не извлекает и не скачивает их аудио.
 
-## Архитектура приложения
+YouTube Music и Apple Music пока не являются полноценными провайдерами импорта или переноса. Некоторые экраны могут предоставлять внешние ссылки на поиск.
 
-Модульный Django-монолит. Сервисы запускаются через Docker Compose: Nginx принимает HTTP-трафик как локальный reverse proxy, Gunicorn обслуживает Django, отдельно работают PostgreSQL, Redis, Celery worker и Celery beat (периодическая доставка задач из PostgreSQL в Redis). Cloudflare Quick Tunnel подключается к опубликованному локальному порту Nginx (127.0.0.1:8000); URL туннеля и OAuth callback flow не зависят от внутреннего адреса Gunicorn. Nginx возвращает нейтральную HTML-страницу для 404 и блокирует прямые запросы к dotfiles, репозиторным метаданным, конфигурации и служебным каталогам.
+## Архитектура
 
-View-слой библиотеки разделён на специализированные HTTP-обработчики, а бизнес-сценарии постепенно вынесены в `transfer/services/`. URL-маршруты подключают конкретные модули напрямую. Старые модули (`library_views.py`, `library_management_views.py`, `library_playback_views.py`, `library_transfer_views.py`, `library_import_views.py`, `site_views.py` и `views.py`) сохранены как compatibility facades для обратной совместимости; новые обработчики в них добавлять не следует. Это по-прежнему модульный Django-монолит, а не набор микросервисов.
+~~~text
+config/                  Django settings, URL root, ASGI/WSGI, Celery
+transfer/
+  api/                   HTTP API, сериализация, OpenAPI
+  domain_models/         Django-модели по доменам
+  oauth/                 OAuth workflows провайдеров
+  services/              бизнес-логика, клиенты API, matching, dispatch
+  templates/             Django templates
+  static/                CSS, JavaScript, изображения
+  tests/                 тесты приложения
+nginx/                   локальный reverse proxy
+scripts/                 PowerShell запуск, остановка, backup/restore
+compose*.yaml            Docker Compose конфигурации
+~~~
 
-Основные границы ответственности:
+Основные компоненты:
 
-- config/ — Django settings, URL root, WSGI/ASGI, Celery app, security headers и storage;
-- transfer/dashboard_views.py, transfer/library_page_views.py, transfer/account_page_views.py и transfer/landing_views.py — специализированные обработчики страниц; transfer/site_views.py — compatibility facade;
-- transfer/auth_views.py — регистрация, вход, выход и смена пароля;
-- transfer/oauth_views.py — HTTP facade OAuth endpoints; state/PKCE, callback и disconnect workflows делегируются provider-модулям;
-- transfer/oauth/ — provider-specific OAuth authorization-code/PKCE workflows и общие redirect/configuration helpers;
-- transfer/api/ — отдельные HTTP API-модули: transfer_views.py (создание/просмотр задач), status_views.py (состояние провайдеров), docs_views.py (OpenAPI и публичная документация), serializers.py и common.py;
-- transfer/api_views.py — compatibility facade для прежних API imports;
-- transfer/error_views.py — единые HTML-обработчики 400/403/404/500 для браузера и JSON-ошибки для API;
-- transfer/library_views.py — тонкий compatibility facade с реэкспортом обработчиков;
-- transfer/library_import_views.py — compatibility facade импорта;
-- transfer/library_vk_import_views.py — HTTP-обработчики импорта VK и обновления обложек; сохранение и синхронизация метаданных вынесены в `services/library_import_vk.py`;
-- transfer/library_spotify_import_views.py и transfer/library_soundcloud_import_views.py — HTTP-обработчики импорта плейлистов, треков и библиотек соответствующих провайдеров;
-- transfer/library_playlist_management_views.py, transfer/library_track_management_views.py и transfer/library_profile_management_views.py — CRUD плейлистов/треков, локальная загрузка и обновление профиля; transfer/library_management_views.py — compatibility facade;
-- transfer/library_local_playback_views.py и transfer/library_vk_playback_views.py — локальное воспроизведение с HTTP Range и VK streaming proxy; transfer/library_playback_views.py — compatibility facade;
-- transfer/library_provider_upload_views.py — HTTP endpoint загрузки в SoundCloud; валидация, вызов провайдера и сохранение локальной копии делегируются `services/library_soundcloud_upload.py`;
-- transfer/library_search_views.py — безопасное открытие ссылок провайдеров и поиск альтернативных источников для треков;
-- transfer/library_media_views.py — защищённая выдача обложек с allowlist доменов и проверкой владельца трека;
-- transfer/library_transfer_views.py — compatibility facade переноса; специализированные обработчики находятся в transfer/library_transfer_create_views.py и transfer/library_transfer_review_views.py;
-- transfer/library_transfer_create_views.py — создание переноса библиотеки между провайдерами;
-- transfer/library_transfer_review_views.py — HTTP-обработчики ручного поиска, выбора и пропуска совпадений при переносе; нормализация ответов провайдеров вынесена в `services/library_transfer_search.py`;
-- transfer/library_support.py — compatibility facade общих функций доступа к профилю, токенам и безопасным ссылкам;
-- nginx/default.conf — конфигурация локального reverse proxy;
-- transfer/services/ — provider clients, общие ошибки и структуры, нормализация/сопоставление, orchestration и прикладные сценарии библиотеки (включая `library_presentation.py`, compatibility facade `library_imports.py`, provider-specific `library_import_spotify.py`, `library_import_soundcloud.py` и `library_import_vk.py`, `library_soundcloud_upload.py`, `audio_file_validation.py`, `vk_audio_metadata.py`, `library_transfer_matching.py`, `library_transfer_search.py` и `api_transfer_service.py`);
-- transfer/tasks.py — Celery task для старого прямого VK → Spotify workflow;
-- transfer/domain_models/ — фактические Django-модели, сгруппированные по доменам;
-- transfer/models.py и transfer/core.py — compatibility facades; сохраняйте их, пока не проверены все старые импорты;
-- transfer/views.py — compatibility facade для прежних view imports; новые URL подключают специализированные view-модули напрямую;
-- transfer/templates/transfer/ — HTML-шаблоны;
-- transfer/static/transfer/js/app.js — клиентская логика переноса, глобального плеера, очереди и внутренней навигации;
-- transfer/static/transfer/styles/main.css — основные стили сайта и плеера.
+- **Django + Gunicorn** — веб-приложение и серверные endpoints.
+- **PostgreSQL** — пользователи, библиотека, OAuth credentials, история переносов и административные события.
+- **Redis + Celery** — фоновые задачи и доставка заданий.
+- **Celery beat** — периодическая доставка ожидающих заданий и обслуживание задач.
+- **Nginx** — reverse proxy перед Django.
+- **Cloudflare Quick Tunnel** — временный HTTPS-доступ к локальному Nginx; не заменяет production-домен и полноценную инфраструктуру.
 
-### Карта Python-модулей
+Старые модули views.py, core.py, models.py, api_views.py и отдельные *_views.py могут содержать compatibility exports. Новые обработчики подключайте к URL из профильных модулей, а бизнес-логику размещайте в transfer/services/. Не удаляйте compatibility facade без поиска всех импортов и регрессионных тестов.
 
-| Путь | Ответственность / важные детали |
-|---|---|
-| config/settings.py | Переменные окружения, БД, cookies, security settings, logging, Celery |
-| config/security.py | Security headers и CSP/COEP; не ослаблять политики ради обхода ошибок воспроизведения без диагностики |
-| config/storage.py | Static files storage |
-| transfer/domain_models/credentials.py | OAuthCredential |
-| transfer/domain_models/jobs.py | TransferJob, heartbeat, dispatch и checkpoint для безопасного возобновления |
-| transfer/domain_models/library.py | LibraryProfile, LibraryPlaylist, LibraryTrack, LibraryTransfer, LibraryTransferItem, cleanup audio files signal |
-| transfer/services/credential_service.py | HMAC session fingerprint, Fernet encryption, OAuth credential persistence, decryption and provider token refresh |
-| transfer/services/oauth_session_service.py | Session fingerprint rotation for credentials/jobs/library profiles and connected-provider lookup | 
-| transfer/credentials.py | Compatibility facade; legacy imports re-export credential_service functions |
-| transfer/services/common.py | TransferError, ReauthorizationRequired, VKTrack, VK URL parsers, shared normalization |
-| transfer/services/vk_client.py | VK API transport, получение плейлиста/трека и разрешение аудиопотоков |
-| transfer/services/vk_anonymous_token.py | Получение и кеширование анонимного токена веб-клиента VK |
-| transfer/services/vk_audio_metadata.py | Извлечение доверенной обложки и нормализация VK audio payload в VKTrack |
-| transfer/services/spotify_client.py | Spotify OAuth/API, поиск, playlist operations, batching и проверка владельца |
-| transfer/services/soundcloud_client.py | SoundCloud OAuth PKCE/API, pagination, поиск, playlists и upload |
-| transfer/services/track_matcher.py | normalize_track_text, score_candidate |
-| transfer/services/transfer_service.py | execute_transfer: прямой VK → Spotify workflow |
-| transfer/services/library_transfer_matching.py | Поиск и ранжирование Spotify/SoundCloud кандидатов для переноса библиотечных плейлистов; разделяет автоматические совпадения и кандидатов ручной проверки |
-| transfer/services/library_imports.py | Compatibility facade для provider-specific import workflows; сохранение плейлистов/треков и обновление VK-метаданных реализованы в профильных сервисах |
-| transfer/services/library_import_spotify.py | Валидация Spotify URL, получение и сохранение плейлистов и отдельных треков, пакетный импорт библиотеки |
-| transfer/services/library_import_soundcloud.py | Валидация SoundCloud permalink, получение и сохранение плейлистов и отдельных треков, пакетный импорт библиотеки |
-| transfer/services/library_presentation.py | Подготовка обложек и playback payload для страниц библиотеки |
-| transfer/api/transfer_views.py | HTTP content-type/JSON decoding, session-bound JSON endpoints и response formatting для TransferJob |
-| transfer/services/api_transfer_validation.py | Проверка payload переноса: VK playlist URL, Spotify playlist ID, типы и ограничения длины полей |
-| transfer/api/status_views.py | Provider connection/configuration status endpoint |
-| transfer/api/docs_views.py | OpenAPI schema, public API guide и JSON 404 fallback |
-| transfer/api/serializers.py + common.py | Стабильный JSON job serializer и общий error envelope |
-| transfer/services/api_transfer_service.py | Проверка Spotify credential и session ownership, чтение TransferJob/report, race-safe создание и Celery dispatch |
-| transfer/api_views.py | Compatibility facade; URL callbacks используют специализированные API modules |
-| transfer/tasks.py | Celery job claim/progress/result и периодический dispatch queued jobs |
-| transfer/library_views.py | Compatibility facade; новые маршруты используют специализированные модули напрямую |
-| transfer/site_views.py | Page rendering и ownership-filtered querysets; подготовка playback payload делегирована library_presentation.py |
+## Требования
 
-### Основные бизнес-процессы
+- Windows 10/11 + PowerShell и Docker Desktop — для описанных ниже сценариев разработки.
+- Docker Engine с поддержкой Docker Compose v2.
+- Python 3.12+ — для локального запуска тестов и инструментов.
+- cloudflared — только если нужен публичный Quick Tunnel.
+- Spotify Developer App и SoundCloud Developer App — для соответствующих OAuth-интеграций. VK OAuth-приложение для публичного импорта не требуется.
 
-1. **Импорт в библиотеку.** Специализированные HTTP handlers `library_vk_import_views.py`, `library_spotify_import_views.py` и `library_soundcloud_import_views.py` валидируют входные данные, получают доступ к провайдерам и делегируют сохранение метаданных сервисам. Для VK используется анонимный web-client token, для Spotify/SoundCloud — OAuth пользователя.
-2. **Перенос библиотечного плейлиста.** `library_transfer_create_views.py` отвечает за HTTP workflow и создание записей; `services/library_transfer_matching.py` выполняет поиск/ранжирование кандидатов Spotify и SoundCloud. Уверенные совпадения добавляются в целевой плейлист, остальные сохраняются в `LibraryTransferItem` для ручного review.
-3. **Ручная проверка.** search_transfer_item, select_transfer_candidate, skip_transfer_item реализуют последовательный workflow: нельзя обработать более поздний трек раньше текущего. Выбранный candidate ID должен быть среди сохранённых сервером вариантов.
-4. **Прямой VK → Spotify перенос через API v1.** api_create_transfer валидирует запрос и делегирует создание TransferJob сервису api_transfer_service.py, который повторно использует активную задачу при повторном запросе и отправляет UUID в Celery; при недоступности Redis запись остаётся queued, а Celery beat каждую минуту запускает восстановление dispatch и проверку зависших worker-задач; безопасные stale jobs возвращаются в очередь по checkpoint, небезопасные помечаются failed; run_transfer атомарно claim-ит queued job. execute_transfer сохраняет контрольную точку после сопоставления каждого трека, целевой Spotify playlist ID и исходный снимок количества треков в плейлисте до записи. При восстановлении сервис сверяет фактические URI и их количество с baseline и добавляет только недостающие вхождения — это закрывает неопределённость, когда Spotify принял пакет, а worker упал до фиксации результата в PostgreSQL. Stale-job recovery повторно ставит в очередь только задачи с безопасной контрольной точкой; если запрос создания плейлиста мог завершиться, но его ID не был сохранён, задача завершается ошибкой вместо риска создать дубликат. API отдаёт progress и JSON report. Это отдельный workflow от LibraryTransfer/review.
-5. **Плеер.** site_views.py формирует playback payload, app.js управляет очередью и воспроизведением. Локальные аудиофайлы и VK воспроизводятся через HTMLAudioElement; Spotify и SoundCloud — через их embed iframe. Плеер не получает аудио Spotify/SoundCloud напрямую.
+## Быстрый запуск
 
-### Важные правила изменения архитектуры
+### 1. Получить проект и подготовить .env
 
-- Сохраняйте Django app label transfer, имена моделей, таблицы и текущие миграции. Не переносить модели в другое Django app без отдельного плана миграций и проверки FK/admin/signals/Celery.
-- При добавлении новых library endpoints подключайте специализированные view-модули напрямую в transfer/urls.py. Не возвращайте обработчики в compatibility facade library_views.py; бизнес-логику при необходимости выносите в transfer/services/ после фиксации контрактов тестами.
-- Не удаляйте compatibility facades models.py, core.py, views.py, пока не проверены все места импорта.
-- Внешние API в тестах только mock-ать. Не использовать реальные OAuth tokens и не вызывать live VK/Spotify/SoundCloud из CI.
-- Не менять URL names, JSON contract, ownership filtering и очередность ручного review без явной причины и регрессионных тестов.
+PowerShell:
 
-## Поддерживаемые направления
+~~~powershell
+git clone https://github.com/pohib/playlist-bridge.git
+cd playlist-bridge
+Copy-Item .env.example .env
+notepad .env
+~~~
 
-Единая библиотека хранит коллекции и метаданные, а импорт и экспорт выполняются через API-адаптеры провайдеров. Один и тот же плейлист из библиотеки можно отправить в доступный целевой сервис; сопоставление выполняется по названию, исполнителю и длительности.
+Если проект уже клонирован:
 
-| Сервис | Импорт плейлистов | Импорт отдельных треков | Создание целевого плейлиста | Загрузка аудиофайла |
-|---|---:|---:|---:|---:|
-| VK | Да, по ссылке | Да, по ссылке | Пока нет | Пока нет |
-| Spotify | Да, своя библиотека или ссылка | Да, по ссылке | Да | Нет — Spotify API не предоставляет загрузку аудио |
-| SoundCloud | Да, своя библиотека или ссылка | Да, по ссылке | Да | Да, из пользовательского файла до 100 МБ |
+~~~powershell
+git switch main
+git pull --ff-only origin main
+~~~
 
-Перенос между Spotify и SoundCloud, а также из VK в Spotify/SoundCloud выполняется через библиотеку. В SoundCloud создаётся плейлист из найденных существующих треков; отдельная загрузка аудио возможна только из файла, который пользователь сам предоставил и имеет право загружать. Приложение не скачивает и не рипает аудио из Spotify или SoundCloud. Для Spotify сохраняются ссылки и метаданные, а не аудиофайлы.
+Сгенерируйте отдельные секреты:
 
-Импорт VK использует обнаруженные внутренние методы веб-клиента (`audio.getIdsBySource` и `audio.getById`) и анонимную выдачу токена через `get_anonym_token`. Это не документированный публичный контракт VK: методы, ограничения и формат ответов могут измениться без предупреждения. Создание плейлистов в VK не включено. YouTube Music и Apple Music отображаются как будущие провайдеры и пока не участвуют в импорте/переносе.
+~~~powershell
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+~~~
 
-SoundCloud использует OAuth 2.1 Authorization Code с PKCE S256; refresh tokens одноразовые и обновляются с сохранением нового значения. Для регистрации SoundCloud API app актуальная документация описывает путь через Artist Pro.
+Укажите значения соответственно в DJANGO_SECRET_KEY, POSTGRES_PASSWORD и TOKEN_ENCRYPTION_KEY. Не используйте одно значение для нескольких параметров и не публикуйте .env.
 
+Заполните OAuth credentials: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET. DATABASE_URL формируется Compose из POSTGRES_PASSWORD; вручную задавать его в .env не нужно. Полный список переменных находится в .env.example.
 
-## Аккаунты, страницы и личная библиотека
+### 2. Локальная разработка
 
-- Главная страница `/` — публичная презентация приложения с адаптивной анимацией музыкальных сервисов.
-- Регистрация и вход — Django Authentication с хешированием паролей штатными password hasher Django, проверкой паролей и фиксированным перенаправлением после входа в личный кабинет (параметр `next` не используется).
-- После регистрации гостевая библиотека и подключения текущей сессии привязываются к аккаунту. Для авторизованного пользователя HMAC fingerprint вычисляется от внутреннего ID пользователя, поэтому библиотека и OAuth credentials сохраняются между браузерными сессиями и устройствами.
-- Spotify и SoundCloud подключаются отдельно через OAuth. VK импортируется по публичной ссылке через анонимный API: вход в VK и пользовательская VK-авторизация не используются.
-- Разделы приложения: `/app/` — обзор, `/library/` — импорт, добавление треков и перенос коллекций, `/connections/` — подключения Spotify/SoundCloud, `/profile/` — настройки аккаунта и статистика библиотеки, `/transfers/` — история и ручная проверка. 
-- Доступ к библиотеке, плейлистам и transfer review ограничен владельцем профиля. Вьюхи получают записи через фильтр `profile`; UUID сам по себе не считается контролем доступа.
-- Не найденные треки сохраняются как элементы review. Пользователь может выполнить повторный поиск по целевому сервису, выбрать конкретный результат либо пропустить трек. Сопоставление обрабатывается последовательно, чтобы сохранять исходный порядок. Выбранный ID должен присутствовать в сохранённом сервером списке кандидатов.
-- Spotify получает композиции через официальные playlist items API с вставкой в исходную позицию; SoundCloud обновляет список треков плейлиста через документированный `PUT /playlists/{playlist_id}`.
-- HTML-шаблоны используют автоэкранирование Django. Ссылки кандидатов проверяются по HTTPS и allowlist доменов провайдеров; POST-формы используют CSRF-токены.
+Dev overlay включает Django DEBUG, autoreload и bind mount исходников. Он использует отдельное имя Compose-проекта и отдельные volumes, поэтому данные dev-окружения не смешиваются с обычным compose.yaml.
 
-## Глобальный музыкальный плеер
-
-Плеер показывается авторизованным пользователям на всех внутренних страницах и не должен размонтироваться при переходах внутри приложения. Свернутое состояние использует отдельную геометрию и FLIP-анимацию, не подменяя базовое центрирование через transform.
-
-- Playback payload формируется в site_views.py; состояние очереди/режимов хранится в браузерном localStorage под ключом playlist-bridge-player-v2.
-- Поддерживаются play/pause, предыдущий/следующий трек, очередь, перестановка/удаление треков, очистка очереди, shuffle, repeat off/all/one, громкость/mute, сворачивание/разворачивание.
-- Внутренняя навигация использует fetch + замену .page-content и History API, чтобы сохранять активный плеер и iframe между страницами; при несовместимом ответе выполняется обычная навигация.
-- Локальный файл проигрывается через same-origin /library/tracks/<uuid>/stream/; VK — через /library/tracks/<uuid>/vk-audio/ с отдельным endpoint разрешения потока /api/v1/library/tracks/<uuid>/vk-stream/.
-- Spotify track и SoundCloud track проигрываются через embed iframe. Приложение не скачивает и не проксирует их аудио.
-- Поиск текущей композиции отправляется в POST /api/v1/library/tracks/search/. Spotify/SoundCloud возвращают найденные треки; YouTube Music и Apple Music пока дают только внешнюю ссылку на поиск. Анонимный VK API не поддерживает используемый поиск каталога, поэтому VK не предлагается как поисковый провайдер.
-- Обложки выдаются через /library/cover/ с allowlist доменов, проверкой redirect target, MIME signature и лимитом размера. Не подменять прокси на произвольный внешний URL.
-- DOM IDs плеера определены в base.html и используются в app.js; изменение ID требует синхронного изменения JS. После изменения CSS/JS обновлять cache-busting query параметр в base template.
-
-
-## Структура страниц
-
-| URL | Назначение |
-|---|---|
-| `/` | Публичная главная |
-| `/accounts/register/` | Создание аккаунта |
-| `/accounts/login/` | Вход |
-| `/app/` | Личный dashboard |
-| `/library/` | Импорт и коллекции |
-| `/library/<uuid>/` | Состав плейлиста и запуск переноса |
-| `/connections/` | Подключение и отключение Spotify/SoundCloud |
-| `/profile/` | Профиль, статистика библиотеки и настройки аккаунта |
-| `/transfers/` | История переносов |
-| `/transfers/<uuid>/review/` | Ручное сопоставление пропусков |
-| `/api/docs/` | Справочник API и правила безопасной работы |
-
-## Логирование
-
-Django и приложение пишут логи в stdout и в `reports/application.log`. Используется межпроцессная безопасная ротация файла: 5 МБ на файл, до 5 архивных копий. В `compose.yaml` каталог `reports` подключён к web и worker, поэтому журналы доступны в локальном репозитории. В логах запрещено сохранять OAuth access/refresh tokens, client secrets, пароли, полные HTTP-заголовки авторизации и содержимое пользовательских аудиофайлов.
-## Что хранится в .env
-
-В .env хранятся только конфигурация приложения, секреты разработчика и инфраструктуры:
-- DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEY, пароль PostgreSQL;
-- Spotify Developer App: SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, Redirect URI;
-
-- SoundCloud Developer App: SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET и Redirect URI;
-- версия VK API и адрес Redis.
-
-Пользовательские VK/Spotify/SoundCloud access token и refresh token не следует помещать в `.env`.
-
-Для подключения провайдеров зарегистрируйте приложения в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) и [SoundCloud Developers](https://developers.soundcloud.com/). Для получения API credentials SoundCloud актуальная документация описывает регистрацию приложения с Artist Pro. VK подключать не нужно: импорт использует анонимный доступ публичного веб-клиента VK. В режиме Development Mode тестовые аккаунты необходимо добавить в Users Management приложения Spotify.
-
-## Режимы разработки и production
-
-Одна кодовая база поддерживает два независимых режима. Файл `compose.yaml` — production-like стек для Gunicorn/Nginx. Для разработки используйте overlay `compose.dev.yaml`: он включает Django DEBUG, autoreload через runserver и bind mount исходников, не меняя production-конфигурацию. Dev overlay задаёт отдельное имя Compose-проекта `playlist-bridge-dev`, поэтому PostgreSQL/Redis volumes разработки изолированы от volumes обычного Compose; данные двух режимов не смешиваются.
-
-### Development + DEBUG Quick Tunnel (Windows / Docker Desktop)
-
-```powershell
-# DEBUG=True + autoreload + отдельные dev volumes + временный публичный HTTPS tunnel
-.\scripts\start-tunnel.ps1
-
-# Локальный dev-режим без туннеля (если публичный URL не нужен)
-docker compose -f compose.yaml -f compose.dev.yaml up --build
-
-# Django DEBUG / autoreload напрямую
-Start-Process http://127.0.0.1:8002/
-
-# Проверка Nginx reverse proxy
-Start-Process http://127.0.0.1:8000/
-
-# Логи и остановка (данные PostgreSQL сохраняются)
+~~~powershell
+docker compose -f compose.yaml -f compose.dev.yaml up --build -d
+docker compose -f compose.yaml -f compose.dev.yaml ps
 docker compose -f compose.yaml -f compose.dev.yaml logs -f web worker celery-beat
+~~~
+
+Адреса:
+- Django напрямую: http://127.0.0.1:8002/
+- Через Nginx: http://127.0.0.1:8000/
+
+После изменения Python-кода Django web перезагружается автоматически. Worker и beat — отдельные процессы; перезапускайте их после изменения задач или кода, который они импортируют:
+
+~~~powershell
+docker compose -f compose.yaml -f compose.dev.yaml restart worker celery-beat
+~~~
+
+Изменения зависимостей требуют пересборки соответствующих образов. После изменения моделей создайте и примените миграции:
+
+~~~powershell
+docker compose -f compose.yaml -f compose.dev.yaml exec web python manage.py makemigrations
+docker compose -f compose.yaml -f compose.dev.yaml exec web python manage.py migrate
+~~~
+
+Для CSS/JS при необходимости обновите cache-busting параметр в шаблоне и выполните жёсткое обновление страницы (Ctrl+F5).
+
+Остановка dev-стека с сохранением volumes:
+
+~~~powershell
 docker compose -f compose.yaml -f compose.dev.yaml down
-```
+~~~
 
-Dev overlay принудительно выставляет `DJANGO_DEBUG=true`, отключает HTTPS redirect и Secure cookies. Скрипт `start-tunnel.ps1` перед публикацией требует явного ввода `DEBUG`; публичный DEBUG endpoint может раскрывать stack traces и конфигурацию. Используй его только для кратковременной отладки и сразу останавливай после проверки. Для обычной локальной разработки без публичного доступа запускай Compose-команду выше. Redis в обоих режимах сохраняет брокерную очередь через AOF (`appendfsync everysec`) в отдельном Docker volume; `docker compose down` сохраняет этот volume, а `docker compose down -v` удаляет его вместе с PostgreSQL. Изменения Python/шаблонов/статических файлов подхватываются Django autoreload; после изменения зависимостей пересоберите контейнер. Worker использует тот же исходный каталог, но после изменения Python-кода его нужно перезапустить:
+Не используйте down -v, если не хотите удалить dev-базу и Redis volume.
 
-```powershell
-docker compose -f compose.yaml -f compose.dev.yaml restart worker
-```
+### 3. Временный публичный HTTPS-доступ
 
+Установите Docker Desktop и cloudflared:
 
-### Резервное копирование и восстановление (production-like Compose)
+~~~powershell
+winget install --id Cloudflare.cloudflared -e
+cloudflared --version
+~~~
 
-Скрипты работают с основным `compose.yaml` и текущим production-like проектом; отдельные dev volumes из `compose.dev.yaml` они не затрагивают. Запускай их из PowerShell на машине с Docker Desktop:
+Для временной отладки с DEBUG:
 
-```powershell
-# Создать backup в .\backups (по умолчанию хранить 30 дней)
+~~~powershell
+.\scripts\start-tunnel.ps1
+~~~
+
+Скрипт использует dev overlay и требует явного подтверждения публикации DEBUG-окружения. **Не оставляйте DEBUG-версию публично доступной.**
+
+Для production-like проверки с Gunicorn и DEBUG=False:
+
+~~~powershell
+.\scripts\start-tunnel-prod.ps1
+~~~
+
+Этот сценарий использует основной compose.yaml и не является полноценным production deployment: Quick Tunnel выдаёт временный адрес, а локальная машина остаётся хостом приложения. После запуска скрипт печатает URL и callback URI. Зарегистрируйте точные callback URI в настройках Spotify и SoundCloud.
+
+Остановить туннель и Compose-окружения:
+
+~~~powershell
+.\scripts\stop-tunnel.ps1
+~~~
+
+Команда остановки удаляет контейнеры и сети обоих Compose-проектов, но сохраняет именованные volumes. Для обычного применения изменений не запускайте stop/start скрипты: пересоздавайте только изменённые сервисы через Compose. Если пересоздаётся web, учитывайте зависимость Nginx proxy от адреса web-контейнера.
+
+## API
+
+- /api/docs/ — интерактивная документация.
+- /api/v1/openapi.json — OpenAPI 3.1 schema.
+- GET /api/v1/status/ — статус подключений и конфигурации провайдеров.
+- POST /api/v1/transfers/ — создание фоновой задачи переноса.
+- GET /api/v1/transfers/{job_id}/ — статус и прогресс задачи.
+- GET /api/v1/transfers/{job_id}/report/ — JSON-отчёт.
+- GET /healthz/ — health check.
+
+API использует браузерную сессию и CSRF-защиту. OAuth-токены провайдеров не передаются клиентом в теле API-запросов.
+
+## Панель управления
+
+Кастомная панель расположена по адресу /control/. Она предназначена для staff-пользователей с соответствующими Django permissions; наличие аккаунта само по себе не даёт доступ к панели. /admin/ перенаправляет на кастомную панель.
+
+В зависимости от прав доступны управление пользователями и ролями, библиотеками, фоновыми задачами, аудитом и системной диагностикой. Чувствительные сведения безопасности — IP-адреса, User-Agent и глобальные security events — ограничены superuser. Панель поддерживает историю IP-блокировок и блокировок аккаунтов; временная блокировка аккаунта не меняет is_active, поэтому доступ восстанавливается после истечения срока или отзыва блокировки.
+
+Секреты OAuth, расшифрованные credentials и session fingerprints в интерфейсе не показываются. Административные действия должны оставаться permission-protected и попадать в аудит.
+
+## Безопасность
+
+- OAuth state/PKCE и серверное хранение зашифрованных пользовательских credentials.
+- CSRF-защита форм и session-bound API; ownership checks для пользовательских объектов.
+- Ограничения входных URL и доменов, SSRF-защита provider clients и media proxy.
+- Защищённые cookie и security headers на HTTPS-конфигурации.
+- Ограничение частоты неудачных попыток входа и журналирование security events без записи паролей, токенов и cookies.
+- Разделение staff permissions и superuser-only security data.
+- Nginx блокирует доступ к служебным файлам и каталогам репозитория.
+
+Для постоянного публичного хоста используйте HTTPS, корректные DJANGO_ALLOWED_HOSTS и DJANGO_CSRF_TRUSTED_ORIGINS, SESSION_COOKIE_SECURE=true, CSRF_COOKIE_SECURE=true, SECURE_SSL_REDIRECT=true, доверенный reverse proxy и отдельное хранилище секретов. Не публикуйте DEBUG-окружение.
+
+## Фоновые задачи и восстановление
+
+Новая задача переноса сохраняется в PostgreSQL, а в Redis передаётся идентификатор. Периодический dispatch восстанавливает доставку ожидающих задач, если Redis временно был недоступен. Worker атомарно захватывает задачу, обновляет heartbeat и сохраняет checkpoints.
+
+Для проверки зависших задач без изменений:
+
+~~~powershell
+docker compose exec web python manage.py fail_stale_transfers --older-than-minutes 60 --dry-run
+~~~
+
+Для выполнения проверки:
+
+~~~powershell
+docker compose exec web python manage.py fail_stale_transfers --older-than-minutes 60
+~~~
+
+Команда dispatch:
+
+~~~powershell
+docker compose exec web python manage.py dispatch_queued_transfers --dry-run
+docker compose exec web python manage.py dispatch_queued_transfers
+~~~
+
+Перед ручным повтором или изменением статуса проверьте фактическое содержимое целевого плейлиста. Внешний API мог принять запись до сбоя worker. Не включайте слепые retries для внешних POST-запросов: это может создать дубликаты.
+
+## Backup и restore
+
+PowerShell-скрипты работают с production-like Compose:
+
+~~~powershell
 .\scripts\backup.ps1
-
-# Указать отдельный диск/каталог и срок хранения
 .\scripts\backup.ps1 -OutputRoot 'E:\PlaylistBridgeBackups' -RetentionDays 14
+.\scripts\restore.ps1 -BackupPath '.\backups\<backup-folder>'
+~~~
 
-# Восстановить конкретную копию (перед заменой создаётся pre-restore backup)
-.\scripts\restore.ps1 -BackupPath '.\backups\20261128-120000-000'
-```
+Backup включает PostgreSQL dump, архив media/ и SHA-256 manifest. Скрипты не архивируют .env и не шифруют backup. Для восстановления OAuth credentials необходим исходный TOKEN_ENCRYPTION_KEY. Храните резервные копии вне рабочей машины в защищённом хранилище и регулярно проверяйте restore на отдельном окружении. Runtime restore drill не следует считать подтверждённым только по факту наличия скриптов.
 
-Backup включает:
-- PostgreSQL custom dump (`database.dump`), проверяемый через `pg_restore --list`;
-- всё содержимое `media/` в `media.tar.gz`;
-- `manifest.json` с датой, размерами и SHA-256 обоих архивов.
+## Разработка и тестирование
 
-Для согласованного снимка backup временно останавливает `web`, `worker` и `celery-beat`, затем запускает те сервисы, которые работали до операции. PostgreSQL остаётся запущенным. Во время операции сайт может быть недоступен. Восстановление требует явного ввода `RESTORE`, проверяет SHA-256 и безопасные пути в media-архиве, автоматически создаёт резервную копию текущего состояния и только затем заменяет базу и media. Предыдущий каталог `media` сохраняется как `media.before-restore-<timestamp>`.
+Установить зависимости:
 
-Каталог `backups/` исключён из Git, но локальный диск компьютера не является надёжным off-site backup. Для реального production указывай внешний зашифрованный диск или защищённое удалённое хранилище и проверяй возможность восстановления регулярно. Архивы скрипта не шифруются.
-
-`.env` и секреты намеренно не входят в архив. Отдельно сохрани в менеджере секретов/защищённой резервной копии как минимум `TOKEN_ENCRYPTION_KEY`, `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` и OAuth client secrets. Без исходного `TOKEN_ENCRYPTION_KEY` восстановленные OAuth credentials в PostgreSQL нельзя расшифровать. Для восстановления используй совместимый `.env` и тот же ключ шифрования.
-
-CI пока проверяет синтаксис PowerShell-скриптов, но не выполняет runtime backup/restore на реальной Docker-инсталляции. Перед тем как считать резервирование рабочим, создай backup на своей машине и проведи restore drill только на отдельной копии окружения с тестовыми данными; не проверяй восстановление поверх единственного рабочего экземпляра.
-
-### Production-like / HTTPS Quick Tunnel
-
-`scripts/start-tunnel-prod.ps1` запускает production-like конфигурацию только с базовым `compose.yaml`: Nginx, Gunicorn, Celery worker, Celery beat, PostgreSQL и Redis; `compose.dev.yaml` не подключается. Скрипт обновляет callback URLs и HTTPS-параметры в локальном `.env`, оставляет `DJANGO_DEBUG=false`. `scripts/start-tunnel.ps1`, напротив, запускает dev overlay с `DEBUG=true` и требует явного ввода `DEBUG` перед публичной публикацией. Для остановки туннеля и Compose-контейнеров используй `scripts/stop-tunnel.ps1`.
-
-Для постоянного production-хоста не используйте Quick Tunnel: задайте постоянные HTTPS callback URLs, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `SESSION_COOKIE_SECURE=true`, `CSRF_COOKIE_SECURE=true` и `SECURE_SSL_REDIRECT=true`; TLS должен завершаться на доверенном reverse proxy. Не переносите dev-переменные в production secret store.
-
-## Запуск локально с публичным HTTPS через Cloudflare Quick Tunnel
-
-Домен, VPS и платная подписка Cloudflare для Quick Tunnel не нужны. Туннель временно публикует локальный порт Django по HTTPS. Адрес *.trycloudflare.com временный и может измениться при следующем запуске; при смене адреса обнови Redirect URL в кабинетах Spotify и SoundCloud.
-
-### 1. Подготовь проект и .env
-
-В PowerShell:
-
-    git clone https://github.com/pohib/playlist-bridge.git
-    cd playlist-bridge
-    Copy-Item .env.example .env
-    notepad .env
-
-Если репозиторий уже скачан, вместо clone перейди в его каталог и выполни:
-
-    git switch main
-    git pull --ff-only origin main
-
-Сгенерируйте три независимых значения командами ниже и укажите результаты в соответствующих переменных `.env`:
-
-    python -c "import secrets; print(secrets.token_urlsafe(64))"
-    python -c "import secrets; print(secrets.token_urlsafe(48))"
-    python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
-
-Результаты по порядку:
-- первая команда → DJANGO_SECRET_KEY;
-- вторая команда → POSTGRES_PASSWORD;
-- третья команда → TOKEN_ENCRYPTION_KEY (Fernet key).
-
-Не используй одно значение для нескольких параметров. Не публикуй .env и не отправляй его содержимое в чат.
-
-Заполни OAuth-переменные:
-- SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET — из Spotify Developer Dashboard;
-- SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET — из зарегистрированного SoundCloud Developer App.
-
-VK не требует регистрации приложения и отдельных значений в `.env`: сервер получает анонимный токен публичного веб-клиента.
-
-При первом запуске остальные значения можно оставить такими, как указано в `.env.example`. Переменная `DATABASE_URL` не требуется: Compose формирует её из `POSTGRES_PASSWORD`. Пользовательские access/refresh tokens не следует хранить в `.env`.
-
-### 2. Установи Cloudflare Tunnel
-
-Установите Docker Desktop и дождитесь запуска Docker Engine. Затем установите cloudflared:
-
-    winget install --id Cloudflare.cloudflared -e
-
-Закройте и повторно откройте PowerShell для обновления PATH. Затем выполните проверку:
-
-    cloudflared --version
-
-### 3. Запусти приложение и HTTPS-туннель
-
-Из корня проекта:
-
-    Set-ExecutionPolicy -Scope Process Bypass
-    .\scripts\start-tunnel-prod.ps1
-
-Для запуска DEBUG-версии используй `scripts/start-tunnel.ps1`: он работает через `compose.dev.yaml`, требует подтверждения `DEBUG` и публикует DEBUG=True. Не используй его для публичной эксплуатации. Production-like скрипт не запускает pytest, Ruff или другие тесты: он предназначен для запуска уже подготовленного Docker Compose окружения и публикации его через Quick Tunnel. Новые Python test-файлы не нужно добавлять в start-tunnel-prod.ps1; тесты запускаются отдельными командами из корня проекта до запуска приложения.
-
-Скрипт:
-1. Проверяет обязательные секреты в .env;
-2. собирает контейнеры и запускает Nginx reverse proxy, Django/Gunicorn, PostgreSQL, Redis и Celery worker;
-3. ждёт успешного ответа /healthz/;
-4. запускает Cloudflare Quick Tunnel;
-5. получает временный HTTPS URL;
-6. обновляет в .env домен, CSRF origin, Secure cookies, HTTPS redirect и callback URI Spotify/SoundCloud;
-7. пересоздаёт web и worker с новыми настройками; Nginx продолжает принимать трафик на прежнем локальном порту 8000 и передаёт его в web:8000.
-
-После завершения скрипт покажет URL и точные callback URI. Не закрывай процесс cloudflared: туннель должен оставаться запущенным, пока используешь приложение. Чтобы остановить его, выполни команду с PID, который напечатал скрипт:
-
-    Stop-Process -Id <PID>
-
-### 4. Зарегистрируй OAuth callback URI Spotify и SoundCloud
-
-Скопируй callback URL из вывода скрипта без изменений.
-
-В настройках приложения Spotify укажите Redirect URI:
-
-    https://<текущий-домен>.trycloudflare.com/spotify/callback/
-
-В кабинете SoundCloud также зарегистрируй:
-
-    https://<текущий-домен>.trycloudflare.com/soundcloud/callback/
-
-Вместо <текущий-домен> подставь фактический адрес из вывода скрипта. Callback в .env и в кабинете провайдера должны совпадать посимвольно, включая завершающий слеш.
-
-### 5. Проверка приложения
-
-Откройте HTTPS URL, выведенный скриптом, и проверьте health endpoint:
-
-    Invoke-WebRequest https://<текущий-домен>.trycloudflare.com/healthz/
-
-Проверьте состояние контейнеров:
-
-    docker compose ps
-
-Логи приложения и фонового worker:
-
-    docker compose logs -f web worker celery-beat celery-beat
-
-Подключите Spotify. VK подключать не требуется: для проверки импорта достаточно ссылки на публичный плейлист VK. Для добавления треков в существующий Spotify playlist используйте ссылку на плейлист, принадлежащий подключённому аккаунту.
-
-### 6. Повторный запуск
-
-Quick Tunnel не гарантирует постоянный адрес. При новом запуске:
-1. Останови старый cloudflared процесс, если он ещё работает;
-2. Запусти scripts/start-tunnel-prod.ps1 снова;
-3. Обнови callback URI в кабинетах Spotify и SoundCloud, если домен изменился;
-4. При изменении Redirect URI переподключите OAuth-аккаунт провайдера.
-
-Quick Tunnel не является постоянным production-хостингом. `start-tunnel-prod.ps1` — production-like проверка Gunicorn/HTTPS, а не замена постоянному домену, резервному копированию, мониторингу и управляемой инфраструктуре.
-
-### Обычные команды Docker Compose
-
-Проверить контейнеры:
-
-    docker compose ps
-
-Посмотреть логи:
-
-    docker compose logs -f web worker celery-beat
-
-Выполнить Django checks:
-
-    docker compose exec web python manage.py check
-
-Остановить контейнеры, сохранив базу:
-
-    docker compose down
-
-Удаление базы и OAuth-подключений — только если осознанно хочешь начать с чистого состояния:
-
-    docker compose down -v
-
-Команда down -v удаляет PostgreSQL volume, включая сохранённые OAuth credentials и историю переносов. Не выполняй её для обычной остановки.
-
-TOKEN_ENCRYPTION_KEY необходимо сохранить: без него восстановить зашифрованные токены невозможно. Храните ключ отдельно в менеджере секретов и создавайте защищённую резервную копию.
-
-
-## Локальные тесты и проверки
-
-Для запуска тестов на Windows установи Python 3.12 и выполни из корня проекта в отдельном PowerShell:
-
-    py -3.12 -m venv .venv
-    .\.venv\Scripts\Activate.ps1
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt -r requirements-dev.txt
-    python manage.py check
-    python manage.py makemigrations --check --dry-run
-    ruff check .
-    pytest -q
-    pytest -q transfer/tests/test_fuzzing.py
-    pytest -q --cov=transfer --cov-report=term-missing
-
-Тесты используют SQLite, если DATABASE_URL не задан в окружении; PostgreSQL из Compose для локального запуска pytest не требуется. Не добавляйте DATABASE_URL в `.env` только ради тестов.
-
-CI запускается автоматически при push в main и pull request. В workflow входят pytest, Ruff, Django checks, Bandit, Semgrep, pip-audit, Gitleaks, Trivy, Hadolint, CodeQL и два OWASP ZAP DAST-сканирования: authenticated full scan веб-приложения и active API scan по OpenAPI. Перед сканированием создаются два временных пользователя, проверяется изоляция чужих transfer jobs, а ZAP получает отдельную сессию первого пользователя. HTML/JSON/Markdown отчёты сохраняются как артефакт Actions.
-
-
-
-### Быстрые команды разработчика
-
-```powershell
-# Windows: локальные Python checks (не требует поднятого Docker stack)
-py -3.12 -m venv .venv
+~~~powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements-dev.txt
+~~~
+
+Основные проверки:
+
+~~~bash
 ruff check .
 python manage.py check
 python manage.py makemigrations --check --dry-run
+pytest -q
 pytest -q --cov=transfer --cov-report=term-missing
+~~~
 
-# Только property-based fuzz tests
-pytest -q transfer/tests/test_fuzzing.py
+Дополнительные инструкции, структура тестов, fuzzing и требования к покрытию описаны в TESTING.md.
 
-# Контейнеры / приложение / логи
-docker compose ps
-docker compose logs -f web worker celery-beat
-docker compose exec web python manage.py check
+CI workflow включает тесты, Ruff/Django checks, SAST/SCA/secrets, container scan и DAST; CodeQL запускается отдельным workflow. Результаты CI и CodeQL нужно проверять для конкретного commit в GitHub Actions — README намеренно не фиксирует меняющиеся номера тестов, coverage и статус проверок.
 
-# Запуск production-like HTTPS Quick Tunnel (DEBUG=False)
-Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\start-tunnel-prod.ps1
+## Известные ограничения
 
-# Для временной DEBUG-отладки (требует ручного подтверждения)
-.\scripts\start-tunnel.ps1
+- VK audio import опирается на внутренние методы публичного веб-клиента, которые могут измениться или стать недоступными.
+- Spotify API может ограничивать запросы по тарифу, Development Mode, квотам и rate limits. Client Credentials не обходят ограничения Spotify.
+- SoundCloud и Spotify могут менять API и OAuth требования.
+- Импорт и перенос с реальными аккаунтами требуют отдельной интеграционной проверки; CI использует mock-ответы и не выполняет реальные операции с пользовательскими плейлистами.
+- Плеер не предоставляет прямое аудио Spotify/SoundCloud и зависит от embed-возможностей провайдеров.
+- Quick Tunnel — временный механизм доступа, не замена постоянному домену и production-инфраструктуре.
+- Backup/restore требует практического тестового восстановления; наличие CI проверки синтаксиса скриптов не подтверждает восстановление реальной базы.
 
-# Остановка туннеля и Compose (volume БД сохраняется)
-.\scripts\stop-tunnel.ps1
-```
+## План дальнейшей работы
 
-### Карта тестов
+- Завершить аудит разрешений и административных действий, включая журналирование чувствительных операций.
+- Расширить аналитику пользовательской активности и операционных ошибок без раскрытия сетевых данных обычному staff.
+- Добавить browser-based E2E для плеера, внутренней навигации и адаптивного интерфейса.
+- Улучшить отчёты переноса, matching неоднозначных версий и обработку rate limits.
+- Провести регулярный backup/restore drill и настроить зашифрованное off-site хранение.
+- Подготовить отдельное production окружение с постоянным доменом, управляемыми секретами и мониторингом.
+- Реализовать экспорт и удаление пользовательских данных.
 
-| Файл | Что защищает |
-|---|---|
-| transfer/tests/test_legacy.py | Ранние регрессионные сценарии: URL validation, API contracts, credentials, concurrency и исходные workflows |
-| transfer/tests/test_contracts.py | URL names/paths, HTTP methods и внешние контракты |
-| transfer/tests/test_oauth_flows.py | OAuth state, PKCE, callback, credential persistence/disconnect |
-| transfer/tests/test_provider_clients.py | HTTP/API contracts провайдеров, pagination, redirects, ID validation, upload |
-| transfer/tests/test_service_orchestration.py | Прямой VK → Spotify orchestration и matching decisions |
-| transfer/tests/test_playback.py | Playback endpoints, local audio, cover proxy и VK stream behavior |
-| transfer/tests/test_library_workflows.py | CRUD, provider imports, ownership и review state machine |
-| transfer/tests/test_library_transfer_matching.py | Пороговые решения и формат кандидатов Spotify/SoundCloud для ручного сопоставления |
-| transfer/tests/test_bulk_import_regressions.py | Массовый импорт библиотек, batch limit и частичные ошибки |
-| transfer/tests/test_fuzzing.py | Hypothesis fuzzing входных URL/JSON и provider metadata |
-| transfer/tests/test_profile_and_api_docs.py | Профиль, сервисы, API docs и статические UI-регрессии плеера |
+---
 
-### Границы покрытия и незакрытые зоны
+## Ссылки
 
-- Coverage в CI считается через pytest-cov только для Python-пакета transfer; migrations и тестовые модули исключены через .coveragerc. Это **не процент покрытия всего репозитория**: JS, CSS, HTML templates, PowerShell, Docker/Compose и ручные пользовательские сценарии в этот процент не входят.
-- Результаты CI относятся только к конкретному commit SHA. Не считай предыдущий успешный запуск подтверждением текущего состояния: проверяй актуальный Actions run, включая authenticated DAST, перед следующим изменением.
-- Mock provider API проверяют логику и контракты, но не подтверждают, что реальные VK/Spotify/SoundCloud API доступны или не изменились.
-- Для плеера нет полноценного browser-based E2E набора, проверяющего реальное воспроизведение и анимации во всех браузерах.
-- Authenticated ZAP DAST использует CI-пользователя и проверяет доступные ему страницы/API; отдельный smoke-check проверяет, что пользователь не читает transfer job и отчёт другого пользователя. Это не исчерпывающий IDOR-аудит всех объектов библиотеки и не browser E2E.
-- Fuzz tests ограничены по длине и числу примеров; это не бесконечный fuzz campaign и не замена security review.
-
-## Защита Spotify API от SSRF
-
-Spotify-клиент не принимает произвольные URL или HTTP-методы: вызываются только заранее определённые операции API. Для операций с плейлистом отдельно проверяется ID, а автоматическое следование HTTP-редиректам отключено. Эти меры ограничивают сетевое назначение фиксированным API Spotify и не позволяют передать пользовательский URL в HTTP-клиент. Регрессионные тесты проверяют подмену адреса, некорректные ID и редиректы. Статус CodeQL подтверждается только после успешного завершения нового анализа на актуальном commit SHA.
-
-## API v1
-
-API использует ту же браузерную сессию и CSRF:
-- GET /api/v1/status/ — подключения и конфигурация.
-- POST /api/v1/transfers/ — поставить перенос в очередь.
-- GET /api/v1/transfers/{job_id}/ — прогресс.
-- GET /api/v1/transfers/{job_id}/report/ — JSON-отчёт.
-- GET /api/v1/openapi.json — OpenAPI 3.1.
-- GET /healthz/ — health check.
-
-Пример тела запроса:
-
-    {
-      "source_url": "https://vk.ru/music/playlist/241688629_5_b8781ccec850436700",
-      "target_playlist": ""
-    }
-
-Пустой target_playlist создаёт новый приватный плейлист.
-
-## Celery: durable dispatch, heartbeat и безопасная обработка зависших задач
-
-`run_transfer` атомарно забирает задачу из `queued` в `running`. Во время переноса worker обновляет `heartbeat_at` при обработке каждого трека. Это позволяет отличить давно не обновлявшуюся задачу от обычной активной работы. Повторная доставка сообщения по-прежнему защищена атомарным claim: одновременно выполнить одну задачу дважды нельзя.
-
-Проверить зависшие задачи без изменения БД:
-
-```powershell
-docker compose exec web python manage.py fail_stale_transfers --older-than-minutes 60 --dry-run
-```
-
-Пометить задачи со stale heartbeat как failed:
-
-```powershell
-docker compose exec web python manage.py fail_stale_transfers --older-than-minutes 60
-```
-
-Команда затрагивает только `running` jobs, у которых heartbeat (или `started_at` для старых записей без heartbeat) старше заданного порога. Она **не перезапускает** задачу. Перед ручным повтором проверь целевой Spotify playlist: если worker завершился после успешного API-запроса, часть композиций уже могла добавиться. Порог по умолчанию — 60 минут; выбирай его с учётом максимальной длительности переноса.
-
-### Восстановление доставки queued jobs
-
-Новая задача сначала сохраняется в PostgreSQL. Отправка UUID в Redis выполняется через общий dispatch-сервис: перед публикацией он атомарно записывает `dispatch_attempted_at` и увеличивает `dispatch_attempts`. Если Redis недоступен, задача остаётся в `queued`, а не переводится в `failed`. Celery beat раз в минуту запускает `dispatch_queued_transfers`; повторная попытка разрешается после 120 секунд. Условное UPDATE не даёт двум scheduler-процессам одновременно захватить один и тот же dispatch lease.
-
-Проверить и вручную запустить восстановление:
-
-```powershell
-docker compose exec web python manage.py dispatch_queued_transfers --dry-run
-docker compose exec web python manage.py dispatch_queued_transfers
-```
-
-Команда поддерживает `--retry-after-seconds` и `--batch-size`. Повторная публикация одного UUID безопасна на уровне worker: `run_transfer` атомарно переводит только `queued` в `running`, все дублирующие доставки завершаются без повторного вызова Spotify API.
-
-Heartbeat и `fail_stale_transfers` остаются отдельным механизмом: он закрывает зависшие `running`, но не пытается автоматически повторить перенос. `acks_late` и автоматические retries для внешних Spotify POST пока не включены: durable dispatch восстанавливает только доставку ещё не начатых задач. Для безопасного resume после частичного переноса всё ещё нужна reconciliation фактического содержимого целевого Spotify playlist и checkpoint по подтверждённым пакетам.
-
-## Безопасность и CI
-
-- pytest, Ruff, Django checks, негативные тесты изоляции сессий и защиты от повторной постановки/обработки задач;
-- Bandit, Semgrep и CodeQL (security-extended) как обязательные jobs CI с SARIF публикацией в GitHub Code Scanning;
-- pip-audit, Gitleaks со сканированием истории Git, Trivy filesystem/container (MEDIUM и выше), Hadolint;
-- OWASP ZAP authenticated full DAST против запущенного приложения и active API DAST по OpenAPI; временные учётные записи и IDOR fixtures создаются только в изолированном CI. Тестовые уязвимости в само приложение не внедряются;
-- HTML-обработчики 400/403/404/500 не раскрывают внутренние исключения; API сохраняет JSON-контракт. Nginx скрывает служебные файлы и каталоги, отдавая общий 404;
-- Dependabot для pip, Docker и GitHub Actions: ежедневная проверка с cooldown 7 дней;
-- Dependabot PR автоматически сливаются через squash после успешного завершения всех jobs workflow CI: tests, SAST/SCA/secrets, container и DAST. CodeQL запускается отдельно.
-- Cooldown 7 дней относится к обычным version updates; security updates GitHub может предлагать сразу, без ожидания cooldown.
-
-Автоматическое слияние выполняет workflow через GITHUB_TOKEN только после успешного завершения всего CI, включая CodeQL; включать Allow auto-merge не требуется. Для дополнительной защиты включите ruleset/branch protection для main и сделайте обязательными checks tests, sast-sca-secrets, container, dast и codeql.
-
-SARIF Bandit/Semgrep/Trivy загружается на push/workflow_dispatch, а CodeQL также анализирует pull request. GitHub Code Scanning может требовать доступность Code Security для репозитория. Для private repository проверьте доступность этой функции на текущем плане.
-
-## Ограничения
-
-- Импорт публичного аудио зависит от доступности внутренних VK web API и анонимной выдачи токена; VK может менять этот механизм или ограничивать его. Сейчас список ID запрашивается одним вызовом `audio.getIdsBySource`; пагинация этого метода не установлена, поэтому очень большие плейлисты могут быть ограничены самим VK. Метаданные загружаются пакетами по 50 записей. Название плейлиста запрашивается отдельно через `audio.getPlaylistById`; если VK не возвращает название, используется информативное резервное имя с ID плейлиста.
-- Spotify access token обновляется через refresh token; refresh token Spotify истекает через 6 месяцев после исходной авторизации, после чего пользователь должен подключить аккаунт заново.
-- Spotify rate limits и отдельная Development Mode quota могут замедлять или временно блокировать перенос.
-- DAST использует временную локальную Django-сессию, но не подключает реальные Spotify/SoundCloud OAuth-аккаунты. Провайдерские OAuth callback, импорт/перенос с реальными API и воспроизведение аудио требуют отдельных интеграционных/E2E проверок.
-- В Spotify Development Mode владелец приложения должен иметь Premium; максимум 5 авторизованных пользователей, каждый тестировщик должен быть добавлен в Users Management allowlist. Для публичного сервиса действует отдельная процедура Extended Quota Mode.
-- Локальные настройки `SESSION_COOKIE_SECURE=false` и `CSRF_COOKIE_SECURE=false` допустимы только для loopback HTTP-разработки; на публичном HTTPS-хосте включите обе.
-- Повторная отправка пакетов Spotify автоматически не включена, чтобы не создавать дубликаты при неопределённом результате сетевого запроса.
-
-## Текущий статус и ближайшие задачи
-
-### Уже реализовано
-
-- Регистрация, вход, профиль пользователя и личная библиотека с привязкой данных к аккаунту.
-- OAuth Spotify и SoundCloud; SoundCloud использует PKCE S256. Пользовательские credentials шифруются Fernet в PostgreSQL, поиск credentials привязан к HMAC fingerprint.
-- Импорт публичных плейлистов и отдельных треков VK, Spotify и SoundCloud.
-- Импорт доступной библиотеки плейлистов Spotify и SoundCloud с ограничением до 30 плейлистов за один запуск.
-- Перенос библиотечных плейлистов в Spotify или SoundCloud: подбор существующих композиций, создание целевого плейлиста из совпадений, локальное зеркало и ручной review пропусков.
-- Отдельный асинхронный workflow VK → Spotify через API v1, Celery, Redis, статусы, прогресс и JSON-отчёт.
-- Heartbeat для прямого VK → Spotify Celery workflow и management command `fail_stale_transfers` для безопасного выявления зависших running jobs; команда не делает автоматический retry.
-- Проверка доступа к существующему Spotify playlist в прямом VK → Spotify workflow; добавление композиций в заданную позицию.
-- Локальная загрузка и воспроизведение аудио; загрузка пользовательского файла в SoundCloud. Ограничение файла — 100 МБ.
-- Глобальный плеер: очередь, shuffle/repeat, управление громкостью, сворачивание/разворачивание с FLIP-анимацией, поиск альтернативных источников и сохранение состояния.
-- Docker Compose для Nginx reverse proxy, Django/Gunicorn web, Celery worker и beat, PostgreSQL и Redis; health checks, логи, отдельный debug overlay и production-like Cloudflare Quick Tunnel.
-- PowerShell backup/restore для production-like Compose: PostgreSQL custom dump, media archive, SHA-256 manifest, pre-restore backup и сохранение предыдущего media-каталога. Архивы не зашифрованы, секреты хранятся отдельно; runtime restore drill ещё не подтверждён.
-- CI с pytest/coverage, Ruff, Django checks, SAST/SCA/secrets, container scan, CodeQL и OWASP ZAP baseline DAST.
-- Проверка полного CI и coverage выполняется для каждого commit; фиксированные числа тестов и coverage в README намеренно не закрепляются, поскольку они меняются вместе с кодом.
-
-### Ближайшие задачи
-
-- Завершить аудит оставшихся view-модулей и сервисного слоя на циклические импорты и лишнюю связанность; не дробить уже специализированные модули без практической причины.
-- Ввести единый интерфейс провайдера там, где это уменьшит связанность; не создавать абстракции ради абстракций.
-- Улучшить matching: пороги уверенности, неоднозначные совпадения, версии/ремастеры/featuring и причины отклонения кандидатов.
-- Усилить отчёт переноса: объяснение ошибок и пропусков, экспорт CSV; JSON report уже доступен через API прямого переноса.
-- Реализовать reconciliation частично выполненного переноса: сохранять checkpoints целевого Spotify playlist и сверять фактически добавленные треки до любого resume. Не включать слепые retries для внешних POST-запросов.
-- Расширить обработку больших коллекций, rate limits и временных ошибок API с корректным Retry-After/backoff; для небезопасных POST не повторять запрос автоматически при неопределённом результате.
-- Добавить отмену активных Celery jobs, подробный мониторинг и correlation ID.
-- Добавить browser-based E2E для плеера: реальное воспроизведение, очередь, навигация, адаптивность и анимации. Текущий Python coverage не измеряет JS/CSS/templates.
-- После локальной проверки backup/restore добавить автоматическое расписание backup, off-site encrypted retention и регулярный restore drill в изолированное окружение.
-- Подготовить постоянный production-домен, TLS-конфигурацию для Nginx/Cloudflare, отдельные окружения и управляемые секреты.
-- Реализовать полноценные интеграции YouTube Music и Apple Music, если будет выбран поддерживаемый и разрешённый API.
-- Добавить понятные процедуры экспорта и удаления пользовательских данных.
-
-> Лимиты и поведение сторонних API могут меняться. Перед изменением интеграции сверяйтесь с текущими ответами API и документацией провайдера; не обходите ограничения доступа или DRM.
-
-
-## Документация API
-
-В приложении доступен справочник по API: `/api/docs/`. Машиночитаемая схема OpenAPI 3.1 находится по адресу `/api/v1/openapi.json`. Документация описывает методы, форматы запросов и ответов, CSRF и коды ошибок. API использует браузерную сессию; OAuth-токены провайдеров не передаются в теле запросов и не публикуются в документации.
-
-
-### Публичный поиск Spotify и SoundCloud без подключения аккаунта
-
-Поиск треков в очереди ручного сопоставления использует отдельные app-scoped OAuth Client Credentials, а не OAuth-токен пользователя. Это разрешает поиск по публичному каталогу без привязки музыкального аккаунта. Операции записи в плейлисты, импорт приватных данных и загрузка файлов по-прежнему требуют пользовательского OAuth. Токены каталога шифруются через `TOKEN_ENCRYPTION_KEY` и хранятся в общем Redis cache (`CACHE_URL`, по умолчанию Redis DB 1), а SoundCloud refresh token используется для обновления access token.
-
-Spotify Web API в актуальном Developer Mode требует Premium у владельца приложения; Client Credentials не обходят ограничения Spotify. Если Spotify отклоняет запрос из-за entitlement/quota, интерфейс покажет ошибку провайдера, а не будет маскировать её как проблему подключения пользователя.
-
-### Панель управления
-
-Кастомная staff-панель доступна по адресу `/control/`; старый `/admin/` перенаправляет на неё. Разделы проверяют отдельные Django permissions. В панели доступны сводка, поиск и включение/отключение обычных аккаунтов, просмотр очереди, сводка библиотек и журнал привилегированных действий. OAuth secrets, encrypted credentials и session fingerprints не выводятся. Повторный запуск transfer job из UI намеренно отсутствует, пока не реализовано безопасное reconciliation внешних side effects.
+- [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
+- [SoundCloud Developers](https://developers.soundcloud.com/)
+- [Django documentation](https://docs.djangoproject.com/)
+- [Celery documentation](https://docs.celeryq.dev/)
