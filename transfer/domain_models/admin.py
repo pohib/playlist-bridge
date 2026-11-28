@@ -128,6 +128,9 @@ class ProviderIntegrationEvent(models.Model):
         SPOTIFY = "spotify", "Spotify"
         VK = "vk", "VK"
         SOUNDCLOUD = "soundcloud", "SoundCloud"
+        DEEZER = "deezer", "Deezer"
+        ITUNES = "itunes", "Apple Music / iTunes"
+        YOUTUBE_MUSIC = "youtube_music", "YouTube Music"
         SYSTEM = "system", "Система"
 
     class Category(models.TextChoices):

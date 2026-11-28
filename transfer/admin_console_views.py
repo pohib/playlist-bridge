@@ -261,6 +261,9 @@ def console_integrations(request):
         spotify=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.SPOTIFY)),
         vk=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.VK)),
         soundcloud=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.SOUNDCLOUD)),
+        deezer=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.DEEZER)),
+        itunes=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.ITUNES)),
+        youtube_music=Count("id", filter=Q(provider=ProviderIntegrationEvent.Provider.YOUTUBE_MUSIC)),
     )
     page = Paginator(events, 30).get_page(request.GET.get("page"))
     return render(request, "transfer/admin_console/integrations.html", {
