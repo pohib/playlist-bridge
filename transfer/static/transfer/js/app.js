@@ -387,25 +387,49 @@
   function renderSearchResults(data){ui.searchResults.replaceChildren();const statuses=data.statuses||{};Object.entries(statuses).forEach(([provider,status])=>{const line=document.createElement("small");line.className="player-search-status";line.textContent=providerLabel(provider)+": "+status;ui.searchResults.append(line);});(data.results||[]).forEach(result=>{const card=document.createElement("div");card.className="player-search-result";const meta=document.createElement("div");meta.className="player-search-result-meta";const title=document.createElement("strong");title.textContent=result.title||"Без названия";const artist=document.createElement("small");artist.textContent=(result.artist||"")+(result.provider?" · "+providerLabel(result.provider):"");meta.append(title,artist);card.append(meta);if(result.search_only||!result.playable){const link=document.createElement("a");link.href=result.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=result.search_only?"Открыть поиск":"Открыть в "+providerLabel(result.provider);card.append(link);}else{const track={provider:result.provider,id:result.id,url:result.url,title:result.title,artist:result.artist,cover:sameOriginCover(result.cover||""),stream_url:result.stream_url||""};const add=document.createElement("button");add.type="button";add.textContent="＋ В очередь";add.addEventListener("click",()=>addQueueItem(track));const play=document.createElement("button");play.type="button";play.textContent="▶ Играть";play.addEventListener("click",()=>{addQueueItem(track,true);});card.append(add,play);}ui.searchResults.append(card);});if(!(data.results||[]).length){const empty=document.createElement("p");empty.textContent="В выбранных сервисах совпадений не найдено. Это не влияет на импортированные плейлисты VK — они остаются в библиотеке.";const upload=document.createElement("a");upload.href="/library/";upload.textContent="Перейти к загрузке аудиофайла";ui.searchResults.append(empty,upload);}}
   el("player-search-current").addEventListener("click",async()=>{const track=state.queue[state.index];if(!track)return;ui.searchResults.replaceChildren();const loading=document.createElement("small");loading.textContent="Ищем совпадения в выбранных сервисах…";ui.searchResults.append(loading);try{const response=await fetch("/api/v1/library/tracks/search/",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","Accept":"application/json","X-CSRFToken":ui.csrf?.value||""},body:JSON.stringify({title:track.title,artist:track.artist,providers:state.sourceProviders||["auto"]})});const data=await response.json();if(!response.ok)throw new Error(data.error||"Не удалось выполнить поиск.");renderSearchResults(data);}catch(error){ui.searchResults.replaceChildren();const message=document.createElement("small");message.textContent=error.message;ui.searchResults.append(message);}});
   if(state.queue.length)render();else renderQueue();
-  // Keep the active provider iframe/audio element mounted while navigating
-  // between internal application pages.
+  // Preserve the audio element while switching between the application and control center.
   let navigationBusy=false;
+  function applyDocument(doc, finalUrl, push=true){
+    const nextAdmin=doc.querySelector(".admin-layout");
+    const nextSite=doc.querySelector(".site-shell");
+    const currentAdmin=document.querySelector(".admin-layout");
+    const currentSite=document.querySelector(".site-shell");
+    if(nextAdmin){
+      if(currentAdmin)currentAdmin.replaceWith(nextAdmin);
+      else if(currentSite)currentSite.replaceWith(nextAdmin);
+      else throw new Error("Current application shell not found");
+      document.body.classList.remove("app-body");
+      document.body.classList.add("admin-body");
+      let adminStyles=document.getElementById("admin-console-stylesheet");
+      if(!adminStyles){
+        adminStyles=document.createElement("link");
+        adminStyles.id="admin-console-stylesheet";
+        adminStyles.rel="stylesheet";
+        adminStyles.href="/static/transfer/styles/admin-console.css?v=20261128-11";
+        document.head.append(adminStyles);
+      }
+    }else if(nextSite){
+      if(currentAdmin)currentAdmin.replaceWith(nextSite);
+      else if(currentSite)currentSite.replaceWith(nextSite);
+      else throw new Error("Current application shell not found");
+      document.body.classList.remove("admin-body");
+      document.body.classList.add("app-body");
+      document.getElementById("admin-console-stylesheet")?.remove();
+    }else{
+      throw new Error("Page shell not found");
+    }
+    document.title=doc.title;
+    if(push)history.pushState({},"",finalUrl);
+    window.scrollTo({top:0,behavior:"instant"});
+  }
   async function navigate(url, push=true){
     if(navigationBusy)return;
     navigationBusy=true;
     try{
       const response=await fetch(url,{credentials:"same-origin",headers:{"X-Requested-With":"XMLHttpRequest"}});
       if(!response.ok||!response.headers.get("content-type")?.includes("text/html"))throw new Error("Navigation failed");
-      const html=await response.text(),doc=new DOMParser().parseFromString(html,"text/html");
-      const current=doc.querySelector(".page-content"),target=document.querySelector(".page-content");
-      if(!current||!target)throw new Error("Page shell not found");
-      target.innerHTML=current.innerHTML;document.title=doc.title;
-      const nextNav=doc.querySelector(".main-nav"),nav=document.querySelector(".main-nav");if(nextNav&&nav)nav.innerHTML=nextNav.innerHTML;
-      const nextMessages=doc.querySelector(".global-messages"),messages=document.querySelector(".global-messages");
-      if(nextMessages){if(messages)messages.replaceWith(nextMessages);else document.querySelector(".site-shell")?.insertBefore(nextMessages,target);}
-      else messages?.remove();
-      if(push)history.pushState({}, "", url);
-      window.scrollTo({top:0,behavior:"instant"});
+      const doc=new DOMParser().parseFromString(await response.text(),"text/html");
+      applyDocument(doc,response.url||url,push);
     }catch(_){window.location.assign(url);}
     finally{navigationBusy=false;}
   }
@@ -416,6 +440,33 @@
     if(url.origin!==window.location.origin||url.pathname.startsWith("/media/")||url.hash&&url.pathname===window.location.pathname)return;
     if(url.pathname.startsWith("/accounts/")||url.pathname.startsWith("/admin/"))return;
     event.preventDefault();navigate(url.href,true);
+  });
+  document.addEventListener("submit",async event=>{
+    const form=event.target.closest(".admin-layout form");
+    if(!form||form.target||navigationBusy)return;
+    const submitter=event.submitter;
+    const method=String(submitter?.formMethod||form.method||"GET").toUpperCase();
+    const action=submitter?.formAction||form.action||window.location.href;
+    const target=new URL(action,window.location.href);
+    if(target.origin!==window.location.origin)return;
+    event.preventDefault();
+    const data=new FormData(form,submitter);
+    if(method==="GET"){
+      for(const [key,value] of data.entries())if(typeof value==="string")target.searchParams.append(key,value);
+    }
+    navigationBusy=true;
+    try{
+      const response=await fetch(target.href,{
+        method:method==="GET"?"GET":method,
+        credentials:"same-origin",
+        headers:{"X-Requested-With":"XMLHttpRequest"},
+        ...(method==="GET"?{}:{body:data})
+      });
+      if(!response.headers.get("content-type")?.includes("text/html"))throw new Error("Unexpected admin response");
+      const doc=new DOMParser().parseFromString(await response.text(),"text/html");
+      applyDocument(doc,response.url||target.href,true);
+    }catch(_){form.submit();}
+    finally{navigationBusy=false;}
   });
   window.addEventListener("popstate",()=>navigate(window.location.href,false));
 })();

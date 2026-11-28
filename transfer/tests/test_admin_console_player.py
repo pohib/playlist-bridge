@@ -1,0 +1,25 @@
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import reverse
+
+
+class AdminConsolePlayerIntegrationTests(TestCase):
+    def test_control_center_includes_shared_player_and_runtime(self):
+        root = get_user_model().objects.create_superuser(
+            username="player-admin",
+            email="player-admin@example.test",
+            password="test-password",
+        )
+        self.client.force_login(root)
+
+        response = self.client.get(reverse("admin_console"))
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('id="global-player"', html)
+        self.assertIn('id="player-audio"', html)
+        self.assertIn('id="player-queue-panel"', html)
+        self.assertIn('id="player-eq-panel"', html)
+        self.assertIn("transfer/js/app.js", html)
+        self.assertIn("transfer/styles/main.css", html)
+        self.assertIn("transfer/styles/admin-console.css", html)
