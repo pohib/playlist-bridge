@@ -60,7 +60,7 @@ class AdminConsolePrivilegeTests(TestCase):
             self.staff.refresh_from_db()
             self.assertFalse(self.staff.is_superuser)
 
-    def test_cannot_change_own_privileges_or_remove_last_active_superuser(self):
+    def test_cannot_change_own_privileges_and_another_superuser_can_be_demoted_safely(self):
         own_url = reverse("admin_console_update_privilege", args=[self.root.pk])
         self.client.post(own_url, {
             "privilege": "superuser", "enabled": "false", "password": "root-password",
@@ -78,7 +78,9 @@ class AdminConsolePrivilegeTests(TestCase):
             "confirmation": "ПОДТВЕРЖДАЮ",
         })
         other.refresh_from_db()
-        self.assertTrue(other.is_superuser)
+        self.assertFalse(other.is_superuser)
+        self.assertTrue(other.is_staff)
+        self.assertTrue(self.user_model.objects.filter(is_superuser=True, is_active=True).exists())
 
     def test_cannot_remove_staff_flag_while_user_is_superuser(self):
         other = self.user_model.objects.create_superuser(

@@ -92,6 +92,7 @@ def console_user_detail(request, user_id):
         "security.user_events_viewed": "Просмотрена история безопасности пользователя",
         "security.events_viewed": "Просмотрен журнал безопасности",
         "privilege.updated": "Изменены привилегии пользователя",
+        "privilege.updated": "Изменены привилегии пользователя",
     }
     for event in audit_events:
         event.action_label = action_labels.get(event.action, "Системное действие")
