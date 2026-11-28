@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from django.test import TestCase
@@ -80,6 +80,54 @@ class AdminConsoleAccessTests(TestCase):
         self.client.force_login(self.regular_user)
         response = self.client.get(reverse("admin_console_user_detail", args=[self.regular_user.pk]))
         self.assertEqual(response.status_code, 302)
+
+    
+    def test_groups_page_requires_group_view_permission(self):
+        self.client.force_login(self.staff_viewer)
+        self.assertEqual(self.client.get(reverse("admin_console_groups")).status_code, 403)
+
+    def test_group_creation_only_accepts_allowlisted_read_permissions(self):
+        content_type = ContentType.objects.get_for_model(Group)
+        self.staff_viewer.user_permissions.add(
+            Permission.objects.get(content_type=content_type, codename="add_group")
+        )
+        self.client.force_login(self.staff_viewer)
+        safe_permission = Permission.objects.get(
+            content_type=ContentType.objects.get_for_model(TransferJob),
+            codename="view_transferjob",
+        )
+        response = self.client.post(reverse("admin_console_create_group"), {
+            "name": "Операторы очереди",
+            "permissions": [str(safe_permission.pk)],
+        })
+        self.assertRedirects(response, reverse("admin_console_groups"))
+        group = Group.objects.get(name="Операторы очереди")
+        self.assertEqual(list(group.permissions.values_list("pk", flat=True)), [safe_permission.pk])
+
+    def test_group_creation_rejects_mutating_permissions(self):
+        content_type = ContentType.objects.get_for_model(Group)
+        self.staff_viewer.user_permissions.add(
+            Permission.objects.get(content_type=content_type, codename="add_group")
+        )
+        self.client.force_login(self.staff_viewer)
+        dangerous = Permission.objects.get(
+            content_type=ContentType.objects.get_for_model(self.user_model),
+            codename="change_user",
+        )
+        response = self.client.post(reverse("admin_console_create_group"), {
+            "name": "Опасная роль",
+            "permissions": [str(dangerous.pk)],
+        })
+        self.assertRedirects(response, reverse("admin_console_groups"))
+        self.assertFalse(Group.objects.filter(name="Опасная роль").exists())
+
+    def test_group_creation_requires_add_group_permission(self):
+        self.client.force_login(self.staff_viewer)
+        response = self.client.post(reverse("admin_console_create_group"), {
+            "name": "Нет доступа",
+            "permissions": [],
+        })
+        self.assertEqual(response.status_code, 403)
 
     def test_staff_panel_responses_are_not_cacheable(self):
         self.client.force_login(self.staff_viewer)

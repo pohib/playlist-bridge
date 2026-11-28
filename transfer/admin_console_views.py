@@ -172,3 +172,64 @@ def console_audit(request):
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
     return render(request, "transfer/admin_console/audit.html", {"page": page})
+
+
+def _safe_role_permissions():
+    """Only expose read-only permissions for explicitly supported admin sections."""
+    return Permission.objects.filter(
+        content_type__app_label__in=("auth", "transfer"),
+        content_type__model__in=(
+            "user", "libraryprofile", "libraryplaylist", "transferjob", "adminevent"
+        ),
+        codename__startswith="view_",
+    ).select_related("content_type").order_by(
+        "content_type__app_label", "content_type__model", "name"
+    )
+
+
+@_staff
+@permission_required("auth.view_group", raise_exception=True)
+@require_GET
+def console_groups(request):
+    from django.contrib.auth.models import Group
+
+    groups = Group.objects.annotate(
+        members_count=Count("user", distinct=True)
+    ).prefetch_related("permissions__content_type").order_by("name")
+    return render(request, "transfer/admin_console/groups.html", {
+        "groups": groups,
+        "safe_permissions": _safe_role_permissions(),
+        "can_create_groups": request.user.has_perm("auth.add_group"),
+    })
+
+
+@_staff
+@permission_required("auth.add_group", raise_exception=True)
+@require_POST
+def console_create_group(request):
+    from django.contrib.auth.models import Group
+
+    name = (request.POST.get("name") or "").strip()[:150]
+    selected_ids = request.POST.getlist("permissions")
+    if not name:
+        messages.error(request, "Укажите название роли.")
+        return redirect("admin_console_groups")
+    if Group.objects.filter(name__iexact=name).exists():
+        messages.error(request, "Роль с таким названием уже существует.")
+        return redirect("admin_console_groups")
+    allowed = _safe_role_permissions()
+    selected = allowed.filter(pk__in=selected_ids)
+    if not selected_ids or selected.count() != len(set(selected_ids)):
+        messages.error(request, "Выберите только разрешённые права чтения.")
+        return redirect("admin_console_groups")
+    group = Group.objects.create(name=name)
+    group.permissions.set(selected)
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="role.created",
+        target_type=Group._meta.label,
+        target_id=str(group.pk),
+        metadata={"name": group.name, "permission_count": selected.count()},
+    )
+    messages.success(request, f"Роль «{group.name}» создана.")
+    return redirect("admin_console_groups")

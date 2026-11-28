@@ -1,0 +1,21 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Роли и группы{% endblock %}{% block page_heading %}Роли и группы{% endblock %}
+{% block content %}
+<div class="admin-page-intro"><div><span class="admin-overline">УПРАВЛЕНИЕ ДОСТУПОМ</span><h1>Роли и группы</h1><p>Группы объединяют сотрудников с одинаковыми правами. Через панель можно создавать роли только с разрешениями на чтение.</p></div></div>
+{% if can_create_groups %}
+<section class="admin-panel admin-role-create">
+<div class="admin-panel-heading"><div><span class="admin-overline">НОВАЯ РОЛЬ</span><h2>Создать группу</h2></div></div>
+<form method="post" action="{% url 'admin_console_create_group' %}">
+{% csrf_token %}<label class="admin-field-label" for="role-name">Название роли</label>
+<input id="role-name" name="name" maxlength="150" required placeholder="Например, Операторы очереди">
+<p class="muted">Можно назначить только права просмотра. Управление аккаунтами и привилегированные операции здесь недоступны.</p>
+<div class="admin-role-permissions">{% for permission in safe_permissions %}
+<label><input type="checkbox" name="permissions" value="{{ permission.pk }}"><span><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></span></label>
+{% endfor %}</div><button type="submit">Создать роль</button>
+</form></section>
+{% endif %}
+<section class="admin-panel admin-table-wrap"><div class="admin-panel-heading"><div><span class="admin-overline">СУЩЕСТВУЮЩИЕ РОЛИ</span><h2>Группы доступа</h2></div></div>
+<table class="admin-table"><thead><tr><th>Название</th><th>Участники</th><th>Права</th></tr></thead><tbody>
+{% for group in groups %}<tr><td><strong>{{ group.name }}</strong></td><td>{{ group.members_count }}</td><td>{% for permission in group.permissions.all %}<small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small>{% empty %}<span class="muted">Нет назначенных прав</span>{% endfor %}</td></tr>{% empty %}<tr><td colspan="3" class="admin-empty">Группы пока не созданы.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endblock %}

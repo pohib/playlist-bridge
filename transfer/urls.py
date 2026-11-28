@@ -30,6 +30,8 @@ from . import (
 urlpatterns = [
     path("control/", admin_console_views.console_dashboard, name="admin_console"),
     path("control/users/", admin_console_views.console_users, name="admin_console_users"),
+    path("control/groups/", admin_console_views.console_groups, name="admin_console_groups"),
+    path("control/groups/create/", admin_console_views.console_create_group, name="admin_console_create_group"),
     path("control/users/<int:user_id>/", admin_console_views.console_user_detail, name="admin_console_user_detail"),
     path("control/users/<int:user_id>/toggle/", admin_console_views.console_toggle_user, name="admin_console_toggle_user"),
     path("control/jobs/", admin_console_views.console_jobs, name="admin_console_jobs"),

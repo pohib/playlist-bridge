@@ -15,6 +15,7 @@
       <nav class="admin-nav">
         <a href="{% url 'admin_console' %}" class="{% if request.resolver_match.url_name == 'admin_console' %}active{% endif %}">⌂ <span>Обзор</span></a>
         {% if perms.auth.view_user %}<a href="{% url 'admin_console_users' %}" class="{% if request.resolver_match.url_name == 'admin_console_users' %}active{% endif %}">♙ <span>Пользователи</span></a>{% endif %}
+        {% if perms.auth.view_group %}<a href="{% url 'admin_console_groups' %}" class="{% if request.resolver_match.url_name == 'admin_console_groups' %}active{% endif %}">♧ <span>Роли и группы</span></a>{% endif %}
         {% if perms.transfer.view_libraryprofile %}<a href="{% url 'admin_console_library' %}" class="{% if request.resolver_match.url_name == 'admin_console_library' %}active{% endif %}">▤ <span>Библиотеки</span></a>{% endif %}
         {% if perms.transfer.view_transferjob %}<a href="{% url 'admin_console_jobs' %}" class="{% if request.resolver_match.url_name == 'admin_console_jobs' %}active{% endif %}">⇄ <span>Очередь и переносы</span></a>{% endif %}
         {% if perms.transfer.view_adminevent %}<a href="{% url 'admin_console_audit' %}" class="{% if request.resolver_match.url_name == 'admin_console_audit' %}active{% endif %}">◷ <span>Журнал действий</span></a>{% endif %}
