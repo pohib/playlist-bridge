@@ -452,6 +452,7 @@
     event.preventDefault();
     const data=submitter?new FormData(form,submitter):new FormData(form);
     if(method==="GET"){
+      target.search="";
       for(const [key,value] of data.entries())if(key!=="csrfmiddlewaretoken"&&typeof value==="string")target.searchParams.append(key,value);
     }
     navigationBusy=true;
