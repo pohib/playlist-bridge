@@ -40,7 +40,7 @@ transfer/
   tests/                 тесты приложения
 nginx/                   локальный reverse proxy
 scripts/                 PowerShell запуск, остановка, backup/restore
- deploy/                  Пример Caddy TLS reverse proxy
+deploy/                   Пример Caddy TLS reverse proxy
 compose*.yaml            Docker Compose конфигурации
 ~~~
 
@@ -222,7 +222,26 @@ docker compose logs --tail=100 web worker celery-beat
 
 **Важно:** текущий Compose рассчитан на один сервер и один экземпляр web/worker. Это production-oriented single-host deployment, но не отказоустойчивый кластер: нет managed database, внешнего object storage, multi-host failover или встроенного централизованного мониторинга. Перед реальным публичным запуском проведите security review, проверьте восстановление backup на отдельной среде и настройте внешние уведомления об ошибках.
 
-### 4. Временный публичный HTTPS-доступ для разработки
+### 4. Временный Cloudflare Tunnel (только для разработки и тестов)
+
+Эти скрипты оставлены для прежнего локального сценария. Для постоянного production-домена используйте шаг 3 с Caddy; Quick Tunnel не нужен.
+
+~~~powershell
+winget install --id Cloudflare.cloudflared -e
+.\scripts\start-tunnel.ps1
+~~~
+
+Для production-like проверки через временный URL (не постоянный production deployment):
+
+~~~powershell
+.\scripts\start-tunnel-prod.ps1
+~~~
+
+Остановка временного туннеля и связанных Compose-контейнеров:
+
+~~~powershell
+.\scripts\stop-tunnel.ps1
+~~~
 
 ## API
 
