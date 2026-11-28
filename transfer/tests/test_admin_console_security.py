@@ -73,6 +73,25 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(context["page"].object_list[0].ip_address, "198.51.100.4")
         self.assertEqual(context["event_type"], "login_failed")
 
+
+    def test_security_search_can_filter_user_activity_by_route(self):
+        UserSecurityEvent.objects.create(
+            user=self.target,
+            username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            http_method="POST",
+            route_name="library_import_vk",
+            response_status=422,
+            request_id="12345678-1234-5678-1234-567812345678",
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_security"), {"q": "library_import_vk"})
+        self.assertEqual(response.status_code, 200)
+        page = renderer.call_args.args[2]["page"]
+        self.assertEqual(page.paginator.count, 1)
+        self.assertEqual(page.object_list[0].route_name, "library_import_vk")
+
     def test_security_views_are_not_cacheable(self):
         self.client.force_login(self.superuser)
         with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")):

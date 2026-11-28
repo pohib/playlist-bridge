@@ -524,7 +524,9 @@ def console_events(request):
         UserSecurityEvent.EventType.LOGIN_FAILED: ("Неудачная попытка входа", "warning", "Предупреждение"),
         UserSecurityEvent.EventType.LOGIN_THROTTLED: ("Попытка входа ограничена", "danger", "Высокий риск"),
     }
-    for item in UserSecurityEvent.objects.select_related("user").order_by("-created_at")[:300]:
+    for item in UserSecurityEvent.objects.exclude(
+        event_type=UserSecurityEvent.EventType.USER_ACTIVITY
+    ).select_related("user").order_by("-created_at")[:300]:
         title, severity, severity_label = security_labels.get(
             item.event_type,
             ("Событие безопасности", "warning", "Предупреждение"),
