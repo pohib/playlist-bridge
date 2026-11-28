@@ -1,7 +1,7 @@
 {% extends "transfer/admin_console/base.html" %}
 {% block title %}Роли и группы{% endblock %}{% block page_heading %}Роли и группы{% endblock %}
 {% block content %}
-<div class="admin-page-intro"><div><span class="admin-overline">УПРАВЛЕНИЕ ДОСТУПОМ</span><h1>Роли и группы</h1><p>Группы объединяют сотрудников с одинаковыми правами. Панель позволяет управлять только ролями с безопасными разрешениями на чтение.</p></div></div>
+<div class="admin-page-intro"><div><span class="admin-overline">УПРАВЛЕНИЕ ДОСТУПОМ</span><h1>Роли и группы</h1><p>Группы объединяют сотрудников с одинаковым уровнем доступа. Ниже права показаны понятными русскими названиями и пояснениями. В роли можно включать только просмотр данных — без изменения, удаления и управления аккаунтами.</p></div></div>
 {% if can_create_groups %}
 <section class="admin-panel admin-role-create">
 <div class="admin-panel-heading"><div><span class="admin-overline">НОВАЯ РОЛЬ</span><h2>Создать группу</h2></div></div>
@@ -10,7 +10,7 @@
 <input id="role-name" name="name" maxlength="150" required placeholder="Например, Операторы очереди">
 <p class="muted">Можно назначить только права просмотра. Управление аккаунтами и привилегированные операции недоступны.</p>
 <div class="admin-role-permissions">{% for permission in safe_permissions %}
-<label><input type="checkbox" name="permissions" value="{{ permission.pk }}"><span><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></span></label>
+<label><input type="checkbox" name="permissions" value="{{ permission.pk }}"><span><strong>{{ permission.display_name }}</strong><small>{{ permission.display_description }}</small><small class="admin-permission-code">{{ permission.content_type.app_label }}.{{ permission.codename }}</small></span></label>
 {% endfor %}</div><button type="submit">Создать роль</button>
 </form></section>
 {% endif %}

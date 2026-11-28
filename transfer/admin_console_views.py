@@ -243,6 +243,8 @@ def console_user_detail(request, user_id):
     has_unsafe_groups = any(not _is_safe_group(group) for group in current_groups)
     for group in current_groups:
         group.is_safe_role = _is_safe_group(group)
+        for permission in group.permissions.all():
+            _present_permission(permission)
     can_manage_groups = (
         can_change_users
         and request.user.has_perm("auth.view_group")
@@ -262,6 +264,11 @@ def console_user_detail(request, user_id):
             target_id=str(account.pk),
             metadata={"event_count": len(security_events)},
         )
+    individual_permissions = list(account.user_permissions.all().order_by(
+        "content_type__app_label", "codename"
+    ))
+    for permission in individual_permissions:
+        _present_permission(permission)
     return render(request, "transfer/admin_console/user_detail.html", {
         "account": account,
         "security_events": security_events,
@@ -272,9 +279,7 @@ def console_user_detail(request, user_id):
         "safe_groups": safe_groups,
         "has_unsafe_groups": has_unsafe_groups,
         "can_manage_groups": can_manage_groups,
-        "permissions": account.user_permissions.all().order_by(
-            "content_type__app_label", "codename"
-        ),
+        "permissions": individual_permissions,
         "audit_events": audit_events,
         "can_toggle_account": (
             can_change_users and account.pk != request.user.pk and not account.is_superuser
@@ -871,6 +876,78 @@ def console_update_privilege(request, user_id):
     return redirect("admin_console_privileges")
 
 
+
+_PERMISSION_LABELS = {
+    "auth.view_user": (
+        "Просмотр учётных записей",
+        "Просмотр списка пользователей и карточек аккаунтов. Не позволяет изменять учётные записи.",
+    ),
+    "transfer.view_libraryprofile": (
+        "Просмотр профилей библиотек",
+        "Просмотр пользовательских библиотек и связанных профилей. Не даёт доступа к секретам OAuth.",
+    ),
+    "transfer.view_libraryplaylist": (
+        "Просмотр плейлистов",
+        "Просмотр названий, состава и метаданных плейлистов.",
+    ),
+    "transfer.view_transferjob": (
+        "Просмотр заданий переноса",
+        "Просмотр очереди переносов, их статусов и диагностических сведений.",
+    ),
+    "transfer.view_adminevent": (
+        "Просмотр журнала действий",
+        "Просмотр записей об административных действиях без права изменять журнал.",
+    ),
+}
+
+_PERMISSION_MODEL_LABELS = {
+    "user": "учётные записи",
+    "group": "группы доступа",
+    "permission": "разрешения",
+    "libraryprofile": "профили библиотек",
+    "libraryplaylist": "плейлисты",
+    "librarytrack": "музыкальные композиции",
+    "librarytransfer": "переносы библиотек",
+    "librarytransferitem": "элементы переноса",
+    "transferjob": "задания переноса",
+    "adminevent": "записи журнала действий",
+    "usersecurityevent": "события безопасности",
+    "useripban": "блокировки IP-адресов",
+    "usereqpreset": "пользовательские пресеты эквалайзера",
+    "oauthcredential": "данные подключения сервисов",
+}
+_PERMISSION_ACTION_LABELS = {
+    "add": "Создание",
+    "change": "Изменение",
+    "delete": "Удаление",
+    "view": "Просмотр",
+}
+
+
+def _present_permission(permission):
+    """Attach a Russian, human-readable description without changing its actual grant."""
+    key = f"{permission.content_type.app_label}.{permission.codename}"
+    known = _PERMISSION_LABELS.get(key)
+    if known:
+        permission.display_name, permission.display_description = known
+        return permission
+
+    action, separator, model = permission.codename.partition("_")
+    action_label = _PERMISSION_ACTION_LABELS.get(action)
+    model_label = _PERMISSION_MODEL_LABELS.get(model)
+    if separator and action_label and model_label:
+        permission.display_name = f"{action_label}: {model_label}"
+        permission.display_description = (
+            f"Разрешает действие «{action_label.lower()}» для объекта «{model_label}»."
+        )
+    else:
+        permission.display_name = "Специальное разрешение"
+        permission.display_description = (
+            "Разрешение приложения. Перед назначением требуется отдельная проверка его назначения."
+        )
+    return permission
+
+
 def _safe_role_permissions():
     """Only expose read-only permissions for explicitly supported admin sections."""
     return Permission.objects.filter(
@@ -895,9 +972,12 @@ def console_groups(request):
     ).prefetch_related("permissions__content_type").order_by("name"))
     for group in groups:
         group.is_safe_role = _is_safe_group(group)
+        for permission in group.permissions.all():
+            _present_permission(permission)
+    safe_permissions = [_present_permission(item) for item in _safe_role_permissions()]
     return render(request, "transfer/admin_console/groups.html", {
         "groups": groups,
-        "safe_permissions": _safe_role_permissions(),
+        "safe_permissions": safe_permissions,
         "can_create_groups": request.user.has_perm("auth.add_group"),
         "can_edit_groups": request.user.has_perm("auth.change_group"),
     })

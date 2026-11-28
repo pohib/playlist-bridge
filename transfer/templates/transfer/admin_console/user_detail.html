@@ -11,7 +11,7 @@
 <div><dt>Дата регистрации</dt><dd>{{ account.date_joined|date:"d.m.Y H:i" }}</dd></div>
 <div><dt>Последний вход</dt><dd>{{ account.last_login|date:"d.m.Y H:i"|default:"—" }}</dd></div>
 <div><dt>Статус</dt><dd><span class="admin-tag {% if account.is_active %}tag-success{% else %}tag-danger{% endif %}">{% if account.is_active %}Активен{% else %}Отключён{% endif %}</span></dd></div>
-<div><dt>Права сотрудника</dt><dd>{% if account.is_superuser %}Суперпользователь{% elif account.is_staff %}Сотрудник{% else %}Обычный пользователь{% endif %}</dd></div>
+<div><dt>Уровень доступа</dt><dd>{% if account.is_superuser %}Главный администратор — полный доступ{% elif account.is_staff %}Сотрудник панели — только назначенные права{% else %}Обычный пользователь — без доступа к панели{% endif %}</dd></div>
 </dl>
 {% if can_toggle_account %}<form method="post" action="{% url 'admin_console_toggle_user' account.pk %}" class="admin-detail-action">{% csrf_token %}<button class="table-action {% if account.is_active %}action-danger{% endif %}" type="submit">{% if account.is_active %}Отключить учётную запись{% else %}Активировать учётную запись{% endif %}</button></form>{% elif account.is_superuser or account.pk == request.user.pk %}<p class="muted">Эту учётную запись нельзя отключить из панели.</p>{% endif %}
 </section>
@@ -21,12 +21,12 @@
 <form method="post" action="{% url 'admin_console_update_user_groups' account.pk %}" class="admin-group-assignment">{% csrf_token %}
 <h3>Изменить назначенные роли</h3><p class="muted">Можно назначить только группы, содержащие разрешения на чтение. Права сотрудника и суперпользователя здесь не изменяются.</p>
 <div class="admin-role-permissions">{% for group in safe_groups %}
-<label><input type="checkbox" name="groups" value="{{ group.pk }}" {% if group in groups %}checked{% endif %}><span><strong>{{ group.name }}</strong><small>{% for permission in group.permissions.all %}{{ permission.content_type.app_label }}.{{ permission.codename }}{% if not forloop.last %}, {% endif %}{% empty %}Без разрешений{% endfor %}</small></span></label>
+<label><input type="checkbox" name="groups" value="{{ group.pk }}" {% if group in groups %}checked{% endif %}><span><strong>{{ group.name }}</strong><small>{% for permission in group.permissions.all %}{{ permission.display_name }}{% if not forloop.last %}; {% endif %}{% empty %}Без разрешений{% endfor %}</small></span></label>
 {% empty %}<p class="admin-empty">Безопасные роли пока не созданы.</p>{% endfor %}</div><button class="table-action" type="submit">Сохранить группы</button></form>
 {% elif has_unsafe_groups %}<p class="admin-role-warning">У пользователя есть группа с расширенными правами. Изменение состава групп заблокировано до отдельной проверки.</p>
 {% elif account.pk == request.user.pk or account.is_superuser %}<p class="muted">Нельзя изменять собственные роли или роли суперпользователя.</p>{% endif %}
 <div class="admin-panel-heading admin-subheading"><div><span class="admin-overline">ИНДИВИДУАЛЬНЫЕ ПРАВА</span><h2>Назначенные разрешения</h2></div></div>
-{% for permission in permissions %}<div class="admin-list-row"><div class="admin-row-main"><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></div></div>{% empty %}<p class="admin-empty">Индивидуальные разрешения не назначены.</p>{% endfor %}
+{% for permission in permissions %}<div class="admin-list-row"><div class="admin-row-main"><strong>{{ permission.display_name }}</strong><small>{{ permission.display_description }}</small><small class="admin-permission-code">{{ permission.content_type.app_label }}.{{ permission.codename }}</small></div></div>{% empty %}<p class="admin-empty">Индивидуальные разрешения не назначены.</p>{% endfor %}
 </section>
 </div>
 
