@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def login(request, *, client_factory):
+    started_at = time.perf_counter()
     try:
         state = secrets.token_urlsafe(32)
         verifier = secrets.token_urlsafe(64)
@@ -26,6 +27,7 @@ def login(request, *, client_factory):
             operation="oauth_login",
             error=exc,
             user=request.user,
+            duration_ms=(time.perf_counter() - started_at) * 1000,
         )
         request.session["oauth_error"] = "Не удалось начать авторизацию SoundCloud."
         return redirect(provider_redirect(request))
@@ -35,27 +37,43 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
     expected = request.session.pop("soundcloud_oauth_state", None)
     verifier = request.session.pop("soundcloud_code_verifier", None)
     received = request.GET.get("state", "")
-    if request.GET.get("error") or not expected or not verifier or not secrets.compare_digest(expected, received):
-        request.session["oauth_error"] = "Авторизация SoundCloud отменена или OAuth state недействителен."
+    if (
+        request.GET.get("error")
+        or not expected
+        or not verifier
+        or not secrets.compare_digest(expected, received)
+    ):
+        request.session["oauth_error"] = (
+            "Авторизация SoundCloud отменена или OAuth state недействителен."
+        )
         return redirect(provider_redirect(request))
     code = request.GET.get("code", "")
     if not code:
         request.session["oauth_error"] = "SoundCloud не вернул код авторизации."
         return redirect(provider_redirect(request))
+    started_at = time.perf_counter()
     try:
         client = client_factory()
         token = client.exchange_code(code, verifier)
         token["obtained_at"] = time.time()
         profile = client.current_user(token["access_token"])
         rotate_session_binding(request)
-        store_credential(get_session_fingerprint(request), "soundcloud", token, str(profile.get("id", "")))
-        request.session["oauth_success"] = "SoundCloud успешно подключён. Токены сохранены в зашифрованном виде."
+        store_credential(
+            get_session_fingerprint(request),
+            "soundcloud",
+            token,
+            str(profile.get("id", "")),
+        )
+        request.session["oauth_success"] = (
+            "SoundCloud успешно подключён. Токены сохранены в зашифрованном виде."
+        )
     except TransferError as exc:
         record_integration_failure(
             provider="soundcloud",
             operation="oauth_callback",
             error=exc,
             user=request.user,
+            duration_ms=(time.perf_counter() - started_at) * 1000,
         )
         logger.warning("SoundCloud OAuth callback failed")
         request.session["oauth_error"] = "Не удалось завершить авторизацию SoundCloud."
