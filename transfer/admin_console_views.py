@@ -1,20 +1,20 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
+import logging
 from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.hashers import check_password
-from django.conf import settings
-from django.core.cache import cache
-from django.db import connection
 from django.contrib.auth.models import Group, Permission
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import DatabaseError, connection, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -23,6 +23,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserSecurityEvent
+
+logger = logging.getLogger(__name__)
 
 
 def _staff(view):
@@ -65,9 +67,18 @@ def _system_check_database():
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-        return {"status": "ok", "label": "База данных", "detail": "Подключение и простой запрос выполняются."}
-    except Exception:
-        return {"status": "error", "label": "База данных", "detail": "Не удалось выполнить проверочный запрос."}
+        return {
+            "status": "ok",
+            "label": "База данных",
+            "detail": "Подключение и простой запрос выполняются.",
+        }
+    except DatabaseError:
+        logger.exception("Admin system health check: database probe failed")
+        return {
+            "status": "error",
+            "label": "База данных",
+            "detail": "Не удалось выполнить проверочный запрос.",
+        }
 
 
 def _system_check_cache():
@@ -78,14 +89,18 @@ def _system_check_cache():
         cache.set(key, "ok", timeout=5)
         if cache.get(key) != "ok":
             raise RuntimeError("Cache read-after-write check failed")
-        return {"status": "ok", "label": "Redis / кэш", "detail": "Запись и чтение тестового значения работают."}
-    except Exception:
-        return {"status": "error", "label": "Redis / кэш", "detail": "Проверка записи или чтения завершилась ошибкой."}
-    finally:
-        try:
-            cache.delete(key)
-        except Exception:
-            pass
+        return {
+            "status": "ok",
+            "label": "Redis / кэш",
+            "detail": "Запись и чтение тестового значения работают.",
+        }
+    except Exception:  # noqa: BLE001 - health checks must report dependency failures without breaking the admin page.
+        logger.exception("Admin system health check: cache probe failed")
+        return {
+            "status": "error",
+            "label": "Redis / кэш",
+            "detail": "Проверка записи или чтения завершилась ошибкой.",
+        }
 
 
 def _system_check_celery_broker():
@@ -94,9 +109,18 @@ def _system_check_celery_broker():
 
         with celery_app.connection_for_read(connect_timeout=1) as broker_connection:
             broker_connection.ensure_connection(max_retries=0)
-        return {"status": "ok", "label": "Celery broker", "detail": "Соединение с брокером установлено."}
-    except Exception:
-        return {"status": "error", "label": "Celery broker", "detail": "Не удалось подключиться к брокеру задач."}
+        return {
+            "status": "ok",
+            "label": "Celery broker",
+            "detail": "Соединение с брокером установлено.",
+        }
+    except Exception:  # noqa: BLE001 - report broker outages instead of failing the diagnostic page.
+        logger.exception("Admin system health check: Celery broker probe failed")
+        return {
+            "status": "error",
+            "label": "Celery broker",
+            "detail": "Не удалось подключиться к брокеру задач.",
+        }
 
 
 def _system_check_celery_workers():
@@ -106,10 +130,23 @@ def _system_check_celery_workers():
         workers = celery_app.control.ping(timeout=1)
         if workers:
             names = ", ".join(sorted(item["worker"] for item in workers if item.get("worker")))
-            return {"status": "ok", "label": "Celery workers", "detail": f"Отвечают: {names}."}
-        return {"status": "warning", "label": "Celery workers", "detail": "Брокер не сообщил об активных worker-процессах."}
-    except Exception:
-        return {"status": "warning", "label": "Celery workers", "detail": "Не удалось получить ответ от worker-процессов."}
+            return {
+                "status": "ok",
+                "label": "Celery workers",
+                "detail": f"Отвечают: {names}.",
+            }
+        return {
+            "status": "warning",
+            "label": "Celery workers",
+            "detail": "Брокер не сообщил об активных worker-процессах.",
+        }
+    except Exception:  # noqa: BLE001 - worker diagnostics are best-effort.
+        logger.exception("Admin system health check: Celery worker probe failed")
+        return {
+            "status": "warning",
+            "label": "Celery workers",
+            "detail": "Не удалось получить ответ от worker-процессов.",
+        }
 
 
 @_staff
