@@ -146,3 +146,18 @@ def dispatch_queued_transfers():
         dispatch["failed"],
     )
     return result
+
+
+@shared_task(ignore_result=True)
+def purge_old_security_events():
+    """Delete expired raw-IP authentication telemetry according to retention policy."""
+    from .services.security_event_retention import purge_security_events
+
+    result = purge_security_events()
+    logger.info(
+        "Security event retention completed: matched=%s deleted=%s retention_days=%s",
+        result["matched"],
+        result["deleted"],
+        result["days"],
+    )
+    return result

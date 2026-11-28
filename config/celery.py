@@ -1,6 +1,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -14,5 +15,9 @@ app.conf.beat_schedule = {
         "task": "transfer.tasks.dispatch_queued_transfers",
         "schedule": 60.0,
         "options": {"expires": 55},
+    },
+    "purge-old-security-events-monthly": {
+        "task": "transfer.tasks.purge_old_security_events",
+        "schedule": crontab(day_of_month=1, hour=3, minute=0),
     },
 }

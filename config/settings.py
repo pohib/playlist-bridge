@@ -170,3 +170,6 @@ LOGGING = {
         },
     },
 }
+
+# Raw IP and User-Agent telemetry is retained for a limited operational window.
+SECURITY_EVENT_RETENTION_DAYS = int(os.getenv("SECURITY_EVENT_RETENTION_DAYS", "90"))
