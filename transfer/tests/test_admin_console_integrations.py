@@ -110,6 +110,7 @@ class AdminConsoleIntegrationEventTests(TestCase):
         self.assertEqual(event.provider, ProviderIntegrationEvent.Provider.TRANSFER)
         self.assertEqual(event.transfer_job_id, self.job.pk)
         self.assertNotIn("worker-secret", event.message)
+
     def test_message_sanitizer_redacts_json_credential_values(self):
         safe = sanitize_integration_message(
             '{"access_token": "json-access-secret", "client_secret": "json-client-secret"}'
