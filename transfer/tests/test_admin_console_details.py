@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from django.urls import reverse
 
 from transfer.models import LibraryPlaylist, LibraryProfile, LibraryTrack, TransferJob
@@ -45,6 +48,50 @@ class AdminConsoleDetailTests(TestCase):
         self.assertContains(response, "Track title")
         self.assertNotContains(response, "private-session-fingerprint")
         self.assertNotContains(response, "private-external-id")
+
+
+    def test_jobs_overview_reports_queue_backlog_and_stale_workers(self):
+        now = timezone.now()
+        TransferJob.objects.create(
+            session_fingerprint="queued-job-fingerprint",
+            source_url="https://vk.com/music/playlist/queued",
+            status=TransferJob.Status.QUEUED,
+        )
+        TransferJob.objects.create(
+            session_fingerprint="running-job-fingerprint",
+            source_url="https://vk.com/music/playlist/running",
+            status=TransferJob.Status.RUNNING,
+            started_at=now - timedelta(minutes=20),
+            heartbeat_at=now - timedelta(minutes=10),
+        )
+        TransferJob.objects.create(
+            session_fingerprint="failed-job-fingerprint",
+            source_url="https://vk.com/music/playlist/failed",
+            status=TransferJob.Status.FAILED,
+            finished_at=now - timedelta(hours=2),
+        )
+        TransferJob.objects.create(
+            session_fingerprint="successful-job-fingerprint",
+            source_url="https://vk.com/music/playlist/success",
+            status=TransferJob.Status.SUCCEEDED,
+        )
+        self.grant("view_transferjob", TransferJob)
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse("admin_console_jobs"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["job_summary"], {
+            "queued": 1,
+            "running": 1,
+            "succeeded": 1,
+            "failed": 1,
+            "stale_running": 1,
+            "awaiting_dispatch": 1,
+            "failed_24h": 1,
+        })
+        self.assertContains(response, "Без heartbeat 5+ мин")
+        self.assertContains(response, "Ожидают отправки")
 
     def test_job_detail_requires_job_permission(self):
         self.client.force_login(self.staff)
