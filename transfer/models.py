@@ -9,6 +9,7 @@ from .domain_models import (
     OAuthCredential,
     TransferJob,
     UserSecurityEvent,
+    UserEQPreset,
     UserIPBan,
 )
 
@@ -22,5 +23,6 @@ __all__ = [
     "OAuthCredential",
     "TransferJob",
     "UserSecurityEvent",
+    "UserEQPreset",
     "UserIPBan",
 ]
