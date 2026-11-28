@@ -58,6 +58,29 @@ class AdminConsoleAccessTests(TestCase):
         self.assertFalse(context["can_view_library"])
         self.assertFalse(context["can_view_audit"])
 
+    def test_user_detail_requires_user_view_permission(self):
+        self.client.force_login(self.staff_viewer)
+        response = self.client.get(reverse("admin_console_user_detail", args=[self.regular_user.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_user_detail_is_available_to_staff_with_user_view_permission(self):
+        content_type = ContentType.objects.get_for_model(self.user_model)
+        self.staff_viewer.user_permissions.add(
+            Permission.objects.get(content_type=content_type, codename="view_user")
+        )
+        self.client.force_login(self.staff_viewer)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as render_view:
+            response = self.client.get(reverse("admin_console_user_detail", args=[self.regular_user.pk]))
+        self.assertEqual(response.status_code, 200)
+        context = render_view.call_args.args[2]
+        self.assertEqual(context["account"].pk, self.regular_user.pk)
+        self.assertFalse(context["can_toggle_account"])
+
+    def test_user_detail_rejects_regular_users(self):
+        self.client.force_login(self.regular_user)
+        response = self.client.get(reverse("admin_console_user_detail", args=[self.regular_user.pk]))
+        self.assertEqual(response.status_code, 302)
+
     def test_staff_panel_responses_are_not_cacheable(self):
         self.client.force_login(self.staff_viewer)
         with patch(

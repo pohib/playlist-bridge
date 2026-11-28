@@ -66,6 +66,38 @@ def console_users(request):
         "can_change_users": request.user.has_perm("auth.change_user"),
     })
 
+@_staff
+@permission_required("auth.view_user", raise_exception=True)
+@require_GET
+def console_user_detail(request, user_id):
+    user_model = get_user_model()
+    account = get_object_or_404(
+        user_model.objects.prefetch_related("groups", "user_permissions__content_type"),
+        pk=user_id,
+    )
+    audit_events = AdminAuditEvent.objects.filter(
+        target_type=user_model._meta.label,
+        target_id=str(account.pk),
+    ).select_related("actor")[:20]
+    action_labels = {
+        "user.activated": "Пользователь активирован",
+        "user.deactivated": "Пользователь отключён",
+    }
+    for event in audit_events:
+        event.action_label = action_labels.get(event.action, "Системное действие")
+    can_change_users = request.user.has_perm("auth.change_user")
+    return render(request, "transfer/admin_console/user_detail.html", {
+        "account": account,
+        "groups": account.groups.all().order_by("name"),
+        "permissions": account.user_permissions.all().order_by(
+            "content_type__app_label", "codename"
+        ),
+        "audit_events": audit_events,
+        "can_toggle_account": (
+            can_change_users and account.pk != request.user.pk and not account.is_superuser
+        ),
+    })
+
 
 @_staff
 @permission_required("auth.change_user", raise_exception=True)

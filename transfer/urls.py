@@ -30,6 +30,7 @@ from . import (
 urlpatterns = [
     path("control/", admin_console_views.console_dashboard, name="admin_console"),
     path("control/users/", admin_console_views.console_users, name="admin_console_users"),
+    path("control/users/<int:user_id>/", admin_console_views.console_user_detail, name="admin_console_user_detail"),
     path("control/users/<int:user_id>/toggle/", admin_console_views.console_toggle_user, name="admin_console_toggle_user"),
     path("control/jobs/", admin_console_views.console_jobs, name="admin_console_jobs"),
     path("control/library/", admin_console_views.console_library, name="admin_console_library"),
