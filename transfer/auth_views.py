@@ -65,7 +65,6 @@ def sign_in(request):
             except Exception:
                 logger.exception("Unable to clear login failure counter")
             login(request, user)
-            record_login_success(request, user)
             attach_anonymous_workspace(
                 user=user,
                 previous_fingerprint=previous_fingerprint,

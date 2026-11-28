@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
@@ -232,6 +233,85 @@ def console_security(request):
         metadata={"event_count": len(events)},
     )
     return render(request, "transfer/admin_console/security.html", {"events": events})
+
+
+
+@_staff
+@require_GET
+def console_privileges(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    user_model = get_user_model()
+    accounts = user_model.objects.filter(
+        Q(is_staff=True) | Q(is_superuser=True)
+    ).order_by("-is_superuser", "-is_staff", "username")
+    return render(request, "transfer/admin_console/privileges.html", {
+        "accounts": accounts,
+        "active_superuser_count": user_model.objects.filter(
+            is_superuser=True, is_active=True
+        ).count(),
+    })
+
+
+@_staff
+@require_POST
+def console_update_privilege(request, user_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    user_model = get_user_model()
+    privilege = (request.POST.get("privilege") or "").strip()
+    enabled = request.POST.get("enabled") == "true"
+    confirmation = (request.POST.get("confirmation") or "").strip()
+    password = request.POST.get("password") or ""
+    if privilege not in {"staff", "superuser"}:
+        messages.error(request, "Выбран неизвестный тип привилегии.")
+        return redirect("admin_console_privileges")
+    if not check_password(password, request.user.password):
+        messages.error(request, "Не удалось подтвердить пароль суперпользователя.")
+        return redirect("admin_console_privileges")
+    if privilege == "superuser" and confirmation != "ПОДТВЕРЖДАЮ":
+        messages.error(request, "Для изменения прав суперпользователя введи фразу «ПОДТВЕРЖДАЮ».")
+        return redirect("admin_console_privileges")
+    if str(user_id) == str(request.user.pk):
+        messages.error(request, "Нельзя изменять собственные привилегии.")
+        return redirect("admin_console_privileges")
+
+    with transaction.atomic():
+        list(user_model.objects.select_for_update().filter(is_superuser=True, is_active=True))
+        target = get_object_or_404(user_model.objects.select_for_update(), pk=user_id)
+        before = {"is_staff": target.is_staff, "is_superuser": target.is_superuser}
+        if privilege == "staff":
+            target.is_staff = enabled
+        elif enabled:
+            target.is_superuser = True
+            target.is_staff = True
+        else:
+            active_superusers = user_model.objects.filter(
+                is_superuser=True, is_active=True
+            ).count()
+            if target.is_active and target.is_superuser and active_superusers <= 1:
+                messages.error(request, "Нельзя снять права: в системе должен остаться хотя бы один активный суперпользователь.")
+                return redirect("admin_console_privileges")
+            target.is_superuser = False
+        after = {"is_staff": target.is_staff, "is_superuser": target.is_superuser}
+        if before == after:
+            messages.info(request, "Указанные привилегии уже имеют выбранное состояние.")
+            return redirect("admin_console_privileges")
+        target.save(update_fields=["is_staff", "is_superuser"])
+        AdminAuditEvent.objects.create(
+            actor=request.user,
+            action="privilege.updated",
+            target_type=user_model._meta.label,
+            target_id=str(target.pk),
+            metadata={
+                "username": target.get_username(),
+                "privilege": privilege,
+                "before": before,
+                "after": after,
+            },
+        )
+    messages.success(request, f"Привилегии пользователя {target.get_username()} обновлены.")
+    return redirect("admin_console_privileges")
 
 
 def _safe_role_permissions():

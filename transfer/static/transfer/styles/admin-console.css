@@ -19,3 +19,11 @@
 .admin-role-create button,.admin-role-editor button,.admin-group-assignment button{justify-self:start;min-height:36px;padding:0 16px;border:1px solid rgba(115,230,168,.24);border-radius:9px;background:rgba(115,230,168,.1);color:var(--green);font:600 12px system-ui;cursor:pointer}
 
 .admin-security-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 18px}.admin-security-summary>div{display:grid;gap:6px;padding:14px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.02)}.admin-security-summary span{font-size:11px;color:var(--muted)}.admin-security-summary strong{font-size:13px}.security-user-agent{max-width:320px;overflow-wrap:anywhere;color:var(--muted)!important;font-size:10px!important}@media(max-width:700px){.admin-security-summary{grid-template-columns:1fr}}
+
+.admin-privilege-editor{min-width:250px;padding:8px;border:1px solid var(--line);border-radius:9px}
+.admin-privilege-editor summary{color:var(--green);font-size:11px;font-weight:700;cursor:pointer}
+.admin-privilege-editor form{display:grid;gap:9px;padding-top:12px}
+.admin-privilege-editor label{display:grid;gap:5px;color:var(--muted);font-size:10px}
+.admin-privilege-editor input,.admin-privilege-editor select{width:100%;min-width:0;padding:8px;border:1px solid var(--line);border-radius:7px;background:#0e1621;color:var(--text);font:11px system-ui}
+.admin-privilege-editor button{min-height:34px}
+.admin-privilege-stats{grid-template-columns:minmax(220px,320px)}
