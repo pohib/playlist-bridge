@@ -3,17 +3,10 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
-
-TEST_STORAGE_SETTINGS = {
-    "STORAGES": {
-        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
-    },
-    "WHITENOISE_MANIFEST_STRICT": False,
-}
-
-
-@override_settings(**TEST_STORAGE_SETTINGS)
+@override_settings(STORAGES={
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+})
 class AdminConsolePlayerIntegrationTests(TestCase):
     def test_control_center_includes_shared_player_and_runtime(self):
         root = get_user_model().objects.create_superuser(
