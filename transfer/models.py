@@ -1,9 +1,4 @@
-"""Backward-compatible model exports for the transfer Django app.
-
-Concrete model definitions live in domain_models, grouped by business domain.
-Keeping this module preserves existing imports and the historical Django app label.
-"""
-
+"""Backward-compatible model exports for the transfer Django app."""
 from .domain_models import (
     AdminAuditEvent,
     LibraryPlaylist,
@@ -13,10 +8,12 @@ from .domain_models import (
     LibraryTransferItem,
     OAuthCredential,
     TransferJob,
+    UserSecurityEvent,
 )
 
 __all__ = [
     "AdminAuditEvent",
+    "UserSecurityEvent",
     "LibraryPlaylist",
     "LibraryProfile",
     "LibraryTrack",
