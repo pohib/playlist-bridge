@@ -24,6 +24,8 @@ Playlist Bridge — Django-приложение для импорта музык
 
 YouTube Music и Apple Music пока не являются полноценными провайдерами импорта или переноса. Некоторые экраны могут предоставлять внешние ссылки на поиск.
 
+Полный пофайловый справочник см. в [FILES.md](FILES.md).
+
 ## Архитектура
 
 ~~~text
@@ -38,6 +40,7 @@ transfer/
   tests/                 тесты приложения
 nginx/                   локальный reverse proxy
 scripts/                 PowerShell запуск, остановка, backup/restore
+ deploy/                  Пример Caddy TLS reverse proxy
 compose*.yaml            Docker Compose конфигурации
 ~~~
 
@@ -129,38 +132,97 @@ docker compose -f compose.yaml -f compose.dev.yaml down
 
 Не используйте down -v, если не хотите удалить dev-базу и Redis volume.
 
-### 3. Временный публичный HTTPS-доступ
+### 3. Production без Cloudflare Tunnel (Linux + собственный домен + Caddy)
 
-Установите Docker Desktop и cloudflared:
+Для постоянного публичного запуска используйте Linux-сервер с публичным IP, DNS-доменом и TLS reverse proxy. В этом сценарии Cloudflare Tunnel и `cloudflared` не нужны: Caddy работает непосредственно на сервере, получает сертификат Let's Encrypt и проксирует HTTPS в локальный Nginx контейнер.
 
-~~~powershell
-winget install --id Cloudflare.cloudflared -e
-cloudflared --version
+**Схема:** Интернет → Caddy (80/443, TLS) → Nginx в Docker (127.0.0.1:8000) → Django/Gunicorn → PostgreSQL/Redis.
+
+1. Подготовьте Ubuntu Server (рекомендуется актуальный LTS), установите Docker Engine + Compose plugin и Caddy из официального репозитория Caddy. Настройте DNS A-запись домена на публичный IPv4 сервера; если публикуете AAAA, он тоже должен вести на этот сервер.
+2. Откройте входящие TCP 80 и 443 в firewall/security group. Не открывайте наружу 8000, 5432 или 6379. Compose публикует Nginx только на `127.0.0.1:8000`; PostgreSQL и Redis наружу не публикуются.
+3. Разместите проект на сервере и подготовьте окружение:
+
+~~~bash
+git clone https://github.com/pohib/playlist-bridge.git
+cd playlist-bridge
+cp .env.example .env
+chmod 600 .env
+nano .env
 ~~~
 
-Для временной отладки с DEBUG:
+4. Установите production значения в `.env` (замените `music.example.com` своим доменом):
 
-~~~powershell
-.\scripts\start-tunnel.ps1
+~~~dotenv
+DJANGO_DEBUG=false
+DJANGO_ALLOWED_HOSTS=music.example.com,localhost,127.0.0.1,web
+DJANGO_CSRF_TRUSTED_ORIGINS=https://music.example.com
+SESSION_COOKIE_SECURE=true
+CSRF_COOKIE_SECURE=true
+SECURE_SSL_REDIRECT=true
+SPOTIFY_REDIRECT_URI=https://music.example.com/spotify/callback/
+SOUNDCLOUD_REDIRECT_URI=https://music.example.com/soundcloud/callback/
 ~~~
 
-Скрипт использует dev overlay и требует явного подтверждения публикации DEBUG-окружения. **Не оставляйте DEBUG-версию публично доступной.**
+Сгенерируйте отдельные случайные значения для `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` и `TOKEN_ENCRYPTION_KEY`. Для Fernet-ключа используйте:
 
-Для production-like проверки с Gunicorn и DEBUG=False:
-
-~~~powershell
-.\scripts\start-tunnel-prod.ps1
+~~~bash
+python3 -c 'import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
 ~~~
 
-Этот сценарий использует основной compose.yaml и не является полноценным production deployment: Quick Tunnel выдаёт временный адрес, а локальная машина остаётся хостом приложения. После запуска скрипт печатает URL и callback URI. Зарегистрируйте точные callback URI в настройках Spotify и SoundCloud.
+Также заполните OAuth client credentials Spotify/SoundCloud, если планируете эти интеграции. Не меняйте `TOKEN_ENCRYPTION_KEY` после сохранения пользовательских OAuth credentials: без прежнего ключа уже сохранённые токены не расшифровать. Храните резервную копию ключа отдельно и безопасно.
 
-Остановить туннель и Compose-окружения:
+5. Проверьте конфигурацию и запустите стек:
 
-~~~powershell
-.\scripts\stop-tunnel.ps1
+~~~bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100 web proxy worker celery-beat
+docker compose exec web python manage.py createsuperuser
 ~~~
 
-Команда остановки удаляет контейнеры и сети обоих Compose-проектов, но сохраняет именованные volumes. Для обычного применения изменений не запускайте stop/start скрипты: пересоздавайте только изменённые сервисы через Compose. Если пересоздаётся web, учитывайте зависимость Nginx proxy от адреса web-контейнера.
+Команда запуска web выполняет `collectstatic` и миграции перед стартом Gunicorn. Не запускайте параллельно отдельную миграцию в то же время, когда стартует web. После запуска проверьте локальный health endpoint:
+
+~~~bash
+curl -fsS http://127.0.0.1:8000/healthz/
+~~~
+
+6. Настройте Caddy. Скопируйте пример из репозитория в системный конфиг, замените домен и проверьте его:
+
+~~~bash
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo sed -i 's/example.com/music.example.com/g' /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl enable --now caddy
+sudo systemctl reload caddy
+~~~
+
+Caddy должен иметь возможность слушать порты 80/443 и обращаться к `127.0.0.1:8000`. При корректных DNS и открытых портах Caddy автоматически получит и будет продлевать TLS-сертификат. Проверьте:
+
+~~~bash
+curl -fsS https://music.example.com/healthz/
+~~~
+
+7. Зарегистрируйте точные HTTPS callback URI в Spotify/SoundCloud Developer Dashboard:
+   - `https://music.example.com/spotify/callback/`
+   - `https://music.example.com/soundcloud/callback/`
+
+   Перезапустите web/worker после изменения переменных окружения: `docker compose up -d --force-recreate web worker`. Nginx использует динамическое разрешение Docker DNS, поэтому после пересоздания web обычно не требует ручной перенастройки.
+
+**Обновление приложения:**
+
+~~~bash
+git pull --ff-only origin main
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail=100 web worker celery-beat
+~~~
+
+**Эксплуатация:** регулярно выполняйте backup PostgreSQL и `media/`, храните копии вне сервера, сохраняйте `TOKEN_ENCRYPTION_KEY` отдельно и проверяйте восстановление. Не используйте `docker compose down -v` для обычного обновления — команда удалит persistent volumes. Настройте системный мониторинг диска, RAM, контейнеров, логов и срока действия домена. Ограничьте SSH доступ, обновляйте ОС/Docker и используйте отдельного непривилегированного системного пользователя.
+
+**Важно:** текущий Compose рассчитан на один сервер и один экземпляр web/worker. Это production-oriented single-host deployment, но не отказоустойчивый кластер: нет managed database, внешнего object storage, multi-host failover или встроенного централизованного мониторинга. Перед реальным публичным запуском проведите security review, проверьте восстановление backup на отдельной среде и настройте внешние уведомления об ошибках.
+
+### 4. Временный публичный HTTPS-доступ для разработки
 
 ## API
 

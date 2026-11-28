@@ -132,6 +132,37 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(context["security_filters"]["activity_status"], "")
         self.assertEqual(context["security_filters"]["activity_count"], 0)
 
+
+    def test_dashboard_exposes_operational_error_analytics_only_to_superuser(self):
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            route_name="library_import_vk", http_method="POST", response_status=422,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            route_name="library_import_vk", http_method="POST", response_status=503,
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console"))
+        self.assertEqual(response.status_code, 200)
+        root_context = renderer.call_args.args[2]
+        self.assertTrue(root_context["can_view_operational_analytics"])
+        self.assertEqual(root_context["request_error_counts"], {
+            "total_24h": 2, "server_24h": 1, "total_7d": 2, "server_7d": 1,
+        })
+        self.assertEqual(root_context["top_error_routes"], [{"route_name": "library_import_vk", "total": 2}])
+        self.assertEqual(len(root_context["recent_request_errors"]), 2)
+
+        self.client.force_login(self.staff)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_user_detail", args=[self.target.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(renderer.call_args.args[2]["can_view_security"])
+        self.assertEqual(renderer.call_args.args[2]["security_events"], [])
+
     def test_security_overview_is_superuser_only(self):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get(reverse("admin_console_security")).status_code, 403)

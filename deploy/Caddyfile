@@ -1,0 +1,11 @@
+# Replace example.com with the public DNS name pointing to this server.
+# Caddy runs on the host and terminates HTTPS before the loopback-only Docker proxy.
+example.com {
+    encode zstd gzip
+
+    reverse_proxy 127.0.0.1:8000 {
+        # Overwrite the client IP header; Nginx trusts this because port 8000
+        # is published on loopback and is not directly reachable from the Internet.
+        header_up X-Real-IP {remote_host}
+    }
+}

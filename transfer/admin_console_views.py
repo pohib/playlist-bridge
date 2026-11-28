@@ -69,7 +69,30 @@ def console_dashboard(request):
             "id", "status", "progress", "total", "created_at", "error"
         )[:8] if permissions["can_view_jobs"] else [],
         "recent_events": AdminAuditEvent.objects.select_related("actor")[:6] if permissions["can_view_audit"] else [],
+        "can_view_operational_analytics": request.user.is_superuser,
+        "request_error_counts": None,
+        "top_error_routes": [],
+        "recent_request_errors": [],
     }
+    if request.user.is_superuser:
+        day_ago = timezone.now() - timedelta(hours=24)
+        week_ago = timezone.now() - timedelta(days=7)
+        audited_requests = UserSecurityEvent.objects.filter(
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY
+        )
+        errors_24h = audited_requests.filter(created_at__gte=day_ago, response_status__gte=400)
+        errors_7d = audited_requests.filter(created_at__gte=week_ago, response_status__gte=400)
+        context["request_error_counts"] = {
+            "total_24h": errors_24h.count(),
+            "server_24h": errors_24h.filter(response_status__gte=500).count(),
+            "total_7d": errors_7d.count(),
+            "server_7d": errors_7d.filter(response_status__gte=500).count(),
+        }
+        context["top_error_routes"] = list(
+            errors_7d.values("route_name").annotate(total=Count("id"))
+            .order_by("-total", "route_name")[:5]
+        )
+        context["recent_request_errors"] = errors_24h.select_related("user")[:8]
     return render(request, "transfer/admin_console/dashboard.html", context)
 
 
