@@ -1,0 +1,49 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Ошибки интеграций{% endblock %}
+{% block page_heading %}Ошибки интеграций{% endblock %}
+{% block content %}
+<div class="admin-page-intro">
+  <div><span class="admin-overline">ДИАГНОСТИКА / ТОЛЬКО SUPERUSER</span><h1>Ошибки интеграций</h1><p>История сбоев переносов и обращений к музыкальным сервисам. Секреты и исходные HTTP-заголовки не сохраняются.</p></div>
+  <span class="admin-tag tag-danger">Привилегированный доступ</span>
+</div>
+<div class="admin-stat-grid">
+  <article class="admin-stat"><span>Всего событий</span><strong>{{ summary.total }}</strong></article>
+  <article class="admin-stat"><span>За 24 часа</span><strong>{{ summary.last_24h }}</strong></article>
+  <article class="admin-stat stat-danger"><span>Ошибок за 24 часа</span><strong>{{ summary.errors_24h }}</strong></article>
+  <article class="admin-stat"><span>Spotify</span><strong>{{ summary.spotify }}</strong></article>
+  <article class="admin-stat"><span>VK</span><strong>{{ summary.vk }}</strong></article>
+  <article class="admin-stat"><span>SoundCloud</span><strong>{{ summary.soundcloud }}</strong></article>
+</div>
+<section class="admin-panel">
+  <div class="admin-panel-heading"><div><span class="admin-overline">ЖУРНАЛ</span><h2>События интеграций</h2></div></div>
+  <form method="get" class="admin-filter">
+    <label>Сервис<select name="provider"><option value="">Все сервисы</option>{% for value,label in providers %}<option value="{{ value }}" {% if provider == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Категория<select name="category"><option value="">Все категории</option>{% for value,label in categories %}<option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>С даты<input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label>По дату<input type="date" name="date_to" value="{{ date_to }}"></label>
+    <label>Поиск<input type="search" name="q" value="{{ query }}" maxlength="100" placeholder="Текст ошибки или операция"></label>
+    <button class="admin-button" type="submit">Применить</button>
+    <a class="admin-button button-secondary" href="{% url 'admin_console_integrations' %}">Сбросить</a>
+  </form>
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Время</th><th>Сервис</th><th>Операция</th><th>Категория</th><th>Сообщение</th><th>Задача</th></tr></thead>
+      <tbody>
+      {% for event in page.object_list %}
+        <tr>
+          <td>{{ event.created_at|date:"d.m.Y H:i:s" }}</td>
+          <td>{{ event.get_provider_display }}</td>
+          <td>{{ event.operation|default:"—" }}</td>
+          <td><span class="admin-tag {% if event.severity == 'error' %}tag-danger{% elif event.severity == 'warning' %}tag-warn{% else %}tag-success{% endif %}">{{ event.get_category_display }}</span></td>
+          <td class="admin-event-message">{{ event.message }}</td>
+          <td>{% if event.transfer_job_id %}<a href="{% url 'admin_console_job_detail' event.transfer_job_id %}">Открыть задачу ↗</a>{% else %}—{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="admin-empty">Событий по выбранным фильтрам нет.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "transfer/admin_console/pagination.html" %}
+</section>
+{% endblock %}
