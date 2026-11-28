@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def login(request, *, client_factory):
+    started_at = time.perf_counter()
     try:
         state = secrets.token_urlsafe(32)
         request.session["spotify_oauth_state"] = state
@@ -25,6 +26,7 @@ def login(request, *, client_factory):
             operation="oauth_login",
             error=exc,
             user=request.user,
+            duration_ms=(time.perf_counter() - started_at) * 1000,
         )
         request.session["oauth_error"] = "Не удалось начать авторизацию Spotify."
         return redirect(provider_redirect(request))
@@ -46,6 +48,7 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
     if not code:
         request.session["oauth_error"] = "Spotify не вернул код авторизации."
         return redirect(provider_redirect(request))
+    started_at = time.perf_counter()
     try:
         client = client_factory()
         token = client.exchange_code(code)
@@ -67,6 +70,7 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
             operation="oauth_callback",
             error=exc,
             user=request.user,
+            duration_ms=(time.perf_counter() - started_at) * 1000,
         )
         logger.warning("Spotify OAuth callback failed")
         request.session["oauth_error"] = "Не удалось завершить авторизацию Spotify."
