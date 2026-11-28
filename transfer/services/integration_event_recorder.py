@@ -79,3 +79,21 @@ def record_transfer_failure(*, job, error):
     except DatabaseError:
         # Operational telemetry must never prevent the job from reaching a terminal state.
         return None
+
+
+def record_worker_failure(*, job_id, error, operation):
+    """Record a sanitized Celery dispatch/recovery failure without masking it."""
+    try:
+        from ..models import TransferJob
+
+        job = TransferJob.objects.filter(pk=job_id).first()
+        return ProviderIntegrationEvent.objects.create(
+            provider=ProviderIntegrationEvent.Provider.TRANSFER,
+            operation=operation[:80],
+            category=ProviderIntegrationEvent.Category.WORKER,
+            severity=ProviderIntegrationEvent.Severity.ERROR,
+            message=sanitize_integration_message(error),
+            transfer_job=job,
+        )
+    except DatabaseError:
+        return None
