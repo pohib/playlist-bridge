@@ -324,6 +324,7 @@
 | `0014_transferjob_checkpoint.py` | Добавляет checkpoint данных для восстановления переноса. |
 | `0015_adminauditevent.py` | Добавляет журнал привилегированных действий администраторов. |
 | `0016_usersecurityevent.py` | Добавляет телеметрию событий безопасности пользователя. |
+| `0022_providerintegrationevent.py` | Добавляет журнал безопасных событий интеграций и фоновых задач. |
 | `0017_usersecurityevent_activity_context.py` | Расширяет security events контекстом HTTP-запроса. |
 | `0018_usereqpreset.py` | Добавляет пользовательские пресеты эквалайзера. |
 | `0018_useripban.py` | Добавляет реестр блокировок IP. |
@@ -352,6 +353,7 @@
 | `api_transfer_validation.py` | Валидация API входных параметров и ограничений переноса. |
 | `audio_file_validation.py` | Проверки типа, размера и допустимости загружаемых аудиофайлов. |
 | `auth_security_audit.py` | Запись событий входа и связанных действий безопасности. |
+| `integration_event_recorder.py` | Классификация ошибок провайдеров/worker и маскирование секретов перед сохранением. |
 | `common.py` | Общие функции и примитивы сервисного слоя. |
 | `credential_service.py` | Шифрование, сохранение и получение OAuth credentials. |
 | `free_music_catalog_search.py` | Бесплатный поиск кандидатов по внешним музыкальным каталогам. |
@@ -435,6 +437,7 @@
 | `privileges.html` | Шаблон административной панели: privileges.html. |
 | `security.html` | Шаблон административной панели: security.html. |
 | `system.html` | Шаблон административной панели: system.html. |
+| `integrations.html` | История событий ошибок Spotify/VK/SoundCloud и Celery с фильтрами. |
 | `user_detail.html` | Шаблон административной панели: user detail.html. |
 | `users.html` | Шаблон административной панели: users.html. |
 
@@ -486,6 +489,7 @@
 | `test_admin_console_details.py` | Автоматические тесты сценариев «admin console details»: регрессии, контракты и проверки поведения. |
 | `test_admin_console_events.py` | Автоматические тесты сценариев «admin console events»: регрессии, контракты и проверки поведения. |
 | `test_admin_console_ip_bans.py` | Автоматические тесты сценариев «admin console ip bans»: регрессии, контракты и проверки поведения. |
+| `test_admin_console_integrations.py` | Проверяет доступы, фильтры журнала интеграций и маскирование секретов. |
 | `test_admin_console_player.py` | Автоматические тесты сценариев «admin console player»: регрессии, контракты и проверки поведения. |
 | `test_admin_console_privileges.py` | Автоматические тесты сценариев «admin console privileges»: регрессии, контракты и проверки поведения. |
 | `test_admin_console_roles.py` | Автоматические тесты сценариев «admin console roles»: регрессии, контракты и проверки поведения. |
