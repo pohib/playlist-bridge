@@ -9,25 +9,25 @@ from ..models import ProviderIntegrationEvent
 
 
 _SECRET_PATTERN = re.compile(
-    r"(?i)\\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\\b[\\\"']?"
-    r"(\\s*[:=]\\s*)(?:Bearer\\s+\\S+|Basic\\s+\\S+|\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;}]+)"
+    r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b[\\"']?"
+    r"(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|\\"[^\\"]*\\"|'[^']*'|[^\s,;}]+)"
 )
-_BEARER_PATTERN = re.compile(r"(?i)\\b(Bearer|Basic)\\s+[A-Za-z0-9._~+/-]+=*")
+_BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
 _QUERY_SECRET_PATTERN = re.compile(
-    r"(?i)([?&](?:access_token|refresh_token|client_secret|api_key|key)=)[^&#\\s]+"
+    r"(?i)([?&](?:access_token|refresh_token|client_secret|api_key|key)=)[^&#\s]+"
 )
 
 
 def sanitize_integration_message(value):
     """Remove common credential forms and URL query strings before persistence."""
     message = str(value or "Неизвестная ошибка")
-    message = _SECRET_PATTERN.sub(r"\\1\\2[скрыто]", message)
-    message = _BEARER_PATTERN.sub(r"\\1 [скрыто]", message)
-    message = _QUERY_SECRET_PATTERN.sub(r"\\1[скрыто]", message)
+    message = _SECRET_PATTERN.sub(r"\1\2[скрыто]", message)
+    message = _BEARER_PATTERN.sub(r"\1 [скрыто]", message)
+    message = _QUERY_SECRET_PATTERN.sub(r"\1[скрыто]", message)
     message = re.sub(
-        r"(https?://[^\\s?#]+)\\?[^\\s#]+",
-        r"\\1?[параметры скрыты]",
+        r"(https?://[^\s?#]+)\?[^\s#]+",
+        r"\1?[параметры скрыты]",
         message,
         flags=re.IGNORECASE,
     )
@@ -55,7 +55,9 @@ def _extract_http_status(error):
                 continue
             if 100 <= status <= 599:
                 return status
-        pending.extend((getattr(current, "__cause__", None), getattr(current, "__context__", None)))
+        pending.extend(
+            (getattr(current, "__cause__", None), getattr(current, "__context__", None))
+        )
     return None
 
 
@@ -89,8 +91,15 @@ def infer_provider(error, source_url=""):
 
 
 def record_integration_failure(
-    *, provider, operation, error, user=None, job=None, category=None,
-    status_code=None, duration_ms=None,
+    *,
+    provider,
+    operation,
+    error,
+    user=None,
+    job=None,
+    category=None,
+    status_code=None,
+    duration_ms=None,
 ):
     """Store a redacted provider failure without disrupting the original operation."""
     try:
