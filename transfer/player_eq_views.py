@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .models import UserEQPreset
+from .domain_models import UserEQPreset
 
 MAX_PRESETS_PER_USER = 20
 
