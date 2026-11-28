@@ -48,7 +48,6 @@ def _itunes_search(query):
             "cover": item.get("artworkUrl100", "") if isinstance(item.get("artworkUrl100"), str) else "",
             "url": url,
             "playable": False,
-            "search_only": True,
         })
     return results[:RESULT_LIMIT]
 
@@ -84,7 +83,6 @@ def _deezer_search(query):
             "cover": cover if isinstance(cover, str) else "",
             "url": url,
             "playable": False,
-            "search_only": True,
         })
     return results[:RESULT_LIMIT]
 

@@ -20,7 +20,7 @@ class FreeCatalogAdapterTests(SimpleTestCase):
         result = _itunes_search("Artist Song")
         self.assertEqual(result[0]["provider"], "itunes")
         self.assertEqual(result[0]["title"], "Song")
-        self.assertTrue(result[0]["search_only"])
+        self.assertFalse(result[0]["playable"])
         get.assert_called_once()
         self.assertEqual(get.call_args.kwargs["timeout"], (3.05, 7))
 
