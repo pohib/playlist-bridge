@@ -437,14 +437,18 @@ def console_security(request):
     else:
         event_type = ""
     if query:
-        events = events.filter(
+        search_filter = (
             Q(username_snapshot__icontains=query)
             | Q(ip_address__icontains=query)
             | Q(user_agent__icontains=query)
             | Q(route_name__icontains=query)
-            | Q(request_id__icontains=query)
             | Q(object_id__icontains=query)
         )
+        try:
+            search_filter |= Q(request_id=UUID(query))
+        except (TypeError, ValueError, AttributeError):
+            pass
+        events = events.filter(search_filter)
     if date_from:
         events = events.filter(created_at__date__gte=date_from)
     if date_to:
