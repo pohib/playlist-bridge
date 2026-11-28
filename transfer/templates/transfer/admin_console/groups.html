@@ -15,7 +15,7 @@
 </form></section>
 {% endif %}
 <section class="admin-panel admin-table-wrap"><div class="admin-panel-heading"><div><span class="admin-overline">СУЩЕСТВУЮЩИЕ РОЛИ</span><h2>Группы доступа</h2></div></div>
-<table class="admin-table"><thead><tr><th>Название</th><th>Участники</th><th>Права и управление</th></tr></thead><tbody>
+<table class="admin-table admin-groups-table"><thead><tr><th>Название</th><th>Участники</th><th>Права и управление</th></tr></thead><tbody>
 {% for group in groups %}<tr><td><strong>{{ group.name }}</strong></td><td>{{ group.members_count }}</td><td>
 {% for permission in group.permissions.all %}<small>{{ permission.display_description }}</small><small class="admin-permission-code">{{ permission.content_type.app_label }}.{{ permission.codename }}</small>{% empty %}<span class="muted">Нет назначенных прав</span>{% endfor %}
 {% if can_edit_groups and group.is_safe_role %}
