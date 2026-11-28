@@ -31,6 +31,24 @@ class AdminConsoleSystemTests(TestCase):
         self.assertEqual(response.context["database_backend"], "SQLite")
         self.assertTrue(response.context["database_backend_is_sqlite"])
 
+    def test_provider_catalog_configuration_is_reported_without_exposing_credentials(self):
+        with override_settings(
+            SPOTIFY_CLIENT_ID="spotify-client-id",
+            SPOTIFY_CLIENT_SECRET="spotify-client-secret",
+            SOUNDCLOUD_CLIENT_ID="",
+            SOUNDCLOUD_CLIENT_SECRET="",
+        ):
+            self.client.force_login(self.superuser)
+            response = self.client.get(reverse("admin_console_system"))
+
+        self.assertEqual(response.status_code, 200)
+        integrations = {item["name"]: item for item in response.context["integrations"]}
+        self.assertEqual(integrations["Spotify · поиск по каталогу"]["state_label"], "Реквизиты заданы")
+        self.assertEqual(integrations["SoundCloud · поиск по каталогу"]["state_label"], "Не настроено")
+        self.assertEqual(integrations["YouTube Music"]["state_label"], "Только ссылка")
+        self.assertEqual(integrations["Apple Music"]["state_label"], "Только ссылка")
+        self.assertNotContains(response, "spotify-client-secret")
+
     @patch("transfer.admin_console_views._system_check_celery_workers", return_value={
         "status": "warning", "label": "Celery workers", "detail": "Нет активных worker."
     })

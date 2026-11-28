@@ -22,7 +22,7 @@
 <section class="admin-panel">
   <div class="admin-panel-heading"><div><span class="admin-overline">КОНФИГУРАЦИЯ</span><h2>Интеграции и ключи</h2></div></div>
   <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Компонент</th><th>Конфигурация</th><th>Состояние</th></tr></thead><tbody>
-    {% for item in integrations %}<tr><td><strong>{{ item.name }}</strong></td><td>{{ item.detail }}</td><td>{% if item.configured %}<span class="admin-tag tag-success">Настроено</span>{% else %}<span class="admin-tag tag-danger">Не настроено</span>{% endif %}</td></tr>{% endfor %}
+    {% for item in integrations %}<tr><td><strong>{{ item.name }}</strong></td><td>{{ item.detail }}</td><td>{% if item.configured %}<span class="admin-tag tag-success">{{ item.state_label }}</span>{% elif item.state_label == "Только ссылка" %}<span class="admin-tag tag-warn">{{ item.state_label }}</span>{% else %}<span class="admin-tag tag-danger">{{ item.state_label }}</span>{% endif %}</td></tr>{% endfor %}
   </tbody></table></div>
 </section>
 <section class="admin-panel">

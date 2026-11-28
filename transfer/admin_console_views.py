@@ -171,11 +171,56 @@ def console_system(request):
         raise PermissionDenied
 
     checks = [_system_check_database(), _system_check_cache(), _system_check_celery_broker(), _system_check_celery_workers()]
+    spotify_configured = bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET)
+    soundcloud_configured = bool(
+        settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET
+    )
     integrations = [
-        {"name": "Spotify", "configured": bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET), "detail": "OAuth-реквизиты заданы." if settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET else "Не заданы Client ID и/или Client Secret."},
-        {"name": "SoundCloud", "configured": bool(settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET), "detail": "OAuth-реквизиты заданы." if settings.SOUNDCLOUD_CLIENT_ID and settings.SOUNDCLOUD_CLIENT_SECRET else "Не заданы Client ID и/или Client Secret."},
-        {"name": "VK", "configured": bool(settings.VK_API_VERSION), "detail": "Версия API задана." if settings.VK_API_VERSION else "Не задана версия API."},
-        {"name": "Шифрование токенов", "configured": bool(settings.TOKEN_ENCRYPTION_KEY), "detail": "Ключ шифрования задан." if settings.TOKEN_ENCRYPTION_KEY else "Ключ шифрования не задан."},
+        {
+            "name": "Spotify · поиск по каталогу",
+            "configured": spotify_configured,
+            "state_label": "Реквизиты заданы" if spotify_configured else "Не настроено",
+            "detail": (
+                "Client ID и Secret заданы. Фактический доступ подтверждается только "
+                "успешным запросом Spotify API; HTTP 403 означает ограничение на стороне Spotify."
+                if spotify_configured
+                else "Задай SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET в окружении сервера."
+            ),
+        },
+        {
+            "name": "SoundCloud · поиск по каталогу",
+            "configured": soundcloud_configured,
+            "state_label": "Реквизиты заданы" if soundcloud_configured else "Не настроено",
+            "detail": (
+                "App-level Client ID и Secret заданы; поиск работает без OAuth-подключения пользователя."
+                if soundcloud_configured
+                else "Задай SOUNDCLOUD_CLIENT_ID и SOUNDCLOUD_CLIENT_SECRET в окружении сервера."
+            ),
+        },
+        {
+            "name": "YouTube Music",
+            "configured": False,
+            "state_label": "Только ссылка",
+            "detail": "Открывается поисковая страница. Официальный публичный API каталога YouTube Music не подключён.",
+        },
+        {
+            "name": "Apple Music",
+            "configured": False,
+            "state_label": "Только ссылка",
+            "detail": "Открывается поисковая страница. Для поиска по каталогу нужна интеграция Apple Music API и developer token.",
+        },
+        {
+            "name": "VK",
+            "configured": bool(settings.VK_API_VERSION),
+            "state_label": "Настроено" if settings.VK_API_VERSION else "Не настроено",
+            "detail": "Версия API задана." if settings.VK_API_VERSION else "Не задана версия API.",
+        },
+        {
+            "name": "Шифрование токенов",
+            "configured": bool(settings.TOKEN_ENCRYPTION_KEY),
+            "state_label": "Настроено" if settings.TOKEN_ENCRYPTION_KEY else "Не настроено",
+            "detail": "Ключ шифрования задан." if settings.TOKEN_ENCRYPTION_KEY else "Ключ шифрования не задан.",
+        },
     ]
     database_backend = {"postgresql": "PostgreSQL", "sqlite": "SQLite"}.get(connection.vendor, connection.vendor)
     return render(request, "transfer/admin_console/system.html", {"checks": checks, "integrations": integrations, "debug_enabled": settings.DEBUG, "secure_redirect": settings.SECURE_SSL_REDIRECT, "database_backend": database_backend, "database_backend_is_sqlite": connection.vendor == "sqlite"})
