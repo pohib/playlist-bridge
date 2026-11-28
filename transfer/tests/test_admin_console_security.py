@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from transfer.models import AdminAuditEvent, UserSecurityEvent
@@ -238,6 +238,10 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(context["response_status"], "422")
 
 
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
     def test_global_security_pagination_preserves_search_and_status_filters(self):
         for index in range(51):
             UserSecurityEvent.objects.create(
