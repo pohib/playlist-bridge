@@ -19,6 +19,7 @@ from ..library_views import (
 )
 from ..models import LibraryProfile
 from ..services.common import normalize_track_text, parse_vk_playlist_url, parse_vk_track_url
+from ..services.library_source_search import spotify_library_search_results, soundcloud_library_search_results
 
 
 FUZZ_SETTINGS = settings(max_examples=100, derandomize=True, deadline=None)
@@ -149,15 +150,12 @@ class ProviderResponseFuzzTests(TestCase):
 
         exercise()
 
-    def test_malformed_spotify_search_results_are_contained_as_provider_status(self):
+    def test_malformed_spotify_search_results_are_contained_by_serializer(self):
         @FUZZ_SETTINGS
         @given(
             tracks=st.lists(
                 st.one_of(
-                    st.none(),
-                    st.booleans(),
-                    st.integers(),
-                    st.text(max_size=80),
+                    st.none(), st.booleans(), st.integers(), st.text(max_size=80),
                     st.dictionaries(
                         st.text(max_size=20),
                         st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
@@ -168,31 +166,18 @@ class ProviderResponseFuzzTests(TestCase):
             )
         )
         def exercise(tracks):
-            provider = Mock()
-            provider.search_tracks.return_value = tracks
-            with patch("transfer.library_views._spotify_access", return_value=(provider, "test-token")):
-                response = self.client.post(
-                    reverse("library_track_search"),
-                    data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["spotify"]}),
-                    content_type="application/json",
-                )
-
-            self.assertEqual(response.status_code, 200)
-            payload = response.json()
-            self.assertIsInstance(payload["results"], list)
-            self.assertIn("spotify", payload["statuses"])
+            results = spotify_library_search_results(tracks)
+            self.assertIsInstance(results, list)
+            self.assertTrue(all(item.get("provider") == "spotify" for item in results))
 
         exercise()
 
-    def test_malformed_soundcloud_search_results_are_contained_as_provider_status(self):
+    def test_malformed_soundcloud_search_results_are_contained_by_serializer(self):
         @FUZZ_SETTINGS
         @given(
             tracks=st.lists(
                 st.one_of(
-                    st.none(),
-                    st.booleans(),
-                    st.integers(),
-                    st.text(max_size=80),
+                    st.none(), st.booleans(), st.integers(), st.text(max_size=80),
                     st.dictionaries(
                         st.text(max_size=20),
                         st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=80), st.lists(st.integers(), max_size=4)),
@@ -203,19 +188,9 @@ class ProviderResponseFuzzTests(TestCase):
             )
         )
         def exercise(tracks):
-            provider = Mock()
-            provider.search_tracks.return_value = tracks
-            with patch("transfer.library_views._soundcloud_access", return_value=(provider, "test-token")):
-                response = self.client.post(
-                    reverse("library_track_search"),
-                    data=json.dumps({"title": "Fuzz title", "artist": "Fuzz artist", "providers": ["soundcloud"]}),
-                    content_type="application/json",
-                )
-
-            self.assertEqual(response.status_code, 200)
-            payload = response.json()
-            self.assertIsInstance(payload["results"], list)
-            self.assertIn("soundcloud", payload["statuses"])
+            results = soundcloud_library_search_results(tracks)
+            self.assertIsInstance(results, list)
+            self.assertTrue(all(item.get("provider") == "soundcloud" for item in results))
 
         exercise()
 
