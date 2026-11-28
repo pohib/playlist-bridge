@@ -1,4 +1,4 @@
-from .admin import AdminAuditEvent, UserEQPreset, UserIPBan, UserSecurityEvent
+from .admin import AdminAuditEvent, UserAccountBan, UserEQPreset, UserIPBan, UserSecurityEvent
 from .credentials import OAuthCredential
 from .jobs import TransferJob
 from .library import (
@@ -18,6 +18,7 @@ __all__ = [
     "LibraryTransferItem",
     "OAuthCredential",
     "TransferJob",
+    "UserAccountBan",
     "UserEQPreset",
     "UserIPBan",
     "UserSecurityEvent",

@@ -30,6 +30,13 @@
 </section>
 </div>
 
+{% if can_manage_account_bans %}
+<section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">УПРАВЛЕНИЕ ДОСТУПОМ</span><h2>Блокировка учётной записи</h2><p class="muted">Укажи срок в часах; пустое поле — бессрочно. История сохраняется.</p></div></div>
+<form method="post" action="{% url 'admin_console_create_account_ban' account.pk %}" class="admin-ip-ban-form">{% csrf_token %}<label>Причина<input name="reason" maxlength="240" required placeholder="Причина ограничения"></label><label>Срок, часов<input name="duration_hours" type="number" min="1" max="8760" placeholder="Бессрочно"></label><button class="table-action action-danger" type="submit">Заблокировать аккаунт</button></form>
+<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Причина</th><th>Создано</th><th>Истекает</th><th>Статус</th><th>Автор</th><th>Действие</th></tr></thead><tbody>
+{% for ban in account_bans %}<tr><td>{{ ban.reason }}</td><td>{{ ban.created_at|date:"d.m.Y H:i" }}</td><td>{% if ban.expires_at %}{{ ban.expires_at|date:"d.m.Y H:i" }}{% else %}Бессрочно{% endif %}</td><td>{% if ban.revoked_at %}<span class="admin-tag">Снята</span>{% elif ban.is_active %}<span class="admin-tag tag-danger">Действует</span>{% else %}<span class="admin-tag tag-warning">Истекла</span>{% endif %}</td><td>{{ ban.created_by.get_username|default:"Система" }}</td><td>{% if not ban.revoked_at and ban.is_active %}<form method="post" action="{% url 'admin_console_revoke_account_ban' account.pk ban.pk %}">{% csrf_token %}<button class="table-action" type="submit">Снять</button></form>{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="admin-empty">История блокировок пуста.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}
 {% if can_manage_ip_bans %}
 <section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ЗАЩИТА ДОСТУПА</span><h2>Блокировка IP-адресов</h2><p class="muted">Точный IPv4/IPv6-адрес блокируется для всего сайта. Блокировки доступны только superuser.</p></div><span class="admin-tag tag-danger">Superuser</span></div>
 <form method="post" action="{% url 'admin_console_ban_ip' account.pk %}" class="admin-ip-ban-form">{% csrf_token %}

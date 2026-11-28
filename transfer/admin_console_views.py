@@ -25,7 +25,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserIPBan, UserSecurityEvent
+from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserAccountBan, UserIPBan, UserSecurityEvent
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +279,8 @@ def console_user_detail(request, user_id):
         "security.events_viewed": "Просмотрен журнал безопасности",
         "security.ip_banned": "IP-адрес заблокирован",
         "security.ip_ban_revoked": "Блокировка IP снята",
+        "user.account_banned": "Учётная запись заблокирована",
+        "user.account_ban_revoked": "Ограничение учётной записи снято",
         "privilege.updated": "Изменены привилегии пользователя",
     }
     for event in audit_events:
@@ -319,6 +321,8 @@ def console_user_detail(request, user_id):
         _present_permission(permission)
     return render(request, "transfer/admin_console/user_detail.html", {
         "account": account,
+        "account_bans": UserAccountBan.objects.filter(user=account).select_related("created_by", "revoked_by")[:30],
+        "can_manage_account_bans": request.user.has_perm("auth.change_user") and account.pk != request.user.pk and not account.is_superuser,
         "security_events": security_events,
         "ip_bans": UserIPBan.objects.filter(revoked_at__isnull=True).order_by("-created_at")[:50] if request.user.is_superuser else [],
         "can_manage_ip_bans": request.user.is_superuser,
@@ -359,6 +363,49 @@ def console_toggle_user(request, user_id):
     return redirect("admin_console_users")
 
 
+
+
+@_staff
+@permission_required("auth.change_user", raise_exception=True)
+@require_POST
+def console_create_account_ban(request, user_id):
+    target = get_object_or_404(get_user_model(), pk=user_id)
+    if target.pk == request.user.pk or target.is_superuser:
+        raise PermissionDenied("Нельзя блокировать собственную или superuser-учётную запись.")
+    reason = (request.POST.get("reason") or "").strip()[:240]
+    if not reason:
+        messages.error(request, "Укажите причину блокировки.")
+        return redirect("admin_console_user_detail", user_id=target.pk)
+    raw_hours = (request.POST.get("duration_hours") or "").strip()
+    expires_at = None
+    if raw_hours:
+        try:
+            hours = int(raw_hours)
+            if not 1 <= hours <= 8760:
+                raise ValueError
+            expires_at = timezone.now() + timedelta(hours=hours)
+        except ValueError:
+            messages.error(request, "Срок блокировки должен быть от 1 до 8760 часов.")
+            return redirect("admin_console_user_detail", user_id=target.pk)
+    ban = UserAccountBan.objects.create(user=target, reason=reason, created_by=request.user, expires_at=expires_at)
+    AdminAuditEvent.objects.create(actor=request.user, action="user.account_banned", target_type=get_user_model()._meta.label, target_id=str(target.pk), metadata={"ban_id": str(ban.pk), "expires_at": expires_at.isoformat() if expires_at else None})
+    messages.success(request, f"Доступ для {target.get_username()} ограничен.")
+    return redirect("admin_console_user_detail", user_id=target.pk)
+
+
+@_staff
+@permission_required("auth.change_user", raise_exception=True)
+@require_POST
+def console_revoke_account_ban(request, user_id, ban_id):
+    target = get_object_or_404(get_user_model(), pk=user_id)
+    if target.pk == request.user.pk or target.is_superuser:
+        raise PermissionDenied("Нельзя изменять собственную или superuser-учётную запись.")
+    ban = get_object_or_404(UserAccountBan, pk=ban_id, user=target, revoked_at__isnull=True)
+    ban.revoked_at, ban.revoked_by = timezone.now(), request.user
+    ban.save(update_fields=["revoked_at", "revoked_by"])
+    AdminAuditEvent.objects.create(actor=request.user, action="user.account_ban_revoked", target_type=get_user_model()._meta.label, target_id=str(target.pk), metadata={"ban_id": str(ban.pk)})
+    messages.success(request, "Ограничение снято.")
+    return redirect("admin_console_user_detail", user_id=target.pk)
 
 @_staff
 @require_POST

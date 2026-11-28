@@ -8,7 +8,7 @@ from uuid import uuid4
 from django.db.models import Q
 from django.utils import timezone
 
-from transfer.models import UserIPBan, UserSecurityEvent
+from transfer.models import UserAccountBan, UserIPBan, UserSecurityEvent
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,14 @@ class SecurityActivityMiddleware:
             return HttpResponseForbidden(
                 "Доступ с этого IP-адреса ограничен администратором."
             )
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            restricted = UserAccountBan.objects.filter(
+                user_id=user.pk, revoked_at__isnull=True
+            ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())).exists()
+            if restricted:
+                from django.http import HttpResponseForbidden
+                return HttpResponseForbidden("Доступ к учётной записи временно ограничен администратором.")
         request.security_audit_started = perf_counter()
         request.security_audit_id = uuid4()
         response = self.get_response(request)

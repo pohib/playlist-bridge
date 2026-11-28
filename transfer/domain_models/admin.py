@@ -96,3 +96,25 @@ class UserIPBan(models.Model):
     def is_active(self):
         from django.utils import timezone
         return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())
+
+
+class UserAccountBan(models.Model):
+    """Append-only account restriction history."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account_ban_history")
+    reason = models.CharField(max_length=240)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_account_bans")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="revoked_account_bans")
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "блокировка учётной записи"
+        verbose_name_plural = "история блокировок учётных записей"
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())
