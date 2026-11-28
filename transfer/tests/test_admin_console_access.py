@@ -102,7 +102,8 @@ class AdminConsoleAccessTests(TestCase):
                 "name": "Операторы очереди",
                 "permissions": [str(safe_permission.pk)],
             })
-        self.assertRedirects(response, reverse("admin_console_groups"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("admin_console_groups"))
         group = Group.objects.get(name="Операторы очереди")
         self.assertEqual(list(group.permissions.values_list("pk", flat=True)), [safe_permission.pk])
 
@@ -122,7 +123,8 @@ class AdminConsoleAccessTests(TestCase):
                 "name": "Опасная роль",
                 "permissions": [str(dangerous.pk)],
             })
-        self.assertRedirects(response, reverse("admin_console_groups"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("admin_console_groups"))
         self.assertFalse(Group.objects.filter(name="Опасная роль").exists())
 
     def test_group_creation_requires_add_group_permission(self):
