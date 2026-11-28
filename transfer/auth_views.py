@@ -7,6 +7,10 @@ from django.views.decorators.http import require_POST
 
 from .forms import AccountCreationForm, AccountLoginForm
 from .services.account_workspace import attach_anonymous_workspace
+from .services.auth_security_audit import (
+    record_staff_login_failure,
+    record_staff_login_success,
+)
 from .services.credential_service import get_session_fingerprint
 from .services.login_throttle import (
     clear_login_failures,
@@ -54,6 +58,7 @@ def sign_in(request):
             return render(request, "transfer/auth/login.html", {"form": form}, status=503)
 
         if throttled:
+            record_staff_login_failure(request, username, throttled=True)
             form.add_error(
                 None,
                 "Слишком много неудачных попыток входа. Попробуй снова через 15 минут.",
@@ -71,6 +76,7 @@ def sign_in(request):
                 previous_fingerprint=previous_fingerprint,
                 current_fingerprint=get_session_fingerprint(request),
             )
+            record_staff_login_success(request, user)
             logger.info("User signed in: user_id=%s", user.pk)
             return redirect("dashboard")
         else:
@@ -80,6 +86,7 @@ def sign_in(request):
                 logger.exception("Unable to record login failure")
                 form.add_error(None, "Авторизация временно недоступна. Попробуй немного позже.")
                 return render(request, "transfer/auth/login.html", {"form": form}, status=503)
+            record_staff_login_failure(request, username)
     else:
         form = AccountLoginForm(request)
     return render(request, "transfer/auth/login.html", {"form": form})

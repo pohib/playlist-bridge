@@ -85,6 +85,9 @@ def console_user_detail(request, user_id):
         "user.activated": "Пользователь активирован",
         "user.deactivated": "Пользователь отключён",
         "user.groups_updated": "Группы пользователя изменены",
+        "auth.login_failed": "Неудачная попытка входа сотрудника",
+        "auth.login_throttled": "Попытка входа заблокирована ограничителем",
+        "auth.login_succeeded": "Сотрудник вошёл в систему",
     }
     for event in audit_events:
         event.action_label = action_labels.get(event.action, "Системное действие")
@@ -190,6 +193,9 @@ def console_audit(request):
         "role.created": "Роль создана",
         "role.updated": "Роль изменена",
         "user.groups_updated": "Группы пользователя изменены",
+        "auth.login_failed": "Неудачная попытка входа сотрудника",
+        "auth.login_throttled": "Попытка входа заблокирована ограничителем",
+        "auth.login_succeeded": "Сотрудник вошёл в систему",
     }
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")

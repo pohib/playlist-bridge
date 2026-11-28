@@ -7,6 +7,8 @@ from django.http import HttpResponse
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from transfer.models import AdminAuditEvent
+
 
 TEST_CACHES = {
     "default": {
@@ -51,11 +53,23 @@ class LoginThrottleTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Слишком много неудачных попыток входа")
         self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(
+            AdminAuditEvent.objects.filter(action="auth.login_failed").count(),
+            5,
+        )
+        self.assertEqual(
+            AdminAuditEvent.objects.filter(action="auth.login_throttled").count(),
+            1,
+        )
 
     def test_successful_login_is_not_blocked_without_failed_attempts(self):
         response = self._login("Correct-password-123!")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("dashboard"))
+        event = AdminAuditEvent.objects.get(action="auth.login_succeeded")
+        self.assertEqual(event.actor, self.user)
+        self.assertEqual(event.target_id, str(self.user.pk))
+        self.assertIn("ip_fingerprint", event.metadata)
 
     def test_failures_from_another_ip_do_not_lock_the_legitimate_client(self):
         for _ in range(5):
@@ -72,3 +86,24 @@ class LoginThrottleTests(TestCase):
         response = self._login("wrong-password", username="not-a-real-account")
         self.assertContains(response, "Слишком много неудачных попыток входа")
         self.assertNotContains(response, "не существует")
+
+    def test_failed_staff_login_audit_does_not_store_credentials_or_plaintext_ip(self):
+        self._login("Never-store-this-password", remote_addr="203.0.113.77")
+        event = AdminAuditEvent.objects.get(action="auth.login_failed")
+        self.assertIsNone(event.actor)
+        self.assertEqual(event.target_id, str(self.user.pk))
+        serialized = str(event.metadata)
+        self.assertNotIn("Never-store-this-password", serialized)
+        self.assertNotIn("staff-login", serialized)
+        self.assertNotIn("203.0.113.77", serialized)
+        self.assertEqual(event.metadata["reason"], "invalid_credentials")
+
+    def test_audit_storage_failure_does_not_block_successful_staff_login(self):
+        with patch(
+            "transfer.services.auth_security_audit.AdminAuditEvent.objects.create",
+            side_effect=RuntimeError("audit database unavailable"),
+        ):
+            response = self._login("Correct-password-123!")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("dashboard"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.user.pk)
