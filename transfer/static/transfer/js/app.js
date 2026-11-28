@@ -405,7 +405,7 @@
         adminStyles=document.createElement("link");
         adminStyles.id="admin-console-stylesheet";
         adminStyles.rel="stylesheet";
-        adminStyles.href="/static/transfer/styles/admin-console.css?v=20261128-11";
+        adminStyles.href="/static/transfer/styles/admin-console.css?v=20261128-12";
         document.head.append(adminStyles);
       }
     }else if(nextSite){
