@@ -2,7 +2,6 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth import login, logout
-from django.core.cache import cache
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
