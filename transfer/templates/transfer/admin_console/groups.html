@@ -17,13 +17,13 @@
 <section class="admin-panel admin-table-wrap"><div class="admin-panel-heading"><div><span class="admin-overline">СУЩЕСТВУЮЩИЕ РОЛИ</span><h2>Группы доступа</h2></div></div>
 <table class="admin-table"><thead><tr><th>Название</th><th>Участники</th><th>Права и управление</th></tr></thead><tbody>
 {% for group in groups %}<tr><td><strong>{{ group.name }}</strong></td><td>{{ group.members_count }}</td><td>
-{% for permission in group.permissions.all %}<small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small>{% empty %}<span class="muted">Нет назначенных прав</span>{% endfor %}
+{% for permission in group.permissions.all %}<small>{{ permission.display_description }}</small><small class="admin-permission-code">{{ permission.content_type.app_label }}.{{ permission.codename }}</small>{% empty %}<span class="muted">Нет назначенных прав</span>{% endfor %}
 {% if can_edit_groups and group.is_safe_role %}
 <details class="admin-role-editor"><summary>Изменить роль</summary>
 <form method="post" action="{% url 'admin_console_update_group' group.pk %}">{% csrf_token %}
 <label class="admin-field-label" for="role-name-{{ group.pk }}">Название роли</label><input id="role-name-{{ group.pk }}" name="name" maxlength="150" required value="{{ group.name }}">
 <div class="admin-role-permissions">{% for permission in safe_permissions %}
-<label><input type="checkbox" name="permissions" value="{{ permission.pk }}" {% if permission in group.permissions.all %}checked{% endif %}><span><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></span></label>
+<label><input type="checkbox" name="permissions" value="{{ permission.pk }}" {% if permission in group.permissions.all %}checked{% endif %}><span><strong>{{ permission.display_name }}</strong><small>{{ permission.display_description }}</small><small class="admin-permission-code">{{ permission.content_type.app_label }}.{{ permission.codename }}</small></span></label>
 {% endfor %}</div><button type="submit">Сохранить изменения</button></form></details>
 {% elif can_edit_groups %}<small class="admin-role-warning">В роли есть расширенные права. Изменение через эту панель заблокировано.</small>{% endif %}
 </td></tr>{% empty %}<tr><td colspan="3" class="admin-empty">Группы пока не созданы.</td></tr>{% endfor %}

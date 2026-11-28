@@ -254,6 +254,9 @@ def console_user_detail(request, user_id):
     )
     safe_groups = Group.objects.prefetch_related("permissions__content_type").order_by("name")
     safe_groups = [group for group in safe_groups if _is_safe_group(group)]
+    for group in safe_groups:
+        for permission in group.permissions.all():
+            _present_permission(permission)
     security_events = []
     if request.user.is_superuser:
         security_events = list(UserSecurityEvent.objects.filter(user=account)[:30])
