@@ -1,0 +1,17 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}События и уведомления{% endblock %}
+{% block page_heading %}События и уведомления{% endblock %}
+{% block content %}
+<div class="admin-page-intro"><div><span class="admin-overline">МОНИТОРИНГ / СИСТЕМНЫЕ СОБЫТИЯ</span><h1>События и уведомления</h1><p>Единая лента административных действий, событий безопасности и проблем переноса. Доступна только суперпользователям.</p></div><span class="admin-tag tag-danger">Только superuser</span></div>
+<form class="admin-filter admin-filter-wrap" method="get">
+<input name="q" value="{{ query }}" placeholder="Поиск по событию, оператору или объекту">
+<select name="category"><option value="">Все категории</option><option value="admin" {% if category == "admin" %}selected{% endif %}>Администрирование</option><option value="security" {% if category == "security" %}selected{% endif %}>Безопасность</option><option value="transfer" {% if category == "transfer" %}selected{% endif %}>Переносы</option></select>
+<select name="severity"><option value="">Любая важность</option><option value="info" {% if severity == "info" %}selected{% endif %}>Информация</option><option value="warning" {% if severity == "warning" %}selected{% endif %}>Предупреждение</option><option value="danger" {% if severity == "danger" %}selected{% endif %}>Высокий риск / ошибка</option></select>
+<label>С даты<input type="date" name="date_from" value="{{ date_from }}"></label><label>По дату<input type="date" name="date_to" value="{{ date_to }}"></label>
+<button type="submit">Применить</button>{% if query or category or severity or date_from or date_to %}<a href="{% url 'admin_console_events' %}">Сбросить</a>{% endif %}
+</form>
+<section class="admin-panel admin-table-wrap"><table class="admin-table"><thead><tr><th>Время</th><th>Категория</th><th>Событие</th><th>Важность</th><th>Инициатор</th><th>Объект</th><th>Описание</th></tr></thead><tbody>
+{% for event in page %}<tr><td>{{ event.occurred_at|date:"d.m.Y H:i:s" }}</td><td>{{ event.category_label }}</td><td><strong>{{ event.title }}</strong></td><td>{% if event.severity == "danger" %}<span class="admin-tag tag-danger">{{ event.severity_label }}</span>{% elif event.severity == "warning" %}<span class="admin-tag">{{ event.severity_label }}</span>{% else %}<span class="admin-tag tag-success">{{ event.severity_label }}</span>{% endif %}</td><td>{{ event.actor }}</td><td>{% if event.target_url %}<a href="{{ event.target_url }}">{{ event.target|truncatechars:36 }}</a>{% else %}{{ event.target|truncatechars:36 }}{% endif %}</td><td>{{ event.detail }}</td></tr>{% empty %}<tr><td colspan="7" class="admin-empty">Событий по заданным условиям нет.</td></tr>{% endfor %}
+</tbody></table></section>
+{% include "transfer/admin_console/pagination.html" %}
+{% endblock %}
