@@ -7,8 +7,8 @@ import time
 from django.shortcuts import redirect
 
 from ..services import TransferError
-from ..services.integration_event_recorder import record_integration_failure
 from ..services.credential_service import get_session_fingerprint
+from ..services.integration_event_recorder import record_integration_failure
 from .shared import provider_redirect
 
 logger = logging.getLogger(__name__)

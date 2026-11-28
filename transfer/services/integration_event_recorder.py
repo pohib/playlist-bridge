@@ -94,7 +94,10 @@ def record_worker_failure(*, job_id, error, operation):
     """Record a sanitized Celery dispatch/recovery failure without masking it."""
     from ..models import TransferJob
 
-    job = TransferJob.objects.filter(pk=job_id).first()
+    try:
+        job = TransferJob.objects.filter(pk=job_id).first()
+    except DatabaseError:
+        return None
     return record_integration_failure(
         provider=ProviderIntegrationEvent.Provider.TRANSFER,
         operation=operation,
