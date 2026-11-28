@@ -21,6 +21,7 @@ class FreeCatalogAdapterTests(SimpleTestCase):
         self.assertEqual(result[0]["provider"], "itunes")
         self.assertEqual(result[0]["title"], "Song")
         self.assertFalse(result[0]["playable"])
+        self.assertNotIn("search_only", result[0])
         get.assert_called_once()
         self.assertEqual(get.call_args.kwargs["timeout"], (3.05, 7))
 

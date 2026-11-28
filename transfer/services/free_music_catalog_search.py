@@ -4,6 +4,7 @@ These endpoints are used only for discovery. They do not grant playback or
 playlist-write access to Spotify, SoundCloud, Apple Music, or YouTube.
 """
 from django.core.cache import cache
+import re
 import requests
 
 SEARCH_CACHE_SECONDS = 10 * 60
@@ -14,11 +15,17 @@ USER_AGENT = "PlaylistBridge/1.0 (music catalog search)"
 
 def _cached(provider, query, loader):
     key = f"free_music_search:v1:{provider}:{query.casefold()}"
-    cached = cache.get(key)
-    if cached is not None:
-        return cached
+    try:
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
+    except Exception:
+        pass
     results = loader()
-    cache.set(key, results, SEARCH_CACHE_SECONDS)
+    try:
+        cache.set(key, results, SEARCH_CACHE_SECONDS)
+    except Exception:
+        pass
     return results
 
 
@@ -97,7 +104,7 @@ def _youtube_music_search(query):
             continue
         video_id = item.get("videoId")
         title = item.get("title")
-        if not isinstance(video_id, str) or not video_id.isalnum() or not isinstance(title, str) or not title.strip():
+        if not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{6,20}", video_id) or not isinstance(title, str) or not title.strip():
             continue
         artists = item.get("artists")
         artist = ", ".join(
@@ -113,7 +120,6 @@ def _youtube_music_search(query):
             "cover": cover if isinstance(cover, str) else "",
             "url": f"https://music.youtube.com/watch?v={video_id}",
             "playable": False,
-            "search_only": True,
         })
     return results[:RESULT_LIMIT]
 
