@@ -96,7 +96,7 @@ class PlayerAndProfileStyleRegressionTests(TestCase):
             cls.stylesheet = stylesheet.read()
         with open(finders.find("transfer/js/app.js"), encoding="utf-8") as player_script:
             cls.player_script = player_script.read()
-        with open(settings.BASE_DIR / "transfer/templates/transfer/base.html", encoding="utf-8") as player_template:
+        with open(settings.BASE_DIR / "transfer/templates/transfer/partials/global_player.html", encoding="utf-8") as player_template:
             cls.player_template = player_template.read()
 
     def test_collapsed_player_keeps_track_title_space_and_ellipsis(self):

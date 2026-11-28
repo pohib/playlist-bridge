@@ -1,8 +1,18 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
+
+
+TEST_STORAGE_SETTINGS = {
+    "STORAGES": {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+    "WHITENOISE_MANIFEST_STRICT": False,
+}
 from django.urls import reverse
 
 
+@override_settings(**TEST_STORAGE_SETTINGS)
 class AdminConsolePlayerIntegrationTests(TestCase):
     def test_control_center_includes_shared_player_and_runtime(self):
         root = get_user_model().objects.create_superuser(
