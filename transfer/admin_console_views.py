@@ -25,7 +25,15 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserAccountBan, UserIPBan, UserSecurityEvent
+from .models import (
+    AdminAuditEvent,
+    LibraryPlaylist,
+    LibraryProfile,
+    TransferJob,
+    UserAccountBan,
+    UserIPBan,
+    UserSecurityEvent,
+)
 
 logger = logging.getLogger(__name__)
 
