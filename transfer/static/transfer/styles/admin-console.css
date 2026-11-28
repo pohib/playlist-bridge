@@ -27,3 +27,9 @@
 .admin-privilege-editor input,.admin-privilege-editor select{width:100%;min-width:0;padding:8px;border:1px solid var(--line);border-radius:7px;background:#0e1621;color:var(--text);font:11px system-ui}
 .admin-privilege-editor button{min-height:34px}
 .admin-privilege-stats{grid-template-columns:minmax(220px,320px)}
+
+.admin-filter-wrap{align-items:end;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:13px;background:rgba(17,25,37,.55)}
+.admin-filter-wrap input,.admin-filter-wrap select{flex:1 1 160px}
+.admin-filter-wrap label{display:grid;gap:5px;color:var(--muted);font-size:10px}
+.admin-filter-wrap label input{min-width:145px}
+.admin-table td a{color:var(--green)}

@@ -12,6 +12,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
+from django.utils.dateparse import parse_date
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
@@ -59,13 +60,27 @@ def console_dashboard(request):
 @require_GET
 def console_users(request):
     query = (request.GET.get("q") or "").strip()[:100]
+    status = (request.GET.get("status") or "").strip()
+    access = (request.GET.get("access") or "").strip()
     users = get_user_model().objects.all().order_by("-date_joined")
     if query:
         users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+    if status in {"active", "inactive"}:
+        users = users.filter(is_active=(status == "active"))
+    else:
+        status = ""
+    if access == "staff":
+        users = users.filter(is_staff=True)
+    elif access == "users":
+        users = users.filter(is_staff=False)
+    else:
+        access = ""
     page = Paginator(users, 25).get_page(request.GET.get("page"))
     return render(request, "transfer/admin_console/users.html", {
         "page": page,
         "query": query,
+        "status": status,
+        "access": access,
         "can_change_users": request.user.has_perm("auth.change_user"),
     })
 
@@ -188,21 +203,44 @@ def console_jobs(request):
 @permission_required("transfer.view_libraryprofile", raise_exception=True)
 @require_GET
 def console_library(request):
+    query = (request.GET.get("q") or "").strip()[:100]
     profiles = LibraryProfile.objects.select_related("user").annotate(
         playlists_count=Count("playlists", distinct=True),
         tracks_count=Count("playlists__tracks", distinct=True),
     ).order_by("-updated_at")
+    if query:
+        profiles = profiles.filter(
+            Q(display_name__icontains=query) | Q(user__username__icontains=query)
+        )
     page = Paginator(profiles, 25).get_page(request.GET.get("page"))
-    return render(request, "transfer/admin_console/library.html", {"page": page})
+    return render(request, "transfer/admin_console/library.html", {
+        "page": page, "query": query,
+    })
 
 
 @_staff
 @permission_required("transfer.view_adminevent", raise_exception=True)
 @require_GET
 def console_audit(request):
-    page = Paginator(
-        AdminAuditEvent.objects.select_related("actor"), 50
-    ).get_page(request.GET.get("page"))
+    query = (request.GET.get("q") or "").strip()[:100]
+    action = (request.GET.get("action") or "").strip()[:100]
+    date_from = parse_date((request.GET.get("date_from") or "").strip())
+    date_to = parse_date((request.GET.get("date_to") or "").strip())
+    events = AdminAuditEvent.objects.select_related("actor")
+    if query:
+        events = events.filter(
+            Q(actor__username__icontains=query)
+            | Q(target_id__icontains=query)
+            | Q(target_type__icontains=query)
+            | Q(action__icontains=query)
+        )
+    if action:
+        events = events.filter(action=action)
+    if date_from:
+        events = events.filter(created_at__date__gte=date_from)
+    if date_to:
+        events = events.filter(created_at__date__lte=date_to)
+    page = Paginator(events, 50).get_page(request.GET.get("page"))
     action_labels = {
         "user.activated": "Пользователь активирован",
         "user.deactivated": "Пользователь отключён",
@@ -218,7 +256,12 @@ def console_audit(request):
     }
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
-    return render(request, "transfer/admin_console/audit.html", {"page": page})
+    return render(request, "transfer/admin_console/audit.html", {
+        "page": page, "query": query, "action": action,
+        "date_from": request.GET.get("date_from", ""),
+        "date_to": request.GET.get("date_to", ""),
+        "actions": AdminAuditEvent.objects.order_by().values_list("action", flat=True).distinct(),
+    })
 
 
 
@@ -227,14 +270,39 @@ def console_audit(request):
 def console_security(request):
     if not request.user.is_superuser:
         raise PermissionDenied
-    events = list(UserSecurityEvent.objects.select_related("user")[:100])
+    query = (request.GET.get("q") or "").strip()[:100]
+    event_type = (request.GET.get("event_type") or "").strip()
+    date_from = parse_date((request.GET.get("date_from") or "").strip())
+    date_to = parse_date((request.GET.get("date_to") or "").strip())
+    events = UserSecurityEvent.objects.select_related("user")
+    valid_types = {value for value, _label in UserSecurityEvent.EventType.choices}
+    if event_type in valid_types:
+        events = events.filter(event_type=event_type)
+    else:
+        event_type = ""
+    if query:
+        events = events.filter(
+            Q(username_snapshot__icontains=query)
+            | Q(ip_address__icontains=query)
+            | Q(user_agent__icontains=query)
+        )
+    if date_from:
+        events = events.filter(created_at__date__gte=date_from)
+    if date_to:
+        events = events.filter(created_at__date__lte=date_to)
+    page = Paginator(events, 50).get_page(request.GET.get("page"))
     AdminAuditEvent.objects.create(
         actor=request.user,
         action="security.events_viewed",
         target_type="transfer.UserSecurityEvent",
-        metadata={"event_count": len(events)},
+        metadata={"event_count": len(page.object_list), "filters_applied": bool(query or event_type or date_from or date_to)},
     )
-    return render(request, "transfer/admin_console/security.html", {"events": events})
+    return render(request, "transfer/admin_console/security.html", {
+        "page": page, "query": query, "event_type": event_type,
+        "date_from": request.GET.get("date_from", ""),
+        "date_to": request.GET.get("date_to", ""),
+        "event_types": UserSecurityEvent.EventType.choices,
+    })
 
 
 
