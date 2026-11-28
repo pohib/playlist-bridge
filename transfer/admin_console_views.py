@@ -1,9 +1,9 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
 import logging
 from datetime import timedelta
-from uuid import UUID
 from functools import wraps
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from django.conf import settings
 from django.contrib import messages

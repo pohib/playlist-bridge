@@ -59,7 +59,10 @@ class SecurityActivityMiddleware:
             if argument in kwargs:
                 object_type, object_id = label, str(kwargs[argument])[:80]
                 break
-        referer_host = urlsplit(request.META.get("HTTP_REFERER", "")).hostname or ""
+        try:
+            referer_host = urlsplit(request.META.get("HTTP_REFERER", "")).hostname or ""
+        except ValueError:
+            referer_host = ""
         started = getattr(request, "security_audit_started", perf_counter())
         request_id = getattr(request, "security_audit_id", uuid4())
         try:
