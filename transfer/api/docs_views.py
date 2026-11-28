@@ -12,7 +12,7 @@ from .common import api_error
 def api_openapi(request):
     schema = {
         "openapi": "3.1.0",
-        "info": {"title": "VK to Spotify API", "version": "1.1.0"},
+        "info": {"title": "Playlist Bridge API", "version": "1.1.0"},
         "servers": [{"url": "/api/v1"}],
         "paths": {
             "/status/": {"get": {"summary": "Состояние подключений", "responses": {"200": {"description": "Connection state"}}}},

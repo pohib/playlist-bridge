@@ -19,7 +19,7 @@ Push-Location $repoRoot
 try {
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "       VK TO SPOTIFY - STOP" -ForegroundColor Cyan
+    Write-Host "       PLAYLIST BRIDGE - STOP" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 
