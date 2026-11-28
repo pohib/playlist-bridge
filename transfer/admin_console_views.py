@@ -1,4 +1,5 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
+import ipaddress
 import logging
 from datetime import timedelta
 from functools import wraps
@@ -24,7 +25,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserSecurityEvent
+from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserIPBan, UserSecurityEvent
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,8 @@ def console_user_detail(request, user_id):
         "auth.login_succeeded": "Сотрудник вошёл в систему",
         "security.user_events_viewed": "Просмотрена история безопасности пользователя",
         "security.events_viewed": "Просмотрен журнал безопасности",
+        "security.ip_banned": "IP-адрес заблокирован",
+        "security.ip_ban_revoked": "Блокировка IP снята",
         "privilege.updated": "Изменены привилегии пользователя",
     }
     for event in audit_events:
@@ -262,6 +265,8 @@ def console_user_detail(request, user_id):
     return render(request, "transfer/admin_console/user_detail.html", {
         "account": account,
         "security_events": security_events,
+        "ip_bans": UserIPBan.objects.filter(revoked_at__isnull=True).order_by("-created_at")[:50] if request.user.is_superuser else [],
+        "can_manage_ip_bans": request.user.is_superuser,
         "can_view_security": request.user.is_superuser,
         "groups": current_groups,
         "safe_groups": safe_groups,
@@ -299,6 +304,53 @@ def console_toggle_user(request, user_id):
         f"{'активирована' if target.is_active else 'деактивирована'}.",
     )
     return redirect("admin_console_users")
+
+
+
+@_staff
+@require_POST
+def console_ban_ip(request, user_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    target = get_object_or_404(get_user_model(), pk=user_id)
+    try:
+        address = str(ipaddress.ip_address((request.POST.get("ip_address") or "").strip()))
+    except ValueError:
+        messages.error(request, "Укажите корректный IP-адрес.")
+        return redirect("admin_console_user_detail", user_id=target.pk)
+    reason = (request.POST.get("reason") or "").strip()[:240]
+    if not reason:
+        messages.error(request, "Укажите причину блокировки.")
+        return redirect("admin_console_user_detail", user_id=target.pk)
+    raw_hours = (request.POST.get("duration_hours") or "").strip()
+    expires_at = None
+    if raw_hours:
+        try:
+            hours = int(raw_hours)
+            if not 1 <= hours <= 8760:
+                raise ValueError
+            expires_at = timezone.now() + timedelta(hours=hours)
+        except ValueError:
+            messages.error(request, "Срок блокировки должен быть от 1 до 8760 часов.")
+            return redirect("admin_console_user_detail", user_id=target.pk)
+    ban, _ = UserIPBan.objects.update_or_create(ip_address=address, defaults={"reason": reason, "created_by": request.user, "expires_at": expires_at, "revoked_at": None, "revoked_by": None})
+    AdminAuditEvent.objects.create(actor=request.user, action="security.ip_banned", target_type="transfer.UserIPBan", target_id=str(ban.pk), metadata={"ip_address": address, "user_id": target.pk})
+    messages.success(request, f"IP-адрес {address} заблокирован.")
+    return redirect("admin_console_user_detail", user_id=target.pk)
+
+
+@_staff
+@require_POST
+def console_revoke_ip_ban(request, user_id, ban_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    target = get_object_or_404(get_user_model(), pk=user_id)
+    ban = get_object_or_404(UserIPBan, pk=ban_id, revoked_at__isnull=True)
+    ban.revoked_at, ban.revoked_by = timezone.now(), request.user
+    ban.save(update_fields=["revoked_at", "revoked_by"])
+    AdminAuditEvent.objects.create(actor=request.user, action="security.ip_ban_revoked", target_type="transfer.UserIPBan", target_id=str(ban.pk), metadata={"ip_address": str(ban.ip_address), "user_id": target.pk})
+    messages.success(request, f"Блокировка IP {ban.ip_address} снята.")
+    return redirect("admin_console_user_detail", user_id=target.pk)
 
 
 @_staff

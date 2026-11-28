@@ -29,6 +29,18 @@
 {% for permission in permissions %}<div class="admin-list-row"><div class="admin-row-main"><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></div></div>{% empty %}<p class="admin-empty">Индивидуальные разрешения не назначены.</p>{% endfor %}
 </section>
 </div>
+
+{% if can_manage_ip_bans %}
+<section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ЗАЩИТА ДОСТУПА</span><h2>Блокировка IP-адресов</h2><p class="muted">Точный IPv4/IPv6-адрес блокируется для всего сайта. Блокировки доступны только superuser.</p></div><span class="admin-tag tag-danger">Superuser</span></div>
+<form method="post" action="{% url 'admin_console_ban_ip' account.pk %}" class="admin-ip-ban-form">{% csrf_token %}
+<label>IP-адрес<input name="ip_address" maxlength="45" placeholder="203.0.113.10" required></label>
+<label>Причина<input name="reason" maxlength="240" placeholder="Причина ограничения" required></label>
+<label>Срок, часов<input name="duration_hours" type="number" min="1" max="8760" placeholder="Бессрочно"></label>
+<button class="table-action action-danger" type="submit">Заблокировать IP</button></form>
+<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>IP</th><th>Причина</th><th>Срок</th><th></th></tr></thead><tbody>
+{% for ban in ip_bans %}<tr><td><code>{{ ban.ip_address }}</code></td><td>{{ ban.reason }}</td><td>{% if ban.expires_at %}до {{ ban.expires_at|date:"d.m.Y H:i" }}{% else %}Бессрочно{% endif %}</td><td><form method="post" action="{% url 'admin_console_revoke_ip_ban' account.pk ban.pk %}">{% csrf_token %}<button class="table-action" type="submit">Снять блокировку</button></form></td></tr>{% empty %}<tr><td colspan="4" class="admin-empty">Блокировок нет.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}
 {% if can_view_security %}
 <section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ТОЛЬКО SUPERUSER</span><h2>История входов и сетевые сведения</h2></div><span class="admin-tag tag-danger">Конфиденциально</span></div>
 <div class="admin-security-summary"><div><span>Последний вход</span><strong>{{ account.last_login|date:"d.m.Y H:i:s"|default:"—" }}</strong></div><div><span>Событий в истории</span><strong>{{ security_events|length }}</strong></div></div>
