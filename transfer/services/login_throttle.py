@@ -19,7 +19,8 @@ def _digest(value):
 def _keys(request, username):
     # REMOTE_ADDR is deliberately used instead of X-Forwarded-For: clients must
     # not be able to bypass throttling by supplying their own forwarding header.
-    remote_addr = request.META.get("REMOTE_ADDR") or "unknown"
+    # Nginx overwrites X-Real-IP from Cloudflare's connecting-IP header in production.
+    remote_addr = request.META.get("HTTP_X_REAL_IP") or request.META.get("REMOTE_ADDR") or "unknown"
     normalized_username = (username or "").strip().casefold()[:254]
     pair = _digest(f"{remote_addr}\0{normalized_username}")
     ip = _digest(remote_addr)

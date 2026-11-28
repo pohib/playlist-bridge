@@ -6,3 +6,14 @@
 .admin-detail-list{display:grid;gap:0;margin:0}.admin-detail-list>div{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-top:1px solid var(--line)}.admin-detail-list dt{color:var(--muted);font-size:12px}.admin-detail-list dd{margin:0;text-align:right;font-size:12px;color:var(--text);overflow-wrap:anywhere}.admin-detail-action{margin-top:20px}.admin-subheading{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}.admin-detail-audit{margin-top:16px}@media(max-width:700px){.admin-detail-list>div{align-items:flex-start;flex-direction:column;gap:6px}.admin-detail-list dd{text-align:left}}
 
 .admin-role-create{margin-bottom:18px}.admin-role-create form{display:grid;gap:12px}.admin-field-label{font-size:12px;color:var(--muted)}.admin-role-create input[name=name]{width:100%;max-width:520px}.admin-role-permissions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.admin-role-permissions label{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.admin-role-permissions label span{display:grid;gap:4px}.admin-role-permissions small{color:var(--muted);overflow-wrap:anywhere}
+
+.admin-role-editor{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:10px;min-width:260px}
+.admin-role-editor summary{color:var(--green);font-size:11px;font-weight:700;cursor:pointer}
+.admin-role-editor form,.admin-group-assignment{display:grid;gap:12px;margin-top:12px}
+.admin-role-editor input[name=name]{width:100%;min-width:200px}
+.admin-role-editor .admin-role-permissions{grid-template-columns:1fr}
+.admin-role-warning{display:block;color:var(--amber)!important;font-size:10px;margin-top:8px;line-height:1.5}
+.admin-group-assignment{padding-top:16px;border-top:1px solid var(--line)}
+.admin-group-assignment h3{margin:0;font-size:13px}
+.admin-group-assignment .admin-role-permissions{grid-template-columns:1fr}
+.admin-role-create button,.admin-role-editor button,.admin-group-assignment button{justify-self:start;min-height:36px;padding:0 16px;border:1px solid rgba(115,230,168,.24);border-radius:9px;background:rgba(115,230,168,.1);color:var(--green);font:600 12px system-ui;cursor:pointer}

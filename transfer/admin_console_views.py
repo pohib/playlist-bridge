@@ -6,9 +6,10 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import permission_required
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
@@ -83,13 +84,30 @@ def console_user_detail(request, user_id):
     action_labels = {
         "user.activated": "Пользователь активирован",
         "user.deactivated": "Пользователь отключён",
+        "user.groups_updated": "Группы пользователя изменены",
     }
     for event in audit_events:
         event.action_label = action_labels.get(event.action, "Системное действие")
     can_change_users = request.user.has_perm("auth.change_user")
+    current_groups = list(account.groups.prefetch_related("permissions__content_type").order_by("name"))
+    has_unsafe_groups = any(not _is_safe_group(group) for group in current_groups)
+    for group in current_groups:
+        group.is_safe_role = _is_safe_group(group)
+    can_manage_groups = (
+        can_change_users
+        and request.user.has_perm("auth.view_group")
+        and account.pk != request.user.pk
+        and not account.is_superuser
+        and not has_unsafe_groups
+    )
+    safe_groups = Group.objects.prefetch_related("permissions__content_type").order_by("name")
+    safe_groups = [group for group in safe_groups if _is_safe_group(group)]
     return render(request, "transfer/admin_console/user_detail.html", {
         "account": account,
-        "groups": account.groups.all().order_by("name"),
+        "groups": current_groups,
+        "safe_groups": safe_groups,
+        "has_unsafe_groups": has_unsafe_groups,
+        "can_manage_groups": can_manage_groups,
         "permissions": account.user_permissions.all().order_by(
             "content_type__app_label", "codename"
         ),
@@ -112,7 +130,7 @@ def console_toggle_user(request, user_id):
     AdminAuditEvent.objects.create(
         actor=request.user,
         action="user.activated" if target.is_active else "user.deactivated",
-        target_type="auth.User",
+        target_type=get_user_model()._meta.label,
         target_id=str(target.pk),
         metadata={"username": target.get_username(), "is_active": target.is_active},
     )
@@ -170,6 +188,8 @@ def console_audit(request):
         "user.activated": "Пользователь активирован",
         "user.deactivated": "Пользователь отключён",
         "role.created": "Роль создана",
+        "role.updated": "Роль изменена",
+        "user.groups_updated": "Группы пользователя изменены",
     }
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
@@ -195,13 +215,16 @@ def _safe_role_permissions():
 def console_groups(request):
     from django.contrib.auth.models import Group
 
-    groups = Group.objects.annotate(
+    groups = list(Group.objects.annotate(
         members_count=Count("user", distinct=True)
-    ).prefetch_related("permissions__content_type").order_by("name")
+    ).prefetch_related("permissions__content_type").order_by("name"))
+    for group in groups:
+        group.is_safe_role = _is_safe_group(group)
     return render(request, "transfer/admin_console/groups.html", {
         "groups": groups,
         "safe_permissions": _safe_role_permissions(),
         "can_create_groups": request.user.has_perm("auth.add_group"),
+        "can_edit_groups": request.user.has_perm("auth.change_group"),
     })
 
 
@@ -240,3 +263,113 @@ def console_create_group(request):
     )
     messages.success(request, f"Роль «{group.name}» создана.")
     return redirect("admin_console_groups")
+
+
+
+def _is_safe_group(group):
+    """A role is manageable only when every attached permission is allowlisted."""
+    allowed_ids = _safe_role_permissions().values("pk")
+    return not group.permissions.exclude(pk__in=allowed_ids).exists()
+
+
+@_staff
+@permission_required("auth.view_group", raise_exception=True)
+@permission_required("auth.change_group", raise_exception=True)
+@require_POST
+def console_update_group(request, group_id):
+    group = get_object_or_404(Group.objects.prefetch_related("permissions__content_type"), pk=group_id)
+    if not _is_safe_group(group):
+        raise PermissionDenied("Роль содержит права, которыми нельзя управлять через эту панель.")
+
+    name = (request.POST.get("name") or "").strip()[:150]
+    selected_ids = request.POST.getlist("permissions")
+    if not name:
+        messages.error(request, "Укажите название роли.")
+        return redirect("admin_console_groups")
+    if Group.objects.filter(name__iexact=name).exclude(pk=group.pk).exists():
+        messages.error(request, "Роль с таким названием уже существует.")
+        return redirect("admin_console_groups")
+    if any(not value.isdecimal() for value in selected_ids) or len(selected_ids) != len(set(selected_ids)):
+        messages.error(request, "Выберите только разрешённые права чтения.")
+        return redirect("admin_console_groups")
+
+    selected = _safe_role_permissions().filter(pk__in=selected_ids)
+    if selected.count() != len(selected_ids):
+        messages.error(request, "Выберите только разрешённые права чтения.")
+        return redirect("admin_console_groups")
+
+    before = {
+        "name": group.name,
+        "permissions": sorted(
+            f"{item.content_type.app_label}.{item.codename}"
+            for item in group.permissions.all()
+        ),
+    }
+    with transaction.atomic():
+        group.name = name
+        group.save(update_fields=["name"])
+        group.permissions.set(selected)
+        after = {
+            "name": group.name,
+            "permissions": sorted(
+                f"{item.content_type.app_label}.{item.codename}"
+                for item in selected.select_related("content_type")
+            ),
+        }
+        AdminAuditEvent.objects.create(
+            actor=request.user,
+            action="role.updated",
+            target_type=Group._meta.label,
+            target_id=str(group.pk),
+            metadata={"before": before, "after": after},
+        )
+    messages.success(request, f"Роль «{group.name}» обновлена.")
+    return redirect("admin_console_groups")
+
+
+@_staff
+@permission_required("auth.view_group", raise_exception=True)
+@permission_required("auth.change_user", raise_exception=True)
+@require_POST
+def console_update_user_groups(request, user_id):
+    user_model = get_user_model()
+    account = get_object_or_404(
+        user_model.objects.prefetch_related("groups__permissions__content_type"),
+        pk=user_id,
+    )
+    if account.pk == request.user.pk or account.is_superuser:
+        raise PermissionDenied("Нельзя изменять собственные роли или роли суперпользователя.")
+    if any(not _is_safe_group(group) for group in account.groups.all()):
+        raise PermissionDenied("У пользователя есть роль с расширенными правами. Требуется отдельная проверка.")
+
+    selected_ids = request.POST.getlist("groups")
+    if any(not value.isdecimal() for value in selected_ids) or len(selected_ids) != len(set(selected_ids)):
+        messages.error(request, "Выберите только разрешённые роли.")
+        return redirect("admin_console_user_detail", user_id=account.pk)
+
+    selected = list(
+        Group.objects.filter(pk__in=selected_ids).prefetch_related("permissions__content_type").order_by("name")
+    )
+    if len(selected) != len(selected_ids) or any(not _is_safe_group(group) for group in selected):
+        messages.error(request, "Нельзя назначить роль с расширенными правами.")
+        return redirect("admin_console_user_detail", user_id=account.pk)
+
+    before = sorted(
+        ({"id": group.pk, "name": group.name} for group in account.groups.all()),
+        key=lambda item: item["id"],
+    )
+    after = sorted(
+        ({"id": group.pk, "name": group.name} for group in selected),
+        key=lambda item: item["id"],
+    )
+    with transaction.atomic():
+        account.groups.set(selected)
+        AdminAuditEvent.objects.create(
+            actor=request.user,
+            action="user.groups_updated",
+            target_type=user_model._meta.label,
+            target_id=str(account.pk),
+            metadata={"before": before, "after": after},
+        )
+    messages.success(request, f"Группы пользователя {account.get_username()} обновлены.")
+    return redirect("admin_console_user_detail", user_id=account.pk)
