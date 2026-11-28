@@ -91,6 +91,7 @@ def console_user_detail(request, user_id):
         "auth.login_succeeded": "Сотрудник вошёл в систему",
         "security.user_events_viewed": "Просмотрена история безопасности пользователя",
         "security.events_viewed": "Просмотрен журнал безопасности",
+        "privilege.updated": "Изменены привилегии пользователя",
     }
     for event in audit_events:
         event.action_label = action_labels.get(event.action, "Системное действие")
@@ -280,6 +281,9 @@ def console_update_privilege(request, user_id):
         list(user_model.objects.select_for_update().filter(is_superuser=True, is_active=True))
         target = get_object_or_404(user_model.objects.select_for_update(), pk=user_id)
         before = {"is_staff": target.is_staff, "is_superuser": target.is_superuser}
+        if privilege == "staff" and not enabled and target.is_superuser:
+            messages.error(request, "Сначала сними права суперпользователя. Активный суперпользователь должен иметь доступ сотрудника.")
+            return redirect("admin_console_privileges")
         if privilege == "staff":
             target.is_staff = enabled
         elif enabled:
