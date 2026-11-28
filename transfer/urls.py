@@ -43,6 +43,7 @@ urlpatterns = [
     path("control/audit/", admin_console_views.console_audit, name="admin_console_audit"),
     path("control/security/", admin_console_views.console_security, name="admin_console_security"),
     path("control/events/", admin_console_views.console_events, name="admin_console_events"),
+    path("control/events/acknowledge/", admin_console_views.console_acknowledge_event, name="admin_console_acknowledge_event"),
     path("control/system/", admin_console_views.console_system, name="admin_console_system"),
     path("control/privileges/", admin_console_views.console_privileges, name="admin_console_privileges"),
     path("control/privileges/<int:user_id>/update/", admin_console_views.console_update_privilege, name="admin_console_update_privilege"),

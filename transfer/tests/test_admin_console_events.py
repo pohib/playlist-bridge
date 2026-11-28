@@ -93,3 +93,90 @@ class AdminConsoleEventCenterTests(TestCase):
         self.assertEqual(first.context["page"].paginator.count, 55)
         self.assertEqual(len(first.context["page"].object_list), 50)
         self.assertEqual(len(second.context["page"].object_list), 5)
+
+    def test_staff_cannot_acknowledge_security_event(self):
+        event = UserSecurityEvent.objects.create(
+            username_snapshot="blocked-account",
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse("admin_console_acknowledge_event"), {
+            "event_type": "security", "event_id": str(event.pk),
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(AdminAuditEvent.objects.filter(action="events.acknowledged").exists())
+
+    def test_superuser_can_acknowledge_security_event_and_filter_it(self):
+        event = UserSecurityEvent.objects.create(
+            username_snapshot="blocked-account",
+            event_type=UserSecurityEvent.EventType.LOGIN_THROTTLED,
+        )
+        self.client.force_login(self.superuser)
+        response = self.client.post(reverse("admin_console_acknowledge_event"), {
+            "event_type": "security", "event_id": str(event.pk),
+        })
+        self.assertRedirects(response, reverse("admin_console_events"))
+        audit = AdminAuditEvent.objects.get(action="events.acknowledged")
+        self.assertEqual(audit.actor, self.superuser)
+        self.assertEqual(audit.target_type, "security")
+        self.assertEqual(audit.target_id, str(event.pk))
+        self.assertContains(
+            self.client.get(reverse("admin_console_events"), {"state": "acknowledged"}),
+            "Проверено",
+        )
+        self.assertNotContains(
+            self.client.get(reverse("admin_console_events"), {"state": "open"}),
+            "blocked-account",
+        )
+
+    def test_acknowledgement_is_idempotent(self):
+        event = UserSecurityEvent.objects.create(
+            username_snapshot="blocked-account",
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+        )
+        self.client.force_login(self.superuser)
+        payload = {"event_type": "security", "event_id": str(event.pk)}
+        self.client.post(reverse("admin_console_acknowledge_event"), payload)
+        self.client.post(reverse("admin_console_acknowledge_event"), payload)
+        self.assertEqual(AdminAuditEvent.objects.filter(action="events.acknowledged").count(), 1)
+
+    def test_only_failed_or_stale_transfer_jobs_can_be_acknowledged(self):
+        failed = TransferJob.objects.create(
+            session_fingerprint="c" * 64,
+            source_url="https://vk.com/music/playlist/3",
+            status=TransferJob.Status.FAILED,
+        )
+        healthy = TransferJob.objects.create(
+            session_fingerprint="d" * 64,
+            source_url="https://vk.com/music/playlist/4",
+            status=TransferJob.Status.SUCCEEDED,
+        )
+        stale = TransferJob.objects.create(
+            session_fingerprint="e" * 64,
+            source_url="https://vk.com/music/playlist/5",
+            status=TransferJob.Status.RUNNING,
+            started_at=timezone.now() - timedelta(minutes=10),
+            heartbeat_at=timezone.now() - timedelta(minutes=10),
+        )
+        self.client.force_login(self.superuser)
+        endpoint = reverse("admin_console_acknowledge_event")
+        self.client.post(endpoint, {"event_type": "transfer", "event_id": str(failed.pk)})
+        self.client.post(endpoint, {"event_type": "transfer", "event_id": str(stale.pk)})
+        self.client.post(endpoint, {"event_type": "transfer", "event_id": str(healthy.pk)})
+        acknowledgements = AdminAuditEvent.objects.filter(action="events.acknowledged", target_type="transfer")
+        self.assertEqual(acknowledgements.count(), 2)
+        self.assertSetEqual(
+            set(acknowledgements.values_list("target_id", flat=True)),
+            {str(failed.pk), str(stale.pk)},
+        )
+
+    def test_successful_login_is_not_acknowledgeable(self):
+        event = UserSecurityEvent.objects.create(
+            username_snapshot="normal-account",
+            event_type=UserSecurityEvent.EventType.LOGIN_SUCCEEDED,
+        )
+        self.client.force_login(self.superuser)
+        self.client.post(reverse("admin_console_acknowledge_event"), {
+            "event_type": "security", "event_id": str(event.pk),
+        })
+        self.assertFalse(AdminAuditEvent.objects.filter(action="events.acknowledged").exists())

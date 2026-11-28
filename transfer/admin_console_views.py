@@ -1,5 +1,6 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
 import logging
+from uuid import UUID
 from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlsplit
@@ -466,45 +467,256 @@ def console_security(request):
 def console_events(request):
     if not request.user.is_superuser:
         raise PermissionDenied
+
     now = timezone.now()
     stale_before = now - timedelta(minutes=5)
+    acknowledged_keys = set(
+        AdminAuditEvent.objects.filter(
+            action="events.acknowledged",
+            target_type__in=("security", "transfer"),
+        ).values_list("target_type", "target_id")
+    )
     events = []
-    labels = {'user.activated': 'Пользователь активирован', 'user.deactivated': 'Пользователь отключён', 'role.created': 'Роль создана', 'role.updated': 'Роль изменена', 'user.groups_updated': 'Группы пользователя изменены', 'privilege.updated': 'Изменены привилегии пользователя'}
+    labels = {
+        "user.activated": "Пользователь активирован",
+        "user.deactivated": "Пользователь отключён",
+        "role.created": "Роль создана",
+        "role.updated": "Роль изменена",
+        "user.groups_updated": "Группы пользователя изменены",
+        "privilege.updated": "Изменены привилегии пользователя",
+        "events.acknowledged": "Событие подтверждено",
+    }
     user_label = get_user_model()._meta.label
-    for item in AdminAuditEvent.objects.exclude(action='events.center_viewed').select_related('actor').order_by('-created_at')[:300]:
-        target_url = reverse('admin_console_user_detail', args=[item.target_id]) if item.target_type == user_label and item.target_id.isdigit() else ''
-        events.append({'occurred_at': item.created_at, 'category': 'admin', 'category_label': 'Администрирование', 'severity': 'info', 'severity_label': 'Информация', 'title': labels.get(item.action, 'Системное действие'), 'actor': item.actor.get_username() if item.actor else 'Система', 'target': f'{item.target_type} · {item.target_id}'.strip(' ·') or '—', 'target_url': target_url, 'detail': 'Изменение записано в журнал аудита.'})
-    security_labels = {UserSecurityEvent.EventType.LOGIN_SUCCEEDED: ('Успешный вход', 'info', 'Информация'), UserSecurityEvent.EventType.LOGIN_FAILED: ('Неудачная попытка входа', 'warning', 'Предупреждение'), UserSecurityEvent.EventType.LOGIN_THROTTLED: ('Попытка входа ограничена', 'danger', 'Высокий риск')}
-    for item in UserSecurityEvent.objects.select_related('user').order_by('-created_at')[:300]:
-        title, severity, severity_label = security_labels.get(item.event_type, ('Событие безопасности', 'warning', 'Предупреждение'))
-        target_url = reverse('admin_console_user_detail', args=[item.user_id]) if item.user_id else ''
-        events.append({'occurred_at': item.created_at, 'category': 'security', 'category_label': 'Безопасность', 'severity': severity, 'severity_label': severity_label, 'title': title, 'actor': item.username_snapshot or 'Неизвестный пользователь', 'target': item.user.get_username() if item.user else 'Удалённая учётная запись', 'target_url': target_url, 'detail': 'Событие авторизации. Подробности доступны в журнале безопасности.'})
-    failed_jobs = TransferJob.objects.filter(status=TransferJob.Status.FAILED).order_by('-finished_at', '-created_at')[:150]
-    stale_jobs = TransferJob.objects.filter(status=TransferJob.Status.RUNNING).filter(Q(heartbeat_at__lt=stale_before) | Q(heartbeat_at__isnull=True, started_at__lt=stale_before)).order_by('heartbeat_at', 'started_at')[:150]
+    for item in (
+        AdminAuditEvent.objects.exclude(action="events.center_viewed")
+        .select_related("actor")
+        .order_by("-created_at")[:300]
+    ):
+        target_url = (
+            reverse("admin_console_user_detail", args=[item.target_id])
+            if item.target_type == user_label and item.target_id.isdigit()
+            else ""
+        )
+        events.append({
+            "occurred_at": item.created_at,
+            "category": "admin",
+            "category_label": "Администрирование",
+            "severity": "info",
+            "severity_label": "Информация",
+            "title": labels.get(item.action, "Системное действие"),
+            "actor": item.actor.get_username() if item.actor else "Система",
+            "target": f"{item.target_type} · {item.target_id}".strip(" ·") or "—",
+            "target_url": target_url,
+            "detail": "Изменение записано в журнал аудита.",
+            "acknowledgeable": False,
+            "is_acknowledged": False,
+        })
+
+    security_labels = {
+        UserSecurityEvent.EventType.LOGIN_SUCCEEDED: ("Успешный вход", "info", "Информация"),
+        UserSecurityEvent.EventType.LOGIN_FAILED: ("Неудачная попытка входа", "warning", "Предупреждение"),
+        UserSecurityEvent.EventType.LOGIN_THROTTLED: ("Попытка входа ограничена", "danger", "Высокий риск"),
+    }
+    for item in UserSecurityEvent.objects.select_related("user").order_by("-created_at")[:300]:
+        title, severity, severity_label = security_labels.get(
+            item.event_type,
+            ("Событие безопасности", "warning", "Предупреждение"),
+        )
+        acknowledgeable = item.event_type in {
+            UserSecurityEvent.EventType.LOGIN_FAILED,
+            UserSecurityEvent.EventType.LOGIN_THROTTLED,
+        }
+        events.append({
+            "occurred_at": item.created_at,
+            "category": "security",
+            "category_label": "Безопасность",
+            "severity": severity,
+            "severity_label": severity_label,
+            "title": title,
+            "actor": item.username_snapshot or "Неизвестный пользователь",
+            "target": item.user.get_username() if item.user else "Удалённая учётная запись",
+            "target_url": reverse("admin_console_user_detail", args=[item.user_id]) if item.user_id else "",
+            "detail": "Событие авторизации. Подробности доступны в журнале безопасности.",
+            "acknowledgeable": acknowledgeable,
+            "is_acknowledged": ("security", str(item.pk)) in acknowledged_keys,
+            "event_type": "security",
+            "event_id": str(item.pk),
+        })
+
+    failed_jobs = TransferJob.objects.filter(
+        status=TransferJob.Status.FAILED
+    ).order_by("-finished_at", "-created_at")[:150]
+    stale_jobs = TransferJob.objects.filter(status=TransferJob.Status.RUNNING).filter(
+        Q(heartbeat_at__lt=stale_before)
+        | Q(heartbeat_at__isnull=True, started_at__lt=stale_before)
+    ).order_by("heartbeat_at", "started_at")[:150]
     for item in failed_jobs:
-        events.append({'occurred_at': item.finished_at or item.created_at, 'category': 'transfer', 'category_label': 'Переносы', 'severity': 'danger', 'severity_label': 'Ошибка', 'title': 'Перенос завершился ошибкой', 'actor': 'Система', 'target': str(item.pk), 'target_url': reverse('admin_console_job_detail', args=[item.pk]), 'detail': 'Откройте карточку задачи для безопасной диагностики.'})
+        events.append({
+            "occurred_at": item.finished_at or item.created_at,
+            "category": "transfer",
+            "category_label": "Переносы",
+            "severity": "danger",
+            "severity_label": "Ошибка",
+            "title": "Перенос завершился ошибкой",
+            "actor": "Система",
+            "target": str(item.pk),
+            "target_url": reverse("admin_console_job_detail", args=[item.pk]),
+            "detail": "Откройте карточку задачи для безопасной диагностики.",
+            "acknowledgeable": True,
+            "is_acknowledged": ("transfer", str(item.pk)) in acknowledged_keys,
+            "event_type": "transfer",
+            "event_id": str(item.pk),
+        })
     for item in stale_jobs:
-        events.append({'occurred_at': item.heartbeat_at or item.started_at or item.created_at, 'category': 'transfer', 'category_label': 'Переносы', 'severity': 'warning', 'severity_label': 'Требует внимания', 'title': 'Возможно, задача зависла', 'actor': 'Система', 'target': str(item.pk), 'target_url': reverse('admin_console_job_detail', args=[item.pk]), 'detail': 'Нет обновления состояния более пяти минут.'})
-    category = (request.GET.get('category') or '').strip()
-    severity = (request.GET.get('severity') or '').strip()
-    query = (request.GET.get('q') or '').strip()[:100]
-    date_from_raw = (request.GET.get('date_from') or '').strip()
-    date_to_raw = (request.GET.get('date_to') or '').strip()
+        events.append({
+            "occurred_at": item.heartbeat_at or item.started_at or item.created_at,
+            "category": "transfer",
+            "category_label": "Переносы",
+            "severity": "warning",
+            "severity_label": "Требует внимания",
+            "title": "Возможно, задача зависла",
+            "actor": "Система",
+            "target": str(item.pk),
+            "target_url": reverse("admin_console_job_detail", args=[item.pk]),
+            "detail": "Нет обновления состояния более пяти минут.",
+            "acknowledgeable": True,
+            "is_acknowledged": ("transfer", str(item.pk)) in acknowledged_keys,
+            "event_type": "transfer",
+            "event_id": str(item.pk),
+        })
+
+    category = (request.GET.get("category") or "").strip()
+    severity = (request.GET.get("severity") or "").strip()
+    state = (request.GET.get("state") or "").strip()
+    query = (request.GET.get("q") or "").strip()[:100]
+    date_from_raw = (request.GET.get("date_from") or "").strip()
+    date_to_raw = (request.GET.get("date_to") or "").strip()
     date_from = parse_date(date_from_raw)
     date_to = parse_date(date_to_raw)
-    if category in {'admin', 'security', 'transfer'}: events = [event for event in events if event['category'] == category]
-    else: category = ''
-    if severity in {'info', 'warning', 'danger'}: events = [event for event in events if event['severity'] == severity]
-    else: severity = ''
+    if category in {"admin", "security", "transfer"}:
+        events = [event for event in events if event["category"] == category]
+    else:
+        category = ""
+    if severity in {"info", "warning", "danger"}:
+        events = [event for event in events if event["severity"] == severity]
+    else:
+        severity = ""
+    if state == "open":
+        events = [
+            event for event in events
+            if event["acknowledgeable"] and not event["is_acknowledged"]
+        ]
+    elif state == "acknowledged":
+        events = [
+            event for event in events
+            if event["acknowledgeable"] and event["is_acknowledged"]
+        ]
+    else:
+        state = ""
     if query:
         needle = query.casefold()
-        events = [event for event in events if needle in ' '.join((event['title'], event['actor'], event['target'], event['detail'])).casefold()]
-    if date_from: events = [event for event in events if timezone.localtime(event['occurred_at']).date() >= date_from]
-    if date_to: events = [event for event in events if timezone.localtime(event['occurred_at']).date() <= date_to]
-    events.sort(key=lambda event: event['occurred_at'], reverse=True)
-    page = Paginator(events, 50).get_page(request.GET.get('page'))
-    AdminAuditEvent.objects.create(actor=request.user, action='events.center_viewed', target_type='transfer.AdminEventFeed', metadata={'result_count': len(events), 'filters_applied': bool(category or severity or query or date_from or date_to)})
-    return render(request, 'transfer/admin_console/events.html', {'page': page, 'query': query, 'category': category, 'severity': severity, 'date_from': date_from_raw, 'date_to': date_to_raw})
+        events = [
+            event for event in events
+            if needle in " ".join((
+                event["title"], event["actor"], event["target"], event["detail"]
+            )).casefold()
+        ]
+    if date_from:
+        events = [
+            event for event in events
+            if timezone.localtime(event["occurred_at"]).date() >= date_from
+        ]
+    if date_to:
+        events = [
+            event for event in events
+            if timezone.localtime(event["occurred_at"]).date() <= date_to
+        ]
+    events.sort(key=lambda event: event["occurred_at"], reverse=True)
+    page = Paginator(events, 50).get_page(request.GET.get("page"))
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="events.center_viewed",
+        target_type="transfer.AdminEventFeed",
+        metadata={
+            "result_count": len(events),
+            "filters_applied": bool(category or severity or state or query or date_from or date_to),
+        },
+    )
+    return render(request, "transfer/admin_console/events.html", {
+        "page": page,
+        "query": query,
+        "category": category,
+        "severity": severity,
+        "state": state,
+        "date_from": date_from_raw,
+        "date_to": date_to_raw,
+    })
+
+
+@_staff
+@require_POST
+def console_acknowledge_event(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    event_type = (request.POST.get("event_type") or "").strip()
+    raw_event_id = (request.POST.get("event_id") or "").strip()
+    try:
+        event_id = UUID(raw_event_id)
+    except (TypeError, ValueError, AttributeError):
+        messages.error(request, "Не удалось определить событие для подтверждения.")
+        return redirect("admin_console_events")
+
+    with transaction.atomic():
+        if event_type == "security":
+            event = get_object_or_404(
+                UserSecurityEvent.objects.select_for_update(),
+                pk=event_id,
+            )
+            if event.event_type not in {
+                UserSecurityEvent.EventType.LOGIN_FAILED,
+                UserSecurityEvent.EventType.LOGIN_THROTTLED,
+            }:
+                messages.error(request, "Это событие не требует подтверждения.")
+                return redirect("admin_console_events")
+            target_type = "security"
+        elif event_type == "transfer":
+            event = get_object_or_404(
+                TransferJob.objects.select_for_update(),
+                pk=event_id,
+            )
+            activity_at = event.heartbeat_at or event.started_at
+            stale = bool(
+                event.status == TransferJob.Status.RUNNING
+                and activity_at
+                and activity_at < timezone.now() - timedelta(minutes=5)
+            )
+            if event.status != TransferJob.Status.FAILED and not stale:
+                messages.error(request, "Задача больше не требует подтверждения.")
+                return redirect("admin_console_events")
+            target_type = "transfer"
+        else:
+            messages.error(request, "Неизвестный тип события.")
+            return redirect("admin_console_events")
+
+        already_acknowledged = AdminAuditEvent.objects.filter(
+            action="events.acknowledged",
+            target_type=target_type,
+            target_id=str(event.pk),
+        ).exists()
+        if already_acknowledged:
+            messages.info(request, "Это событие уже подтверждено.")
+        else:
+            AdminAuditEvent.objects.create(
+                actor=request.user,
+                action="events.acknowledged",
+                target_type=target_type,
+                target_id=str(event.pk),
+                metadata={"source_event_type": event_type},
+            )
+            messages.success(request, "Событие отмечено как проверенное.")
+
+    return redirect("admin_console_events")
 
 @_staff
 @require_GET
