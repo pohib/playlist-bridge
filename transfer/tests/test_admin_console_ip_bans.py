@@ -1,6 +1,8 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -101,3 +103,31 @@ class AdminConsoleIPBanRegistryTests(TestCase):
         ).status_code, 403)
         ban.refresh_from_db()
         self.assertIsNone(ban.revoked_at)
+
+
+    def test_deactivated_account_session_is_rejected_on_next_request(self):
+        target = self.user_model.objects.create_user(
+            username="account-ban-target", password="test-password"
+        )
+        operator = self.user_model.objects.create_user(
+            username="account-ban-operator", password="test-password", is_staff=True
+        )
+        user_type = ContentType.objects.get_for_model(self.user_model)
+        operator.user_permissions.add(
+            Permission.objects.get(content_type=user_type, codename="change_user")
+        )
+        target_client = self.client_class()
+        target_client.force_login(target)
+        operator_client = self.client_class()
+        operator_client.force_login(operator)
+
+        response = operator_client.post(
+            reverse("admin_console_toggle_user", args=[target.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+        protected_response = target_client.get(reverse("profile"))
+        self.assertEqual(protected_response.status_code, 302)
+        self.assertIn(reverse("login"), protected_response.url)

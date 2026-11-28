@@ -395,6 +395,7 @@ def console_ip_bans(request):
         "page": page,
         "query": query,
         "status": status,
+        "now": now,
         "active_count": UserIPBan.objects.filter(active_filter).count(),
         "expired_count": UserIPBan.objects.filter(expired_filter).count(),
         "revoked_count": UserIPBan.objects.filter(revoked_at__isnull=False).count(),
