@@ -673,7 +673,38 @@ def console_revoke_ip_ban_global(request, ban_id):
 def console_jobs(request):
     status = (request.GET.get("status") or "").strip()
     query = (request.GET.get("q") or "").strip()[:100]
-    jobs = TransferJob.objects.all()
+    now = timezone.now()
+    stale_cutoff = now - timedelta(minutes=5)
+    dispatch_retry_cutoff = now - timedelta(seconds=120)
+    all_jobs = TransferJob.objects.all()
+    job_summary = all_jobs.aggregate(
+        queued=Count("id", filter=Q(status=TransferJob.Status.QUEUED)),
+        running=Count("id", filter=Q(status=TransferJob.Status.RUNNING)),
+        succeeded=Count("id", filter=Q(status=TransferJob.Status.SUCCEEDED)),
+        failed=Count("id", filter=Q(status=TransferJob.Status.FAILED)),
+        stale_running=Count(
+            "id",
+            filter=Q(status=TransferJob.Status.RUNNING) & (
+                Q(heartbeat_at__lt=stale_cutoff)
+                | Q(heartbeat_at__isnull=True, started_at__lt=stale_cutoff)
+            ),
+        ),
+        awaiting_dispatch=Count(
+            "id",
+            filter=Q(status=TransferJob.Status.QUEUED) & (
+                Q(dispatch_attempted_at__isnull=True)
+                | Q(dispatch_attempted_at__lte=dispatch_retry_cutoff)
+            ),
+        ),
+        failed_24h=Count(
+            "id",
+            filter=Q(
+                status=TransferJob.Status.FAILED,
+                finished_at__gte=now - timedelta(hours=24),
+            ),
+        ),
+    )
+    jobs = all_jobs
     valid_statuses = {value for value, _label in TransferJob.Status.choices}
     if status in valid_statuses:
         jobs = jobs.filter(status=status)
@@ -687,6 +718,7 @@ def console_jobs(request):
     return render(request, "transfer/admin_console/jobs.html", {
         "page": page, "status": status, "query": query,
         "statuses": TransferJob.Status.choices,
+        "job_summary": job_summary,
     })
 
 
