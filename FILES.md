@@ -37,6 +37,15 @@
 | Сервисный слой | `transfer/services/api_transfer_service.py`, `transfer/services/api_transfer_validation.py` | Создание задач API и проверка входных параметров. |
 | Проверки | `transfer/tests/test_api_transfer_service.py`, `transfer/tests/test_api_transfer_validation.py`, `transfer/tests/test_api_module_boundaries.py`, `transfer/tests/test_profile_and_api_docs.py` | API-контракты, валидация, границы модулей и документация. |
 
+### Журнал интеграций и фоновых ошибок
+
+| Компонент | Файлы | Роль |
+|---|---|---|
+| Модель и миграция | `transfer/domain_models/admin.py`, `transfer/migrations/0022_providerintegrationevent.py` | Хранение безопасных событий ошибок провайдеров и фоновых задач. |
+| Запись и классификация | `transfer/services/integration_event_recorder.py`, `transfer/tasks.py`, `transfer/services/transfer_dispatch.py` | Маскирование секретов, классификация ошибок переноса и Celery dispatch. |
+| Панель | `transfer/admin_console_views.py`, `transfer/templates/transfer/admin_console/integrations.html`, `transfer/templates/transfer/admin_console/base.html`, `transfer/urls.py` | Superuser-only журнал с фильтрами по сервису, категории, датам и поиску. |
+| Проверки | `transfer/tests/test_admin_console_integrations.py` | Доступы, фильтры, классификация и проверка отсутствия секретов в событиях. |
+
 ### Кастомная административная панель
 
 | Раздел | Файлы | Роль |
