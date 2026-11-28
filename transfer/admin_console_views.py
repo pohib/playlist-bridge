@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 _SECRET_VALUE_PATTERN = re.compile(
     r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b(\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\\b(\\s*[:=]\\s*)(?:Bearer\\s+\\S+|Basic\\s+\\S+|[^\\s,;]+)"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
 _SENSITIVE_QUERY_PATTERN = re.compile(
@@ -54,8 +54,8 @@ def _safe_admin_error(error):
     if not error:
         return "—"
     safe_error = str(error)
-    safe_error = _BEARER_PATTERN.sub(r"\1 [скрыто]", safe_error)
     safe_error = _SECRET_VALUE_PATTERN.sub(r"\1\2[скрыто]", safe_error)
+    safe_error = _BEARER_PATTERN.sub(r"\1 [скрыто]", safe_error)
     safe_error = _SENSITIVE_QUERY_PATTERN.sub(r"\1[скрыто]", safe_error)
     return safe_error[:500]
 
