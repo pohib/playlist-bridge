@@ -147,6 +147,9 @@ class OAuthFlowTests(TestCase):
             operation="oauth_callback",
         )
         self.assertEqual(event.category, ProviderIntegrationEvent.Category.AUTH)
+        self.assertIsNotNone(event.duration_ms)
+        self.assertGreaterEqual(event.duration_ms, 0)
+        self.assertIsNone(event.status_code)
         self.assertNotIn("private-refresh-token", event.message)
         self.assertIn("[скрыто]", event.message)
         self.assertNotIn("private-refresh-token", self.client.session["oauth_error"])
@@ -189,3 +192,22 @@ class OAuthFlowTests(TestCase):
 
         with self.assertRaisesRegex(TransferError, "не настроен"):
             soundcloud_client()
+
+
+    def test_integration_event_extracts_http_status_from_wrapped_error(self):
+        from ..services.integration_event_recorder import record_integration_failure
+
+        error = TransferError("Spotify request failed")
+        error.__cause__ = TransferError("HTTP request failed")
+        error.__cause__.response = Mock(status_code=503)
+
+        event = record_integration_failure(
+            provider=ProviderIntegrationEvent.Provider.SPOTIFY,
+            operation="oauth_callback",
+            error=error,
+            status_code=None,
+            duration_ms=42,
+        )
+
+        self.assertEqual(event.status_code, 503)
+        self.assertEqual(event.duration_ms, 42)
