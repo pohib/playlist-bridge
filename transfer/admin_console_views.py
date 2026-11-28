@@ -361,6 +361,118 @@ def console_revoke_ip_ban(request, user_id, ban_id):
     return redirect("admin_console_user_detail", user_id=target.pk)
 
 
+
+@_staff
+@require_GET
+def console_ip_bans(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    query = (request.GET.get("q") or "").strip()[:100]
+    status = (request.GET.get("status") or "active").strip()
+    now = timezone.now()
+    bans = UserIPBan.objects.select_related("created_by", "revoked_by")
+    active_filter = Q(revoked_at__isnull=True) & (
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now)
+    )
+    expired_filter = Q(revoked_at__isnull=True, expires_at__lte=now)
+    if status == "active":
+        bans = bans.filter(active_filter)
+    elif status == "expired":
+        bans = bans.filter(expired_filter)
+    elif status == "revoked":
+        bans = bans.filter(revoked_at__isnull=False)
+    else:
+        status = "all"
+    if query:
+        bans = bans.filter(
+            Q(ip_address__icontains=query)
+            | Q(reason__icontains=query)
+            | Q(created_by__username__icontains=query)
+            | Q(revoked_by__username__icontains=query)
+        )
+    page = Paginator(bans.order_by("-created_at"), 30).get_page(request.GET.get("page"))
+    context = {
+        "page": page,
+        "query": query,
+        "status": status,
+        "active_count": UserIPBan.objects.filter(active_filter).count(),
+        "expired_count": UserIPBan.objects.filter(expired_filter).count(),
+        "revoked_count": UserIPBan.objects.filter(revoked_at__isnull=False).count(),
+    }
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="security.ip_bans_viewed",
+        target_type="transfer.UserIPBan",
+        metadata={"result_count": page.paginator.count, "status": status, "search": bool(query)},
+    )
+    return render(request, "transfer/admin_console/ip_bans.html", context)
+
+
+@_staff
+@require_POST
+def console_create_ip_ban(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    try:
+        address = str(ipaddress.ip_address((request.POST.get("ip_address") or "").strip()))
+    except ValueError:
+        messages.error(request, "Укажите корректный IP-адрес.")
+        return redirect("admin_console_ip_bans")
+    reason = (request.POST.get("reason") or "").strip()[:240]
+    if not reason:
+        messages.error(request, "Укажите причину блокировки.")
+        return redirect("admin_console_ip_bans")
+    raw_hours = (request.POST.get("duration_hours") or "").strip()
+    expires_at = None
+    if raw_hours:
+        try:
+            hours = int(raw_hours)
+            if not 1 <= hours <= 8760:
+                raise ValueError
+            expires_at = timezone.now() + timedelta(hours=hours)
+        except ValueError:
+            messages.error(request, "Срок блокировки должен быть от 1 до 8760 часов.")
+            return redirect("admin_console_ip_bans")
+    ban, created = UserIPBan.objects.update_or_create(
+        ip_address=address,
+        defaults={
+            "reason": reason,
+            "created_by": request.user,
+            "expires_at": expires_at,
+            "revoked_at": None,
+            "revoked_by": None,
+        },
+    )
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="security.ip_banned",
+        target_type="transfer.UserIPBan",
+        target_id=str(ban.pk),
+        metadata={"ip_address": address, "source": "ip_ban_registry", "created": created},
+    )
+    messages.success(request, f"IP-адрес {address} заблокирован.")
+    return redirect("admin_console_ip_bans")
+
+
+@_staff
+@require_POST
+def console_revoke_ip_ban_global(request, ban_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    ban = get_object_or_404(UserIPBan, pk=ban_id, revoked_at__isnull=True)
+    ban.revoked_at, ban.revoked_by = timezone.now(), request.user
+    ban.save(update_fields=["revoked_at", "revoked_by"])
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="security.ip_ban_revoked",
+        target_type="transfer.UserIPBan",
+        target_id=str(ban.pk),
+        metadata={"ip_address": str(ban.ip_address), "source": "ip_ban_registry"},
+    )
+    messages.success(request, f"Блокировка IP {ban.ip_address} снята.")
+    return redirect("admin_console_ip_bans")
+
+
 @_staff
 @permission_required("transfer.view_transferjob", raise_exception=True)
 @require_GET

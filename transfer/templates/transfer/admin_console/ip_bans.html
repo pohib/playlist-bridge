@@ -1,0 +1,54 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Блокировки IP{% endblock %}
+{% block page_heading %}Управление блокировками IP{% endblock %}
+{% block content %}
+<div class="admin-page-intro">
+  <div><span class="admin-overline">БЕЗОПАСНОСТЬ / СЕТЕВОЙ ДОСТУП</span><h1>Блокировки IP</h1><p>Единый реестр ограничений доступа по IPv4 и IPv6. Изменения доступны только главному администратору и фиксируются в журнале аудита.</p></div>
+  <span class="admin-tag tag-danger">Только главный администратор</span>
+</div>
+<div class="admin-stat-grid">
+  <div class="admin-stat stat-danger"><span>Активные блокировки</span><strong>{{ active_count }}</strong><small>Адреса, которым сейчас запрещён доступ</small></div>
+  <div class="admin-stat stat-warn"><span>Истёкшие</span><strong>{{ expired_count }}</strong><small>История автоматически истёкших ограничений</small></div>
+  <div class="admin-stat"><span>Снятые вручную</span><strong>{{ revoked_count }}</strong><small>Блокировки, отозванные администратором</small></div>
+</div>
+<section class="admin-panel">
+  <div class="admin-panel-heading"><div><span class="admin-overline">НОВОЕ ОГРАНИЧЕНИЕ</span><h2>Заблокировать адрес</h2></div></div>
+  <form method="post" action="{% url 'admin_console_create_ip_ban' %}" class="admin-ip-ban-create">
+    {% csrf_token %}
+    <label>IPv4 или IPv6<input name="ip_address" maxlength="45" placeholder="203.0.113.10" required></label>
+    <label>Причина<input name="reason" maxlength="240" placeholder="Например, подозрительная активность" required></label>
+    <label>Срок, часов<input name="duration_hours" type="number" min="1" max="8760" placeholder="Бессрочно"></label>
+    <button class="table-action action-danger" type="submit">Заблокировать IP</button>
+  </form>
+  <p class="muted">Оставь срок пустым для бессрочной блокировки. Максимальный срок — 8760 часов (1 год). Блокируется точный адрес, а не вся подсеть.</p>
+</section>
+<form method="get" class="admin-ip-ban-filter">
+  <label>Поиск по IP, причине или администратору<input name="q" value="{{ query }}" placeholder="Например, 203.0.113.10"></label>
+  <label>Состояние<select name="status"><option value="active" {% if status == "active" %}selected{% endif %}>Активные</option><option value="expired" {% if status == "expired" %}selected{% endif %}>Истёкшие</option><option value="revoked" {% if status == "revoked" %}selected{% endif %}>Снятые</option><option value="all" {% if status == "all" %}selected{% endif %}>Все</option></select></label>
+  <button class="table-action" type="submit">Применить</button>
+  <a href="{% url 'admin_console_ip_bans' %}">Сбросить</a>
+</form>
+<section class="admin-panel admin-table-wrap">
+  <table class="admin-table">
+    <thead><tr><th>IP-адрес</th><th>Причина</th><th>Создал</th><th>Создано</th><th>Срок / состояние</th><th>Действие</th></tr></thead>
+    <tbody>
+    {% for ban in page %}
+      <tr>
+        <td><code>{{ ban.ip_address }}</code></td>
+        <td>{{ ban.reason }}</td>
+        <td>{{ ban.created_by.get_username|default:"Система" }}</td>
+        <td>{{ ban.created_at|date:"d.m.Y H:i" }}</td>
+        <td>
+          {% if ban.revoked_at %}<span class="admin-ip-ban-status revoked">Снята {{ ban.revoked_at|date:"d.m.Y H:i" }}</span><small>Администратор: {{ ban.revoked_by.get_username|default:"—" }}</small>
+          {% elif ban.expires_at and ban.expires_at <= now %}<span class="admin-ip-ban-status expired">Истекла</span><small>{{ ban.expires_at|date:"d.m.Y H:i" }}</small>
+          {% elif ban.expires_at %}<span class="admin-ip-ban-status active">Активна</span><small>До {{ ban.expires_at|date:"d.m.Y H:i" }}</small>
+          {% else %}<span class="admin-ip-ban-status active">Активна · бессрочно</span>{% endif %}
+        </td>
+        <td>{% if not ban.revoked_at and not ban.expires_at or not ban.revoked_at and ban.expires_at > now %}<form method="post" action="{% url 'admin_console_revoke_ip_ban_global' ban.pk %}">{% csrf_token %}<button class="table-action" type="submit">Снять</button></form>{% else %}—{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="6" class="admin-empty">По выбранным условиям блокировок нет.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if page.paginator.num_pages > 1 %}<div class="admin-pagination">{% if page.has_previous %}<a href="?q={{ query|urlencode }}&status={{ status }}&page={{ page.previous_page_number }}">← Назад</a>{% endif %}<span>Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ query|urlencode }}&status={{ status }}&page={{ page.next_page_number }}">Далее →</a>{% endif %}</div>{% endif %}
+</section>
+{% endblock %}

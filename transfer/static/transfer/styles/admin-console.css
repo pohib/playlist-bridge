@@ -261,3 +261,21 @@ body.admin-body{background:radial-gradient(ellipse at 12% 0%,rgba(72,113,190,.19
 .admin-privilege-legend article strong { font-size:13px; }
 .admin-privilege-legend article p { margin:0; color:var(--muted); font-size:11px; line-height:1.65; }
 @media(max-width:700px){.admin-privilege-legend{grid-template-columns:1fr}}
+
+
+/* IP ban registry */
+.admin-ip-ban-create { display:grid; grid-template-columns:minmax(150px,.8fr) minmax(180px,1.3fr) minmax(130px,.7fr) auto; gap:10px; align-items:end; }
+.admin-ip-ban-create label { display:grid; gap:6px; color:var(--muted); font-size:11px; min-width:0; }
+.admin-ip-ban-create input { width:100%; min-width:0; min-height:42px; padding:9px 12px; border:1px solid var(--line); border-radius:11px; background:rgba(7,13,24,.92); color:var(--text); font:12px system-ui; }
+.admin-ip-ban-create input:focus { outline:0; border-color:rgba(111,220,194,.72); box-shadow:0 0 0 3px rgba(93,201,187,.12); }
+.admin-ip-ban-create button { min-height:42px; padding:0 16px; }
+.admin-ip-ban-filter { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin:16px 0; padding:14px; border:1px solid var(--line); border-radius:13px; background:rgba(17,25,37,.55); }
+.admin-ip-ban-filter label { display:grid; gap:5px; color:var(--muted); font-size:10px; }
+.admin-ip-ban-filter input { min-width:220px; min-height:40px; padding:8px 12px; border:1px solid var(--line); border-radius:11px; background:rgba(7,13,24,.92); color:var(--text); }
+.admin-ip-ban-filter select { min-width:150px; }
+.admin-ip-ban-status { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; font-size:10px; white-space:nowrap; }
+.admin-ip-ban-status.active { color:var(--green); background:rgba(115,230,168,.1); }
+.admin-ip-ban-status.expired { color:var(--amber); background:rgba(255,191,102,.1); }
+.admin-ip-ban-status.revoked { color:var(--muted); background:rgba(142,164,188,.1); }
+@media(max-width:850px){.admin-ip-ban-create{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.admin-ip-ban-create{grid-template-columns:1fr}.admin-ip-ban-filter{align-items:stretch}.admin-ip-ban-filter label,.admin-ip-ban-filter input{width:100%;min-width:0}}
