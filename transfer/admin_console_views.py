@@ -317,10 +317,30 @@ def console_user_detail(request, user_id):
     security_filters = {
         "activity_type": "",
         "activity_ip": "",
+        "activity_route": "",
+        "activity_status": "",
         "activity_date_from": request.GET.get("activity_date_from", ""),
         "activity_date_to": request.GET.get("activity_date_to", ""),
     }
+    security_summary = None
     if request.user.is_superuser:
+        recent_activity = UserSecurityEvent.objects.filter(
+            user=account, created_at__gte=timezone.now() - timedelta(days=30)
+        )
+        security_summary = recent_activity.aggregate(
+            successful_logins=Count("id", filter=Q(event_type=UserSecurityEvent.EventType.LOGIN_SUCCEEDED)),
+            failed_logins=Count("id", filter=Q(event_type=UserSecurityEvent.EventType.LOGIN_FAILED)),
+            throttled_logins=Count("id", filter=Q(event_type=UserSecurityEvent.EventType.LOGIN_THROTTLED)),
+            user_actions=Count("id", filter=Q(event_type=UserSecurityEvent.EventType.USER_ACTIVITY)),
+            failed_requests=Count(
+                "id",
+                filter=Q(event_type=UserSecurityEvent.EventType.USER_ACTIVITY, response_status__gte=400),
+            ),
+            server_errors=Count(
+                "id",
+                filter=Q(event_type=UserSecurityEvent.EventType.USER_ACTIVITY, response_status__gte=500),
+            ),
+        )
         activity_queryset = UserSecurityEvent.objects.filter(user=account)
         valid_event_types = {value for value, _label in UserSecurityEvent.EventType.choices}
         activity_type = (request.GET.get("activity_type") or "").strip()
@@ -331,6 +351,24 @@ def console_user_detail(request, user_id):
         if activity_ip:
             activity_queryset = activity_queryset.filter(ip_address=activity_ip)
             security_filters["activity_ip"] = activity_ip
+        activity_route = (request.GET.get("activity_route") or "").strip()[:100]
+        if activity_route:
+            activity_queryset = activity_queryset.filter(
+                event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+                route_name=activity_route,
+            )
+            security_filters["activity_route"] = activity_route
+        raw_activity_status = (request.GET.get("activity_status") or "").strip()
+        activity_status = None
+        if raw_activity_status.isdigit():
+            candidate_status = int(raw_activity_status)
+            if 100 <= candidate_status <= 599:
+                activity_status = candidate_status
+                activity_queryset = activity_queryset.filter(
+                    event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+                    response_status=activity_status,
+                )
+                security_filters["activity_status"] = str(activity_status)
         activity_date_from = parse_date(security_filters["activity_date_from"])
         activity_date_to = parse_date(security_filters["activity_date_to"])
         if activity_date_from:
@@ -350,6 +388,7 @@ def console_user_detail(request, user_id):
                 "event_count": len(security_events),
                 "filters_applied": bool(
                     security_filters["activity_type"] or security_filters["activity_ip"]
+                    or security_filters["activity_route"] or security_filters["activity_status"]
                     or activity_date_from or activity_date_to
                 ),
             },
@@ -366,6 +405,7 @@ def console_user_detail(request, user_id):
         "security_events": security_events,
         "security_page": security_page,
         "security_filters": security_filters,
+        "security_summary": security_summary,
         "ip_bans": UserIPBan.objects.filter(revoked_at__isnull=True).order_by("-created_at")[:50] if request.user.is_superuser else [],
         "can_manage_ip_bans": request.user.is_superuser,
         "can_view_security": request.user.is_superuser,

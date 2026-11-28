@@ -75,6 +75,63 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertIsNone(staff_context["security_page"])
         self.assertFalse(staff_context["can_view_security"])
 
+
+    def test_user_activity_route_and_status_filters_and_30_day_summary(self):
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_SUCCEEDED,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+        )
+        matching = UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            http_method="POST", route_name="library_import_vk", response_status=422,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            http_method="POST", route_name="library_import_vk", response_status=200,
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            http_method="GET", route_name="library", response_status=500,
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(
+                reverse("admin_console_user_detail", args=[self.target.pk]),
+                {"activity_route": "library_import_vk", "activity_status": "422"},
+            )
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(context["security_events"], [matching])
+        self.assertEqual(context["security_filters"]["activity_route"], "library_import_vk")
+        self.assertEqual(context["security_filters"]["activity_status"], "422")
+        self.assertEqual(context["security_summary"], {
+            "successful_logins": 1,
+            "failed_logins": 1,
+            "throttled_logins": 0,
+            "user_actions": 3,
+            "failed_requests": 2,
+            "server_errors": 1,
+        })
+
+    def test_invalid_user_activity_status_is_ignored(self):
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(
+                reverse("admin_console_user_detail", args=[self.target.pk]),
+                {"activity_status": "999"},
+            )
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(context["security_filters"]["activity_status"], "")
+        self.assertEqual(context["security_filters"]["activity_count"], 0)
+
     def test_security_overview_is_superuser_only(self):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get(reverse("admin_console_security")).status_code, 403)
