@@ -237,6 +237,25 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(list(context["page"].object_list), [matching])
         self.assertEqual(context["response_status"], "422")
 
+
+    def test_global_security_pagination_preserves_search_and_status_filters(self):
+        for index in range(51):
+            UserSecurityEvent.objects.create(
+                user=self.target, username_snapshot=self.target.get_username(),
+                event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+                route_name="library_import_vk", response_status=422,
+                object_id=str(index),
+            )
+        self.client.force_login(self.superuser)
+        response = self.client.get(
+            reverse("admin_console_security"),
+            {"q": "library_import_vk", "response_status": "422"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Страница 1 из 2")
+        self.assertContains(response, "response_status=422")
+        self.assertContains(response, "q=library_import_vk")
+
     def test_global_security_timeline_ignores_invalid_http_status(self):
         self.client.force_login(self.superuser)
         with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:

@@ -1,1 +1,11 @@
-{% if page.has_other_pages %}<nav class="admin-pagination" aria-label="Страницы">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if status %}&status={{ status|urlencode }}{% endif %}{% if access %}&access={{ access|urlencode }}{% endif %}{% if action %}&action={{ action|urlencode }}{% endif %}{% if event_type %}&event_type={{ event_type|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from|urlencode }}{% endif %}{% if date_to %}&date_to={{ date_to|urlencode }}{% endif %}{% if response_status %}&response_status={{ response_status|urlencode }}{% endif %}">← Назад</a>{% endif %}<span>Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?page={{ page.next_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if status %}&status={{ status|urlencode }}{% endif %}">Вперёд →</a>{% endif %}</nav>{% endif %}
+{% if page.has_other_pages %}
+<nav class="admin-pagination" aria-label="Страницы">
+  {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}">← Назад</a>
+  {% endif %}
+  <span>Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key|urlencode }}={{ value|urlencode }}{% endif %}{% endfor %}">Вперёд →</a>
+  {% endif %}
+</nav>
+{% endif %}
