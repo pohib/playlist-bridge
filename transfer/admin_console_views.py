@@ -12,6 +12,9 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
+from datetime import timedelta
+
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
@@ -200,6 +203,27 @@ def console_jobs(request):
 
 
 @_staff
+@permission_required("transfer.view_transferjob", raise_exception=True)
+@require_GET
+def console_job_detail(request, job_id):
+    job = get_object_or_404(TransferJob, pk=job_id)
+    profile = LibraryProfile.objects.filter(
+        session_fingerprint=job.session_fingerprint
+    ).select_related("user").first()
+    activity_at = job.heartbeat_at or job.started_at
+    stale = bool(
+        job.status == TransferJob.Status.RUNNING
+        and activity_at
+        and activity_at < timezone.now() - timedelta(minutes=5)
+    )
+    return render(request, "transfer/admin_console/job_detail.html", {
+        "job": job, "profile": profile,
+        "source_host": urlsplit(job.source_url).hostname or "—",
+        "stale": stale,
+    })
+
+
+@_staff
 @permission_required("transfer.view_libraryprofile", raise_exception=True)
 @require_GET
 def console_library(request):
@@ -215,6 +239,28 @@ def console_library(request):
     page = Paginator(profiles, 25).get_page(request.GET.get("page"))
     return render(request, "transfer/admin_console/library.html", {
         "page": page, "query": query,
+    })
+
+
+@_staff
+@permission_required("transfer.view_libraryprofile", raise_exception=True)
+@require_GET
+def console_library_detail(request, profile_id):
+    profile = get_object_or_404(
+        LibraryProfile.objects.select_related("user"), pk=profile_id
+    )
+    playlists = profile.playlists.annotate(
+        tracks_count=Count("tracks", distinct=True)
+    ).prefetch_related("tracks").order_by("-updated_at")
+    transfers = profile.transfers.select_related(
+        "source_playlist", "target_playlist"
+    ).order_by("-created_at")[:30]
+    return render(request, "transfer/admin_console/library_detail.html", {
+        "profile": profile, "playlists": playlists, "transfers": transfers,
+        "playlist_count": playlists.count(),
+        "track_count": LibraryPlaylist.objects.filter(
+            profile=profile
+        ).aggregate(total=Count("tracks"))["total"] or 0,
     })
 
 

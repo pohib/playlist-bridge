@@ -1,0 +1,14 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Библиотека · {{ profile.display_name }}{% endblock %}
+{% block page_heading %}Детали библиотеки{% endblock %}
+{% block content %}
+<div class="admin-page-intro"><div><span class="admin-overline">LIBRARY / PROFILE</span><h1>{{ profile.display_name }}</h1><p>Просмотр данных библиотеки без доступа к session fingerprint, OAuth-токенам и локальным аудиофайлам.</p></div><a href="{% url 'admin_console_library' %}">← К библиотекам</a></div>
+<div class="admin-stats-grid"><article class="admin-stat"><span>Владелец</span><strong>{{ profile.user.get_username|default:"Legacy session" }}</strong></article><article class="admin-stat"><span>Плейлисты</span><strong>{{ playlist_count }}</strong></article><article class="admin-stat"><span>Треки</span><strong>{{ track_count }}</strong></article><article class="admin-stat"><span>Обновлена</span><strong>{{ profile.updated_at|date:"d.m.Y H:i" }}</strong></article></div>
+<section class="admin-panel"><div class="admin-panel-heading"><h2>Плейлисты и треки</h2></div>
+{% for playlist in playlists %}<div class="admin-detail-section"><div class="admin-detail-heading"><div><strong>{{ playlist.title }}</strong><span>{{ playlist.get_provider_display }} · {{ playlist.tracks_count }} треков</span></div><small>Обновлён {{ playlist.updated_at|date:"d.m.Y H:i" }}</small></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>#</th><th>Исполнитель</th><th>Название</th><th>Альбом</th><th>Источник</th><th>Длительность</th></tr></thead><tbody>
+{% for track in playlist.tracks.all %}<tr><td>{{ track.position|add:1 }}</td><td>{{ track.artist }}</td><td>{{ track.title }}</td><td>{{ track.album|default:"—" }}</td><td>{{ track.get_source_provider_display|default:"—" }}</td><td>{{ track.duration_display }}</td></tr>{% empty %}<tr><td colspan="6" class="admin-empty">В плейлисте пока нет треков.</td></tr>{% endfor %}
+</tbody></table></div></div>{% empty %}<p class="admin-empty">В этой библиотеке пока нет плейлистов.</p>{% endfor %}</section>
+<section class="admin-panel"><div class="admin-panel-heading"><h2>История переносов библиотеки</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Исходный плейлист</th><th>Назначение</th><th>Статус</th><th>Треки</th><th>Создан</th><th>Завершён</th></tr></thead><tbody>
+{% for transfer in transfers %}<tr><td>{{ transfer.source_playlist.title }}</td><td>{{ transfer.get_target_provider_display }}</td><td>{{ transfer.get_status_display }}</td><td>{{ transfer.matched }}/{{ transfer.total }} · пропущено {{ transfer.skipped }}</td><td>{{ transfer.created_at|date:"d.m.Y H:i" }}</td><td>{{ transfer.completed_at|date:"d.m.Y H:i"|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6" class="admin-empty">История переносов пуста.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

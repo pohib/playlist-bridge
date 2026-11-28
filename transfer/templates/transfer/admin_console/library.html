@@ -4,6 +4,6 @@
 <div class="admin-page-intro"><div><span class="admin-overline">USER DATA / LIBRARY</span><h1>Музыкальные библиотеки</h1><p>Сводка по профилям и коллекциям. Session fingerprints и OAuth credentials не выводятся.</p></div></div>
 <form class="admin-filter" method="get"><input name="q" value="{{ query }}" placeholder="Поиск по профилю или владельцу"><button type="submit">Найти</button>{% if query %}<a href="{% url 'admin_console_library' %}">Сбросить</a>{% endif %}</form>
 <div class="admin-panel admin-table-wrap"><table class="admin-table"><thead><tr><th>Профиль</th><th>Владелец</th><th>Плейлисты</th><th>Треки</th><th>Обновлён</th></tr></thead><tbody>
-{% for profile in page %}<tr><td><strong>{{ profile.display_name }}</strong></td><td>{{ profile.user.get_username|default:"Legacy session" }}</td><td>{{ profile.playlists_count }}</td><td>{{ profile.tracks_count }}</td><td>{{ profile.updated_at|date:"d.m.Y H:i" }}</td></tr>{% empty %}<tr><td colspan="5" class="admin-empty">Библиотеки не найдены.</td></tr>{% endfor %}
+{% for profile in page %}<tr><td><a href="{% url 'admin_console_library_detail' profile.id %}"><strong>{{ profile.display_name }}</strong></a></td><td>{{ profile.user.get_username|default:"Legacy session" }}</td><td>{{ profile.playlists_count }}</td><td>{{ profile.tracks_count }}</td><td>{{ profile.updated_at|date:"d.m.Y H:i" }}</td></tr>{% empty %}<tr><td colspan="5" class="admin-empty">Библиотеки не найдены.</td></tr>{% endfor %}
 </tbody></table></div>{% include "transfer/admin_console/pagination.html" %}
 {% endblock %}
