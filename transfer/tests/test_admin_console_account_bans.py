@@ -60,6 +60,31 @@ class AdminConsoleAccountBanTests(TestCase):
         self.assertTrue(UserAccountBan.objects.filter(pk=ban.pk).exists())
         self.assertTrue(AdminAuditEvent.objects.filter(action="user.account_ban_revoked", target_id=str(self.target.pk)).exists())
 
+    def test_active_ban_blocks_existing_sessions_and_revocation_restores_access(self):
+        ban = UserAccountBan.objects.create(
+            user=self.target, reason="Активное ограничение", created_by=self.admin
+        )
+        user_client = self.client_class()
+        user_client.force_login(self.target)
+        blocked = user_client.get(reverse("dashboard"))
+        self.assertEqual(blocked.status_code, 403)
+        self.client.post(
+            reverse("admin_console_revoke_account_ban", args=[self.target.pk, ban.pk])
+        )
+        allowed = user_client.get(reverse("dashboard"))
+        self.assertNotEqual(allowed.status_code, 403)
+
+    def test_multiple_active_bans_must_all_be_revoked(self):
+        first = UserAccountBan.objects.create(user=self.target, reason="Первое", created_by=self.admin)
+        second = UserAccountBan.objects.create(user=self.target, reason="Второе", created_by=self.admin)
+        self.client.post(
+            reverse("admin_console_revoke_account_ban", args=[self.target.pk, first.pk])
+        )
+        self.assertTrue(second.is_active)
+        self.assertEqual(
+            UserAccountBan.objects.filter(user=self.target, revoked_at__isnull=True).count(), 1
+        )
+
     def test_expired_ban_is_inactive_without_a_cleanup_job(self):
         ban = UserAccountBan.objects.create(
             user=self.target, reason="Истёкшее ограничение", created_by=self.admin,
