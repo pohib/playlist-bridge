@@ -450,9 +450,9 @@
     const target=new URL(action,window.location.href);
     if(target.origin!==window.location.origin)return;
     event.preventDefault();
-    const data=new FormData(form,submitter);
+    const data=submitter?new FormData(form,submitter):new FormData(form);
     if(method==="GET"){
-      for(const [key,value] of data.entries())if(typeof value==="string")target.searchParams.append(key,value);
+      for(const [key,value] of data.entries())if(key!=="csrfmiddlewaretoken"&&typeof value==="string")target.searchParams.append(key,value);
     }
     navigationBusy=true;
     try{
