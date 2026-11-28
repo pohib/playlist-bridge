@@ -7,6 +7,7 @@ import time
 from django.shortcuts import redirect
 
 from ..services import TransferError
+from ..services.integration_event_recorder import record_integration_failure
 from ..services.credential_service import get_session_fingerprint
 from .shared import provider_redirect
 
@@ -19,7 +20,13 @@ def login(request, *, client_factory):
         request.session["spotify_oauth_state"] = state
         return redirect(client_factory().authorization_url(state))
     except TransferError as exc:
-        request.session["oauth_error"] = str(exc)
+        record_integration_failure(
+            provider="spotify",
+            operation="oauth_login",
+            error=exc,
+            user=request.user,
+        )
+        request.session["oauth_error"] = "Не удалось начать авторизацию Spotify."
         return redirect(provider_redirect(request))
 
 
@@ -55,7 +62,13 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
             "Spotify успешно подключён. Токены сохранены в зашифрованном виде."
         )
     except TransferError as exc:
-        logger.warning("Spotify OAuth callback failed: %s", exc)
+        record_integration_failure(
+            provider="spotify",
+            operation="oauth_callback",
+            error=exc,
+            user=request.user,
+        )
+        logger.warning("Spotify OAuth callback failed")
         request.session["oauth_error"] = "Не удалось завершить авторизацию Spotify."
     return redirect(provider_redirect(request))
 

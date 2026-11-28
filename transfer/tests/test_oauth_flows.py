@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from ..models import ProviderIntegrationEvent
 from ..services import TransferError
 
 
@@ -124,6 +125,31 @@ class OAuthFlowTests(TestCase):
         self.assertEqual(store.call_args.args[1], "soundcloud")
         self.assertEqual(store.call_args.args[2]["access_token"], "sc-access")
         self.assertEqual(store.call_args.args[3], "12345")
+
+    def test_spotify_oauth_failure_is_recorded_without_exposing_credentials(self):
+        session = self.client.session
+        session["spotify_oauth_state"] = "valid-state"
+        session.save()
+        provider = Mock()
+        provider.exchange_code.side_effect = TransferError(
+            "Spotify token exchange failed refresh_token=private-refresh-token"
+        )
+
+        with patch("transfer.oauth_views.spotify_client", return_value=provider):
+            response = self.client.get(
+                reverse("spotify_callback"),
+                {"state": "valid-state", "code": "authorization-code"},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        event = ProviderIntegrationEvent.objects.get(
+            provider=ProviderIntegrationEvent.Provider.SPOTIFY,
+            operation="oauth_callback",
+        )
+        self.assertEqual(event.category, ProviderIntegrationEvent.Category.AUTH)
+        self.assertNotIn("private-refresh-token", event.message)
+        self.assertIn("[скрыто]", event.message)
+        self.assertNotIn("private-refresh-token", self.client.session["oauth_error"])
 
     def test_disconnect_spotify_deletes_session_credential(self):
         with patch("transfer.oauth_views.delete_credential") as delete:

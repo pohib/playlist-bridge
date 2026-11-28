@@ -6,6 +6,7 @@ import time
 from django.shortcuts import redirect
 
 from ..services import TransferError
+from ..services.integration_event_recorder import record_integration_failure
 from ..services.credential_service import get_session_fingerprint
 from .shared import provider_redirect
 
@@ -20,7 +21,13 @@ def login(request, *, client_factory):
         request.session["soundcloud_code_verifier"] = verifier
         return redirect(client_factory().authorization_url(state, verifier))
     except TransferError as exc:
-        request.session["oauth_error"] = str(exc)
+        record_integration_failure(
+            provider="soundcloud",
+            operation="oauth_login",
+            error=exc,
+            user=request.user,
+        )
+        request.session["oauth_error"] = "Не удалось начать авторизацию SoundCloud."
         return redirect(provider_redirect(request))
 
 
@@ -44,7 +51,13 @@ def callback(request, *, client_factory, rotate_session_binding, store_credentia
         store_credential(get_session_fingerprint(request), "soundcloud", token, str(profile.get("id", "")))
         request.session["oauth_success"] = "SoundCloud успешно подключён. Токены сохранены в зашифрованном виде."
     except TransferError as exc:
-        logger.warning("SoundCloud OAuth callback failed: %s", exc)
+        record_integration_failure(
+            provider="soundcloud",
+            operation="oauth_callback",
+            error=exc,
+            user=request.user,
+        )
+        logger.warning("SoundCloud OAuth callback failed")
         request.session["oauth_error"] = "Не удалось завершить авторизацию SoundCloud."
     return redirect(provider_redirect(request))
 

@@ -63,38 +63,42 @@ def infer_provider(error, source_url=""):
     return ProviderIntegrationEvent.Provider.TRANSFER
 
 
-def record_transfer_failure(*, job, error):
-    """Persist only a redacted operational summary; never credentials or raw payloads."""
+def record_integration_failure(*, provider, operation, error, user=None, job=None, category=None):
+    """Store a redacted provider failure without disrupting the original operation."""
     try:
-        category = classify_integration_error(error)
-        message = sanitize_integration_message(error)
-        provider = infer_provider(error, job.source_url)
+        authenticated_user = user if getattr(user, "is_authenticated", False) else None
         return ProviderIntegrationEvent.objects.create(
             provider=provider,
-            operation="run_transfer",
-            category=category,
+            operation=str(operation)[:80],
+            category=category or classify_integration_error(error),
             severity=ProviderIntegrationEvent.Severity.ERROR,
-            message=message,
+            message=sanitize_integration_message(error),
             transfer_job=job,
+            user=authenticated_user,
         )
     except DatabaseError:
-        # Operational telemetry must never prevent the job from reaching a terminal state.
         return None
+
+
+def record_transfer_failure(*, job, error):
+    """Persist a redacted transfer failure and associate it with its source provider."""
+    return record_integration_failure(
+        provider=infer_provider(error, job.source_url),
+        operation="run_transfer",
+        error=error,
+        job=job,
+    )
 
 
 def record_worker_failure(*, job_id, error, operation):
     """Record a sanitized Celery dispatch/recovery failure without masking it."""
-    try:
-        from ..models import TransferJob
+    from ..models import TransferJob
 
-        job = TransferJob.objects.filter(pk=job_id).first()
-        return ProviderIntegrationEvent.objects.create(
-            provider=ProviderIntegrationEvent.Provider.TRANSFER,
-            operation=operation[:80],
-            category=ProviderIntegrationEvent.Category.WORKER,
-            severity=ProviderIntegrationEvent.Severity.ERROR,
-            message=sanitize_integration_message(error),
-            transfer_job=job,
-        )
-    except DatabaseError:
-        return None
+    job = TransferJob.objects.filter(pk=job_id).first()
+    return record_integration_failure(
+        provider=ProviderIntegrationEvent.Provider.TRANSFER,
+        operation=operation,
+        error=error,
+        job=job,
+        category=ProviderIntegrationEvent.Category.WORKER,
+    )
