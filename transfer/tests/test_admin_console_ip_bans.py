@@ -105,6 +105,38 @@ class AdminConsoleIPBanRegistryTests(TestCase):
         self.assertIsNone(ban.revoked_at)
 
 
+
+    def test_repeated_ip_ban_keeps_previous_history(self):
+        previous = UserIPBan.objects.create(
+            ip_address="203.0.113.25",
+            reason="Первоначальная причина",
+            created_by=self.root,
+            revoked_at=timezone.now(),
+            revoked_by=self.root,
+        )
+        self.client.force_login(self.root)
+        response = self.client.post(reverse("admin_console_create_ip_ban"), {
+            "ip_address": "203.0.113.25",
+            "reason": "Повторная блокировка",
+            "duration_hours": "12",
+        })
+        self.assertEqual(response.status_code, 302)
+        bans = UserIPBan.objects.filter(ip_address="203.0.113.25").order_by("created_at")
+        self.assertEqual(bans.count(), 2)
+        previous.refresh_from_db()
+        self.assertEqual(previous.reason, "Первоначальная причина")
+        self.assertIsNotNone(previous.revoked_at)
+        current = bans.latest("created_at")
+        self.assertEqual(current.reason, "Повторная блокировка")
+        self.assertIsNone(current.revoked_at)
+        self.assertEqual(
+            AdminAuditEvent.objects.filter(
+                actor=self.root, action="security.ip_banned",
+                target_id=str(current.pk),
+            ).count(),
+            1,
+        )
+
     def test_deactivated_account_session_is_rejected_on_next_request(self):
         target = self.user_model.objects.create_user(
             username="account-ban-target", password="test-password"

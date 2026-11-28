@@ -341,7 +341,7 @@ def console_ban_ip(request, user_id):
         except ValueError:
             messages.error(request, "Срок блокировки должен быть от 1 до 8760 часов.")
             return redirect("admin_console_user_detail", user_id=target.pk)
-    ban, _ = UserIPBan.objects.update_or_create(ip_address=address, defaults={"reason": reason, "created_by": request.user, "expires_at": expires_at, "revoked_at": None, "revoked_by": None})
+    ban = UserIPBan.objects.create(ip_address=address, reason=reason, created_by=request.user, expires_at=expires_at)
     AdminAuditEvent.objects.create(actor=request.user, action="security.ip_banned", target_type="transfer.UserIPBan", target_id=str(ban.pk), metadata={"ip_address": address, "user_id": target.pk})
     messages.success(request, f"IP-адрес {address} заблокирован.")
     return redirect("admin_console_user_detail", user_id=target.pk)
@@ -434,22 +434,18 @@ def console_create_ip_ban(request):
         except ValueError:
             messages.error(request, "Срок блокировки должен быть от 1 до 8760 часов.")
             return redirect("admin_console_ip_bans")
-    ban, created = UserIPBan.objects.update_or_create(
+    ban = UserIPBan.objects.create(
         ip_address=address,
-        defaults={
-            "reason": reason,
-            "created_by": request.user,
-            "expires_at": expires_at,
-            "revoked_at": None,
-            "revoked_by": None,
-        },
+        reason=reason,
+        created_by=request.user,
+        expires_at=expires_at,
     )
     AdminAuditEvent.objects.create(
         actor=request.user,
         action="security.ip_banned",
         target_type="transfer.UserIPBan",
         target_id=str(ban.pk),
-        metadata={"ip_address": address, "source": "ip_ban_registry", "created": created},
+        metadata={"ip_address": address, "source": "ip_ban_registry", "created": True},
     )
     messages.success(request, f"IP-адрес {address} заблокирован.")
     return redirect("admin_console_ip_bans")

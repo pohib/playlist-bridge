@@ -84,7 +84,7 @@ class UserEQPreset(models.Model):
 
 class UserIPBan(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ip_address = models.GenericIPAddressField(unique=True, db_index=True)
+    ip_address = models.GenericIPAddressField(db_index=True)
     reason = models.CharField(max_length=240)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_ip_bans')
     created_at = models.DateTimeField(auto_now_add=True)
