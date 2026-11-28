@@ -470,7 +470,7 @@ def console_events(request):
     events = []
     labels = {'user.activated': 'Пользователь активирован', 'user.deactivated': 'Пользователь отключён', 'role.created': 'Роль создана', 'role.updated': 'Роль изменена', 'user.groups_updated': 'Группы пользователя изменены', 'privilege.updated': 'Изменены привилегии пользователя'}
     user_label = get_user_model()._meta.label
-    for item in AdminAuditEvent.objects.select_related('actor').order_by('-created_at')[:300]:
+    for item in AdminAuditEvent.objects.exclude(action='events.center_viewed').select_related('actor').order_by('-created_at')[:300]:
         target_url = reverse('admin_console_user_detail', args=[item.target_id]) if item.target_type == user_label and item.target_id.isdigit() else ''
         events.append({'occurred_at': item.created_at, 'category': 'admin', 'category_label': 'Администрирование', 'severity': 'info', 'severity_label': 'Информация', 'title': labels.get(item.action, 'Системное действие'), 'actor': item.actor.get_username() if item.actor else 'Система', 'target': f'{item.target_type} · {item.target_id}'.strip(' ·') or '—', 'target_url': target_url, 'detail': 'Изменение записано в журнал аудита.'})
     security_labels = {UserSecurityEvent.EventType.LOGIN_SUCCEEDED: ('Успешный вход', 'info', 'Информация'), UserSecurityEvent.EventType.LOGIN_FAILED: ('Неудачная попытка входа', 'warning', 'Предупреждение'), UserSecurityEvent.EventType.LOGIN_THROTTLED: ('Попытка входа ограничена', 'danger', 'Высокий риск')}
