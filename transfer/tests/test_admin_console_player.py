@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.urls import reverse
 
 
 TEST_STORAGE_SETTINGS = {
@@ -9,7 +10,6 @@ TEST_STORAGE_SETTINGS = {
     },
     "WHITENOISE_MANIFEST_STRICT": False,
 }
-from django.urls import reverse
 
 
 @override_settings(**TEST_STORAGE_SETTINGS)
@@ -30,6 +30,7 @@ class AdminConsolePlayerIntegrationTests(TestCase):
         self.assertIn('id="player-audio"', html)
         self.assertIn('id="player-queue-panel"', html)
         self.assertIn('id="player-eq-panel"', html)
+        self.assertIn('id="player-queue-close"', html)
         self.assertIn("transfer/js/app.js", html)
         self.assertIn("transfer/styles/main.css", html)
         self.assertIn("transfer/styles/admin-console.css", html)
