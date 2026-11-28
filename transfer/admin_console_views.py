@@ -1,7 +1,7 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
 import logging
-from uuid import UUID
 from datetime import timedelta
+from uuid import UUID
 from functools import wraps
 from urllib.parse import urlsplit
 
@@ -441,6 +441,9 @@ def console_security(request):
             Q(username_snapshot__icontains=query)
             | Q(ip_address__icontains=query)
             | Q(user_agent__icontains=query)
+            | Q(route_name__icontains=query)
+            | Q(request_id__icontains=query)
+            | Q(object_id__icontains=query)
         )
     if date_from:
         events = events.filter(created_at__date__gte=date_from)

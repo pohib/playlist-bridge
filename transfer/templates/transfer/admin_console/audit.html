@@ -3,7 +3,7 @@
 {% block content %}
 <div class="admin-page-intro"><div><span class="admin-overline">ЖУРНАЛ / ПРИВИЛЕГИРОВАННЫЕ ДЕЙСТВИЯ</span><h1>Журнал действий</h1><p>Записи создаются сервером и доступны только для чтения в интерфейсе.</p></div></div>
 <form class="admin-filter admin-filter-wrap" method="get"><input name="q" value="{{ query }}" placeholder="Оператор, действие или ID объекта"><select name="action"><option value="">Все действия</option>{% for item in actions %}<option value="{{ item }}" {% if action == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select><label>С даты<input type="date" name="date_from" value="{{ date_from }}"></label><label>По дату<input type="date" name="date_to" value="{{ date_to }}"></label><button type="submit">Фильтровать</button>{% if query or action or date_from or date_to %}<a href="{% url 'admin_console_audit' %}">Сбросить</a>{% endif %}</form>
-<div class="admin-panel admin-table-wrap"><thead><tr><th>Время</th><th>Оператор</th><th>Действие</th><th>Объект</th><th>Метаданные</th></tr></thead><tbody>
+<section class="admin-panel admin-table-wrap"><table class="admin-table"><thead><tr><th>Время</th><th>Оператор</th><th>Действие</th><th>Объект</th><th>Метаданные</th></tr></thead><tbody>
 {% for event in page %}<tr><td>{{ event.created_at|date:"d.m.Y H:i:s" }}</td><td>{{ event.actor.get_username|default:"Система" }}</td><td><strong>{{ event.action_label }}</strong></td><td>{{ event.target_type }} · {{ event.target_id|truncatechars:14 }}</td><td><code>{{ event.metadata }}</code></td></tr>{% empty %}<tr><td colspan="5" class="admin-empty">Событий пока нет.</td></tr>{% endfor %}
-</tbody></table></div>{% include "transfer/admin_console/pagination.html" %}
+</tbody></table></section>{% include "transfer/admin_console/pagination.html" %}
 {% endblock %}

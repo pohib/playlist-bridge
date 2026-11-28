@@ -29,6 +29,7 @@ class UserSecurityEvent(models.Model):
         LOGIN_SUCCEEDED = "login_succeeded", "Успешный вход"
         LOGIN_FAILED = "login_failed", "Неудачная попытка входа"
         LOGIN_THROTTLED = "login_throttled", "Вход заблокирован ограничителем"
+        USER_ACTIVITY = "user_activity", "Действие пользователя"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="playlist_bridge_security_events")
@@ -36,6 +37,14 @@ class UserSecurityEvent(models.Model):
     event_type = models.CharField(max_length=32, choices=EventType.choices, db_index=True)
     ip_address = models.CharField(max_length=45, blank=True)
     user_agent = models.CharField(max_length=512, blank=True)
+    http_method = models.CharField(max_length=10, blank=True)
+    route_name = models.CharField(max_length=100, blank=True, db_index=True)
+    response_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    request_id = models.UUIDField(null=True, blank=True, db_index=True)
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    object_type = models.CharField(max_length=40, blank=True)
+    object_id = models.CharField(max_length=80, blank=True)
+    referer_host = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
