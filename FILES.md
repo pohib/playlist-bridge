@@ -13,6 +13,107 @@
 
 **Важно:** наличие файла в репозитории не означает, что соответствующая внешняя интеграция гарантированно доступна в production. Реальный доступ к провайдерам зависит от их API, OAuth application permissions, квот и ограничений.
 
+## Функциональная карта проекта
+
+Ниже файлы сгруппированы не только по физическим папкам, но и по назначению. Это основной маршрут для поиска кода при работе над конкретной функцией. Полный каталог всех отслеживаемых файлов по папкам находится в разделе «Файлы» ниже.
+
+### Музыкальный плеер и эквалайзер
+
+| Уровень | Файлы | Роль |
+|---|---|---|
+| UI плеера | `transfer/templates/transfer/partials/global_player.html`, `transfer/templates/transfer/player_popout.html` | Общий встроенный плеер и отдельное pop-out окно. |
+| Поведение | `transfer/static/transfer/js/app.js`, `transfer/static/transfer/js/player-popout.js` | Управление воспроизведением, очередью, состоянием плеера и отдельным окном. |
+| Оформление | `transfer/static/transfer/styles/main.css`, `transfer/static/transfer/styles/player-popout.css` | Основной интерфейс и стили pop-out плеера. |
+| Backend эквалайзера | `transfer/player_eq_views.py`, `transfer/domain_models/admin.py` (`UserEQPreset`) | API сохранения и загрузки пользовательских EQ-пресетов и модель их хранения. |
+| Проверки | `transfer/tests/test_playback.py`, `transfer/tests/test_admin_console_player.py`, `transfer/tests/test_player_eq_presets.py` | Воспроизведение, работа плеера в админке и пользовательские пресеты. |
+
+### API и документация API
+
+| Уровень | Файлы | Роль |
+|---|---|---|
+| HTTP API | `transfer/api/common.py`, `transfer/api/serializers.py`, `transfer/api/status_views.py`, `transfer/api/transfer_views.py` | Общие ответы, сериализация, статус интеграций и endpoints переносов. |
+| Документация | `transfer/api/docs_views.py`, `transfer/templates/transfer/api_docs.html` | OpenAPI schema и страница документации. |
+| Маршруты и совместимость | `transfer/urls.py`, `transfer/api_views.py` | Регистрация URL и legacy facade для старых импортов. |
+| Сервисный слой | `transfer/services/api_transfer_service.py`, `transfer/services/api_transfer_validation.py` | Создание задач API и проверка входных параметров. |
+| Проверки | `transfer/tests/test_api_transfer_service.py`, `transfer/tests/test_api_transfer_validation.py`, `transfer/tests/test_api_module_boundaries.py`, `transfer/tests/test_profile_and_api_docs.py` | API-контракты, валидация, границы модулей и документация. |
+
+### Кастомная административная панель
+
+| Раздел | Файлы | Роль |
+|---|---|---|
+| Backend и маршруты | `transfer/admin_console_views.py`, `transfer/urls.py` | Обзор, пользователи, роли, библиотеки, очередь задач, аудит, события, безопасность и системная диагностика. |
+| Общий каркас | `transfer/templates/transfer/admin_console/base.html`, `pagination.html` | Навигация, общий layout и пагинация с сохранением фильтров. |
+| Обзор и аккаунты | `dashboard.html`, `users.html`, `user_detail.html`, `groups.html`, `privileges.html` в `transfer/templates/transfer/admin_console/` | Сводка, карточки пользователей, роли/группы и привилегии. |
+| Операции и аудит | `library.html`, `library_detail.html`, `jobs.html`, `job_detail.html`, `audit.html` в `transfer/templates/transfer/admin_console/` | Просмотр библиотек, переносов и административного журнала. |
+| Безопасность и состояние | `security.html`, `ip_bans.html`, `events.html`, `system.html` в `transfer/templates/transfer/admin_console/` | События безопасности, IP/account bans, центр событий и диагностика сервисов. |
+| Данные | `transfer/domain_models/admin.py`, `transfer/domain_models/jobs.py`, `transfer/domain_models/library.py` | Аудит, security telemetry, блокировки, EQ-пресеты, задачи и библиотечные сущности. |
+| Стили | `transfer/static/transfer/styles/admin-console.css` | Отдельная визуальная система админ-панели. |
+| Проверки | `transfer/tests/test_admin_console_*.py` | Доступы, роли, привилегии, аудит, блокировки, диагностика, задачи и плеер в панели. |
+
+### Музыкальная библиотека, плейлисты и импорт
+
+| Подсистема | Файлы | Роль |
+|---|---|---|
+| Страницы и HTTP handlers | `transfer/library_page_views.py`, `library_playlist_management_views.py`, `library_track_management_views.py`, `library_profile_management_views.py`, `library_search_views.py` | Страницы библиотеки, операции над плейлистами/треками/профилем и поиск. |
+| Импорт провайдеров | `transfer/library_vk_import_views.py`, `library_spotify_import_views.py`, `library_soundcloud_import_views.py` | HTTP endpoints импорта из VK, Spotify и SoundCloud. |
+| Загрузка и проигрывание | `transfer/library_provider_upload_views.py`, `library_local_playback_views.py`, `library_vk_playback_views.py`, `library_media_views.py` | Загрузка аудио, локальное/VK-воспроизведение и безопасная работа с обложками. |
+| Перенос и ручная проверка | `transfer/library_transfer_create_views.py`, `library_transfer_review_views.py` | Создание переноса и ручное сопоставление нераспознанных треков. |
+| Доменная логика | `transfer/services/library_*.py`, `transfer/domain_models/library.py` | Импорт, поиск, управление библиотекой, сопоставление и сохранение данных. |
+| UI и модели | `transfer/templates/transfer/library.html`, `transfer/models.py` | Интерфейс библиотеки и совместимый фасад доменных моделей. |
+| Проверки | `transfer/tests/test_library_*.py`, `test_playlist_editing.py`, `test_single_track_import_workflows.py` | Импорт, редактирование, поиск, переносы, загрузка и регрессии библиотеки. |
+
+### OAuth и интеграции музыкальных сервисов
+
+| Подсистема | Файлы | Роль |
+|---|---|---|
+| OAuth workflow | `transfer/oauth/clients.py`, `shared.py`, `spotify.py`, `soundcloud.py`, `transfer/oauth_views.py` | OAuth-клиенты, state/PKCE, callback и подключение Spotify/SoundCloud. |
+| Клиенты API | `transfer/services/spotify_client.py`, `soundcloud_client.py`, `vk_client.py` | Запросы к API провайдеров. |
+| Доступ и поиск | `transfer/services/provider_catalog_access.py`, `free_music_catalog_search.py`, `library_source_search.py`, `library_source_search_service.py` | Проверка доступности каталогов и поиск источников/треков. |
+| VK audio | `transfer/services/vk_anonymous_token.py`, `vk_audio_metadata.py`, `library_vk_playback.py` | Получение анонимного токена, метаданные и подготовка потока VK. |
+| Credentials | `transfer/domain_models/credentials.py`, `transfer/services/credential_service.py`, `oauth_session_service.py` | Хранение и обслуживание подключений; секреты не должны попадать в админский HTML или логи. |
+| Проверки | `transfer/tests/test_oauth_flows.py`, `test_oauth_session_service.py`, `test_provider_clients.py`, `test_provider_catalog_access.py` | OAuth-сценарии, клиентские контракты и доступность каталогов. |
+
+### Фоновые задачи и переносы
+
+| Уровень | Файлы | Роль |
+|---|---|---|
+| Модель задачи | `transfer/domain_models/jobs.py` | Статус, прогресс, heartbeat, dispatch attempts, checkpoint и результат переноса. |
+| Celery tasks | `transfer/tasks.py`, `config/celery.py` | Исполнение переноса, доставка ожидающих задач и очистка устаревшей security telemetry. |
+| Оркестрация | `transfer/services/transfer_service.py`, `transfer/services/transfer_dispatch.py` | Перенос библиотеки, безопасная доставка задач и восстановление зависших задач. |
+| CLI recovery | `transfer/management/commands/dispatch_queued_transfers.py`, `fail_stale_transfers.py` | Ручной/плановый запуск восстановления очереди и обработка зависших задач. |
+| Админский мониторинг | `transfer/admin_console_views.py`, `jobs.html`, `job_detail.html` в `transfer/templates/transfer/admin_console/` | Статистика очереди, backlog dispatch, stale heartbeat и диагностика конкретной задачи без вывода checkpoint/result. |
+| Проверки | `transfer/tests/test_transfer_dispatch.py`, `test_transfer_task_recovery.py`, `test_admin_console_details.py` | Защита от дублирования, восстановление и отображение диагностики. |
+
+### Аутентификация, безопасность и аудит
+
+| Подсистема | Файлы | Роль |
+|---|---|---|
+| Вход и аккаунты | `transfer/auth_views.py`, `transfer/services/login_throttle.py`, `transfer/services/auth_security_audit.py` | Регистрация/вход, ограничение перебора и аудит аутентификации. |
+| Request telemetry | `transfer/security_activity_middleware.py`, `config/security.py` | IP/account bans, allowlist событий действий, security headers и CSP. |
+| Security data | `transfer/domain_models/admin.py`, `transfer/services/security_event_retention.py`, `transfer/management/commands/purge_security_events.py` | Журнал событий, история блокировок и retention. |
+| Проверки | `transfer/tests/test_login_throttle.py`, `test_security_activity_middleware.py`, `test_security_event_retention.py`, `test_admin_console_security.py`, `test_admin_console_ip_bans.py`, `test_admin_console_account_bans.py` | Регрессии аутентификации, телеметрии, retention и управления блокировками. |
+
+### Инфраструктура, запуск и эксплуатация
+
+| Область | Файлы | Роль |
+|---|---|---|
+| Django config | `config/settings.py`, `urls.py`, `wsgi.py`, `asgi.py`, `storage.py`, `celery.py` | Настройки, маршрутизация, entrypoints, статика и Celery. |
+| Контейнеры | `Dockerfile`, `compose.yaml`, `compose.dev.yaml`, `requirements.txt`, `requirements-dev.txt` | Сборка и запуск приложения, БД, Redis, Nginx и worker. |
+| Reverse proxy и TLS | `nginx/default.conf`, `nginx/errors/404.html`, `deploy/Caddyfile` | Внутренний reverse proxy, ошибка 404 и внешний HTTPS edge proxy. |
+| Операционные скрипты | `scripts/start-tunnel.ps1`, `start-tunnel-prod.ps1`, `stop-tunnel.ps1`, `backup.ps1`, `restore.ps1` | Локальный запуск, временный tunnel, резервное копирование и восстановление. |
+| Документация | `README.md`, `TESTING.md`, `FILES.md` | Запуск разработки/production, тестирование и карта исходников. |
+
+### Тестирование и security automation
+
+| Область | Файлы | Роль |
+|---|---|---|
+| CI workflows | `.github/workflows/ci.yml`, `codeql.yml`, `dependabot-automerge.yml`, `.github/dependabot.yml` | Тесты, SAST/SCA, secrets scan, container scan, CodeQL и обновления зависимостей. |
+| DAST | `.zap/rules.tsv`, `scripts/security/dast_auth_check.sh`, `dast_bootstrap.py` | Настройка и подготовка авторизованного DAST. |
+| Тестовая инфраструктура | `pytest.ini`, `pyproject.toml`, `.coveragerc`, `TESTING.md` | Конфигурация тестов, линтера, фаззинга и покрытия. |
+| Тесты | `transfer/tests/` | Unit, integration, security, API, UI и regression tests. |
+
+---
+
 ## Файлы
 
 ### Корень репозитория
