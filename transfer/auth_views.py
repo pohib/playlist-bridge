@@ -23,6 +23,7 @@ def register(request):
             previous_fingerprint = get_session_fingerprint(request)
             user = form.save()
             login(request, user)
+            record_login_success(request, user)
             attach_anonymous_workspace(
                 user=user,
                 previous_fingerprint=previous_fingerprint,
@@ -69,7 +70,6 @@ def sign_in(request):
                 previous_fingerprint=previous_fingerprint,
                 current_fingerprint=get_session_fingerprint(request),
             )
-            record_login_success(request, user)
             logger.info("User signed in: user_id=%s", user.pk)
             return redirect("dashboard")
         else:

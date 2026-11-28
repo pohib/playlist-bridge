@@ -88,6 +88,8 @@ def console_user_detail(request, user_id):
         "auth.login_failed": "Неудачная попытка входа сотрудника",
         "auth.login_throttled": "Попытка входа заблокирована ограничителем",
         "auth.login_succeeded": "Сотрудник вошёл в систему",
+        "security.user_events_viewed": "Просмотрена история безопасности пользователя",
+        "security.events_viewed": "Просмотрен журнал безопасности",
     }
     for event in audit_events:
         event.action_label = action_labels.get(event.action, "Системное действие")
@@ -208,6 +210,8 @@ def console_audit(request):
         "auth.login_failed": "Неудачная попытка входа сотрудника",
         "auth.login_throttled": "Попытка входа заблокирована ограничителем",
         "auth.login_succeeded": "Сотрудник вошёл в систему",
+        "security.user_events_viewed": "Просмотрена история безопасности пользователя",
+        "security.events_viewed": "Просмотрен журнал безопасности",
     }
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
