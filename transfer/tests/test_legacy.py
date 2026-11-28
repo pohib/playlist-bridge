@@ -980,10 +980,18 @@ class UnifiedLibraryTransferTests(TestCase):
             parse_vk_track_url("https://attacker.example/audio-123_456")
 
 
-@override_settings(STORAGES={
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
-})
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "account-workspace-tests",
+        },
+    },
+)
 class AccountWorkspaceTests(TestCase):
     def test_account_library_is_persistent_across_browser_sessions(self):
         from django.contrib.auth import get_user_model

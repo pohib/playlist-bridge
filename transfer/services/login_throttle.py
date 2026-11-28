@@ -13,7 +13,7 @@ IP_FAILURE_LIMIT = 30
 
 
 def _digest(value):
-    return salted_hmac("transfer.login-throttle", value, secret=settings.SECRET_KEY).hexdigest()
+    return salted_hmac("transfer.login-throttle", value, secret=settings.SECRET_KEY, algorithm="sha256").hexdigest()
 
 
 def _keys(request, username):
