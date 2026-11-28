@@ -25,6 +25,15 @@ class AdminConsolePrivilegeTests(TestCase):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get(reverse("admin_console_privileges")).status_code, 403)
 
+    def test_regular_user_can_be_promoted_to_staff(self):
+        ordinary = self.user_model.objects.create_user(username="ordinary-user", password="ordinary-password")
+        response = self.client.post(reverse("admin_console_update_privilege", args=[ordinary.pk]), {
+            "privilege": "staff", "enabled": "true", "password": "root-password",
+        })
+        self.assertEqual(response.status_code, 302)
+        ordinary.refresh_from_db()
+        self.assertTrue(ordinary.is_staff)
+
     def test_staff_privilege_change_requires_password_and_is_audited(self):
         url = reverse("admin_console_update_privilege", args=[self.staff.pk])
         response = self.client.post(url, {

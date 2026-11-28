@@ -244,9 +244,7 @@ def console_privileges(request):
     if not request.user.is_superuser:
         raise PermissionDenied
     user_model = get_user_model()
-    accounts = user_model.objects.filter(
-        Q(is_staff=True) | Q(is_superuser=True)
-    ).order_by("-is_superuser", "-is_staff", "username")
+    accounts = user_model.objects.all().order_by("-is_superuser", "-is_staff", "username")
     return render(request, "transfer/admin_console/privileges.html", {
         "accounts": accounts,
         "active_superuser_count": user_model.objects.filter(
