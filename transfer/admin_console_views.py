@@ -42,7 +42,8 @@ logger = logging.getLogger(__name__)
 
 _SECRET_VALUE_PATTERN = re.compile(
     r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|[^\s,;]+)"
+    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b[\"']?"
+    r"(\s*[:=]\s*)(?:Bearer\s+\S+|Basic\s+\S+|\"[^\"]*\"|'[^']*'|[^\s,;}]+)"
 )
 _BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
 _SENSITIVE_QUERY_PATTERN = re.compile(
@@ -272,6 +273,7 @@ def console_integrations(request):
         "date_from": date_from_raw,
         "date_to": date_to_raw,
         "query": query,
+        "retention_days": settings.INTEGRATION_EVENT_RETENTION_DAYS,
     })
 
 

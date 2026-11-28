@@ -110,6 +110,14 @@ class AdminConsoleIntegrationEventTests(TestCase):
         self.assertEqual(event.provider, ProviderIntegrationEvent.Provider.TRANSFER)
         self.assertEqual(event.transfer_job_id, self.job.pk)
         self.assertNotIn("worker-secret", event.message)
+    def test_message_sanitizer_redacts_json_credential_values(self):
+        safe = sanitize_integration_message(
+            '{"access_token": "json-access-secret", "client_secret": "json-client-secret"}'
+        )
+        self.assertNotIn("json-access-secret", safe)
+        self.assertNotIn("json-client-secret", safe)
+        self.assertIn("[скрыто]", safe)
+
     def test_network_errors_are_classified(self):
         error = TimeoutError("Spotify request timed out")
         self.assertEqual(

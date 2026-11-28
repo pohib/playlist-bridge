@@ -3,7 +3,7 @@
 {% block page_heading %}Ошибки интеграций{% endblock %}
 {% block content %}
 <div class="admin-page-intro">
-  <div><span class="admin-overline">ДИАГНОСТИКА / ТОЛЬКО SUPERUSER</span><h1>Ошибки интеграций</h1><p>История сбоев переносов и обращений к музыкальным сервисам. Секреты и исходные HTTP-заголовки не сохраняются.</p></div>
+  <div><span class="admin-overline">ДИАГНОСТИКА / ТОЛЬКО SUPERUSER</span><h1>Ошибки интеграций</h1><p>История сбоев переносов и обращений к музыкальным сервисам. Секреты и исходные HTTP-заголовки не сохраняются.</p><p class="admin-muted">Срок хранения журнала: {{ retention_days }} дн. Просроченные события удаляются отдельной регламентной командой.</p></div>
   <span class="admin-tag tag-danger">Привилегированный доступ</span>
 </div>
 <div class="admin-stat-grid">
@@ -27,7 +27,7 @@
   </form>
   <div class="admin-table-wrap">
     <table class="admin-table">
-      <thead><tr><th>Время</th><th>Сервис</th><th>Операция</th><th>Категория</th><th>Сообщение</th><th>Задача</th></tr></thead>
+      <thead><tr><th>Время</th><th>Сервис</th><th>Операция</th><th>Категория</th><th>HTTP</th><th>Длительность</th><th>Сообщение</th><th>Задача</th></tr></thead>
       <tbody>
       {% for event in page.object_list %}
         <tr>
@@ -35,11 +35,13 @@
           <td>{{ event.get_provider_display }}</td>
           <td>{{ event.operation|default:"—" }}</td>
           <td><span class="admin-tag {% if event.severity == 'error' %}tag-danger{% elif event.severity == 'warning' %}tag-warn{% else %}tag-success{% endif %}">{{ event.get_category_display }}</span></td>
+          <td>{{ event.status_code|default:"—" }}</td>
+          <td>{% if event.duration_ms != None %}{{ event.duration_ms }} мс{% else %}—{% endif %}</td>
           <td class="admin-event-message">{{ event.message }}</td>
           <td>{% if event.transfer_job_id %}<a href="{% url 'admin_console_job_detail' event.transfer_job_id %}">Открыть задачу ↗</a>{% else %}—{% endif %}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="6" class="admin-empty">Событий по выбранным фильтрам нет.</td></tr>
+        <tr><td colspan="8" class="admin-empty">Событий по выбранным фильтрам нет.</td></tr>
       {% endfor %}
       </tbody>
     </table>

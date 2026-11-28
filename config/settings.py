@@ -180,3 +180,6 @@ LOGGING = {
 
 # Raw IP and User-Agent telemetry is retained for a limited operational window.
 SECURITY_EVENT_RETENTION_DAYS = int(os.getenv("SECURITY_EVENT_RETENTION_DAYS", "90"))
+
+# Provider diagnostics are retained separately from personal security telemetry.
+INTEGRATION_EVENT_RETENTION_DAYS = int(os.getenv("INTEGRATION_EVENT_RETENTION_DAYS", "30"))
