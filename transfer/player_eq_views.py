@@ -23,7 +23,7 @@ def _validated_settings(payload):
             return None
         if any(
             isinstance(value, bool) or not isinstance(value, (int, float))
-            or not math.isfinite(value) or not low <= value <= high
+            or not low <= value <= high or (isinstance(value, float) and not math.isfinite(value))
             for value in values
         ):
             return None

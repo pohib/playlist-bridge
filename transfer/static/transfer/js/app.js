@@ -122,7 +122,7 @@
     try{
       const response=await fetch(eqPresetEndpoint,{credentials:"same-origin",headers:{"Accept":"application/json"}});
       if(!response.ok)throw new Error("Не удалось загрузить сохранённые пресеты.");
-      const data=await response.json(),selected=ui.eqPreset.value;
+      const data=await response.json(),selected=ui.eqPreset.value|| (state.eqSavedPresetId?"user:"+state.eqSavedPresetId:"");
       ui.eqPreset.querySelectorAll("option[data-user-preset]").forEach(option=>option.remove());
       (data.presets||[]).forEach(preset=>{
         const option=document.createElement("option");option.value="user:"+preset.id;option.textContent="МОЙ / "+preset.name;option.dataset.userPreset="true";ui.eqPreset.append(option);

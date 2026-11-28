@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class AdminAuditEvent(models.Model):
@@ -72,7 +73,7 @@ class UserEQPreset(models.Model):
         ordering = ("name", "created_at")
         constraints = [
             models.UniqueConstraint(
-                models.functions.Lower("name"), "user",
+                Lower("name"), "user",
                 name="unique_user_eq_preset_name_ci",
             ),
         ]
