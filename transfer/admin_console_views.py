@@ -245,8 +245,9 @@ def console_privileges(request):
         raise PermissionDenied
     user_model = get_user_model()
     accounts = user_model.objects.all().order_by("-is_superuser", "-is_staff", "username")
+    page = Paginator(accounts, 25).get_page(request.GET.get("page"))
     return render(request, "transfer/admin_console/privileges.html", {
-        "accounts": accounts,
+        "page": page,
         "active_superuser_count": user_model.objects.filter(
             is_superuser=True, is_active=True
         ).count(),
