@@ -7,7 +7,10 @@ from django.utils import timezone
 
 from .services import SpotifyClient, TransferError, execute_transfer
 from .services.credential_service import get_access_token
-from .services.integration_event_recorder import record_transfer_failure
+from .services.integration_event_recorder import (
+    record_transfer_failure,
+    sanitize_integration_message,
+)
 from .models import TransferJob
 
 logger = logging.getLogger(__name__)
@@ -98,7 +101,7 @@ def run_transfer(self, job_id):
             status=TransferJob.Status.RUNNING,
         ).update(
             status=TransferJob.Status.FAILED,
-            error=str(exc)[:500],
+            error=sanitize_integration_message(exc),
             finished_at=finished_at,
             heartbeat_at=finished_at,
         )
