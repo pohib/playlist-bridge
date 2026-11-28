@@ -94,7 +94,7 @@ def _system_check_cache():
             "label": "Redis / кэш",
             "detail": "Запись и чтение тестового значения работают.",
         }
-    except Exception:  # noqa: BLE001 - health checks must report dependency failures without breaking the admin page.
+    except Exception:
         logger.exception("Admin system health check: cache probe failed")
         return {
             "status": "error",
@@ -114,7 +114,7 @@ def _system_check_celery_broker():
             "label": "Celery broker",
             "detail": "Соединение с брокером установлено.",
         }
-    except Exception:  # noqa: BLE001 - report broker outages instead of failing the diagnostic page.
+    except Exception:
         logger.exception("Admin system health check: Celery broker probe failed")
         return {
             "status": "error",
@@ -140,7 +140,7 @@ def _system_check_celery_workers():
             "label": "Celery workers",
             "detail": "Брокер не сообщил об активных worker-процессах.",
         }
-    except Exception:  # noqa: BLE001 - worker diagnostics are best-effort.
+    except Exception:
         logger.exception("Admin system health check: Celery worker probe failed")
         return {
             "status": "warning",
