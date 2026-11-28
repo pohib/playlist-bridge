@@ -11,13 +11,13 @@ from .library import (
 
 __all__ = [
     "AdminAuditEvent",
-    "ProviderIntegrationEvent",
     "LibraryPlaylist",
     "LibraryProfile",
     "LibraryTrack",
     "LibraryTransfer",
     "LibraryTransferItem",
     "OAuthCredential",
+    "ProviderIntegrationEvent",
     "TransferJob",
     "UserAccountBan",
     "UserEQPreset",
