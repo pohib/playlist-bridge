@@ -313,14 +313,46 @@ def console_user_detail(request, user_id):
         for permission in group.permissions.all():
             _present_permission(permission)
     security_events = []
+    security_page = None
+    security_filters = {
+        "activity_type": "",
+        "activity_ip": "",
+        "activity_date_from": request.GET.get("activity_date_from", ""),
+        "activity_date_to": request.GET.get("activity_date_to", ""),
+    }
     if request.user.is_superuser:
-        security_events = list(UserSecurityEvent.objects.filter(user=account)[:30])
+        activity_queryset = UserSecurityEvent.objects.filter(user=account)
+        valid_event_types = {value for value, _label in UserSecurityEvent.EventType.choices}
+        activity_type = (request.GET.get("activity_type") or "").strip()
+        if activity_type in valid_event_types:
+            activity_queryset = activity_queryset.filter(event_type=activity_type)
+            security_filters["activity_type"] = activity_type
+        activity_ip = (request.GET.get("activity_ip") or "").strip()[:45]
+        if activity_ip:
+            activity_queryset = activity_queryset.filter(ip_address=activity_ip)
+            security_filters["activity_ip"] = activity_ip
+        activity_date_from = parse_date(security_filters["activity_date_from"])
+        activity_date_to = parse_date(security_filters["activity_date_to"])
+        if activity_date_from:
+            activity_queryset = activity_queryset.filter(created_at__date__gte=activity_date_from)
+        if activity_date_to:
+            activity_queryset = activity_queryset.filter(created_at__date__lte=activity_date_to)
+        security_page = Paginator(activity_queryset, 20).get_page(request.GET.get("activity_page"))
+        security_events = list(security_page.object_list)
+        security_filters["activity_count"] = security_page.paginator.count
+        security_filters["event_types"] = UserSecurityEvent.EventType.choices
         AdminAuditEvent.objects.create(
             actor=request.user,
             action="security.user_events_viewed",
             target_type=user_model._meta.label,
             target_id=str(account.pk),
-            metadata={"event_count": len(security_events)},
+            metadata={
+                "event_count": len(security_events),
+                "filters_applied": bool(
+                    security_filters["activity_type"] or security_filters["activity_ip"]
+                    or activity_date_from or activity_date_to
+                ),
+            },
         )
     individual_permissions = list(account.user_permissions.all().order_by(
         "content_type__app_label", "codename"
@@ -332,6 +364,8 @@ def console_user_detail(request, user_id):
         "account_bans": UserAccountBan.objects.filter(user=account).select_related("created_by", "revoked_by")[:30],
         "can_manage_account_bans": request.user.has_perm("auth.change_user") and account.pk != request.user.pk and not account.is_superuser,
         "security_events": security_events,
+        "security_page": security_page,
+        "security_filters": security_filters,
         "ip_bans": UserIPBan.objects.filter(revoked_at__isnull=True).order_by("-created_at")[:50] if request.user.is_superuser else [],
         "can_manage_ip_bans": request.user.is_superuser,
         "can_view_security": request.user.is_superuser,

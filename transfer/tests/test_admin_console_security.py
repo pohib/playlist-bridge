@@ -42,6 +42,39 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(audit.actor, self.superuser)
         self.assertEqual(audit.target_id, str(self.target.pk))
 
+    def test_user_activity_filters_are_applied_only_for_superuser(self):
+        older = UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+            ip_address="198.51.100.10",
+        )
+        matching = UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.USER_ACTIVITY,
+            ip_address="203.0.113.44", route_name="library_import_vk",
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(
+                reverse("admin_console_user_detail", args=[self.target.pk]),
+                {"activity_type": "user_activity", "activity_ip": "203.0.113.44"},
+            )
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(context["security_events"], [matching])
+        self.assertEqual(context["security_filters"]["activity_count"], 1)
+        self.assertEqual(context["security_filters"]["activity_ip"], "203.0.113.44")
+        self.client.force_login(self.staff)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            self.client.get(
+                reverse("admin_console_user_detail", args=[self.target.pk]),
+                {"activity_type": "user_activity", "activity_ip": "203.0.113.44"},
+            )
+        staff_context = renderer.call_args.args[2]
+        self.assertEqual(staff_context["security_events"], [])
+        self.assertIsNone(staff_context["security_page"])
+        self.assertFalse(staff_context["can_view_security"])
+
     def test_security_overview_is_superuser_only(self):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get(reverse("admin_console_security")).status_code, 403)
