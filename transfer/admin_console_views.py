@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.auth.decorators import permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -204,6 +205,7 @@ def console_groups(request):
 
 
 @_staff
+@permission_required("auth.view_group", raise_exception=True)
 @permission_required("auth.add_group", raise_exception=True)
 @require_POST
 def console_create_group(request):
@@ -219,7 +221,11 @@ def console_create_group(request):
         return redirect("admin_console_groups")
     allowed = _safe_role_permissions()
     selected = allowed.filter(pk__in=selected_ids)
-    if not selected_ids or selected.count() != len(set(selected_ids)):
+    if (
+        not selected_ids
+        or any(not value.isdecimal() for value in selected_ids)
+        or selected.count() != len(set(selected_ids))
+    ):
         messages.error(request, "Выберите только разрешённые права чтения.")
         return redirect("admin_console_groups")
     group = Group.objects.create(name=name)

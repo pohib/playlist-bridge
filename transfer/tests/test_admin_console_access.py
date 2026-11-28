@@ -89,7 +89,8 @@ class AdminConsoleAccessTests(TestCase):
     def test_group_creation_only_accepts_allowlisted_read_permissions(self):
         content_type = ContentType.objects.get_for_model(Group)
         self.staff_viewer.user_permissions.add(
-            Permission.objects.get(content_type=content_type, codename="add_group")
+            Permission.objects.get(content_type=content_type, codename="add_group"),
+            Permission.objects.get(content_type=content_type, codename="view_group"),
         )
         self.client.force_login(self.staff_viewer)
         safe_permission = Permission.objects.get(
@@ -107,7 +108,8 @@ class AdminConsoleAccessTests(TestCase):
     def test_group_creation_rejects_mutating_permissions(self):
         content_type = ContentType.objects.get_for_model(Group)
         self.staff_viewer.user_permissions.add(
-            Permission.objects.get(content_type=content_type, codename="add_group")
+            Permission.objects.get(content_type=content_type, codename="add_group"),
+            Permission.objects.get(content_type=content_type, codename="view_group"),
         )
         self.client.force_login(self.staff_viewer)
         dangerous = Permission.objects.get(
