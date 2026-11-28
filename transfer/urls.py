@@ -39,6 +39,7 @@ urlpatterns = [
     path("control/jobs/", admin_console_views.console_jobs, name="admin_console_jobs"),
     path("control/library/", admin_console_views.console_library, name="admin_console_library"),
     path("control/audit/", admin_console_views.console_audit, name="admin_console_audit"),
+    path("control/security/", admin_console_views.console_security, name="admin_console_security"),
     path("", landing_views.home, name="home"),
     path("accounts/register/", auth_views.register, name="register"),
     path("accounts/login/", auth_views.sign_in, name="login"),

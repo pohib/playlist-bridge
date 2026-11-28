@@ -1,0 +1,9 @@
+{% extends "transfer/admin_console/base.html" %}
+{% block title %}Безопасность{% endblock %}
+{% block page_heading %}Безопасность пользователей{% endblock %}
+{% block content %}
+<div class="admin-page-intro"><div><span class="admin-overline">ТОЛЬКО SUPERUSER</span><h1>События безопасности</h1><p>История авторизаций пользователей. IP-адреса и сведения об устройствах доступны только суперпользователям.</p></div><span class="admin-tag tag-danger">Привилегированный доступ</span></div>
+<section class="admin-panel admin-table-wrap"><table class="admin-table"><thead><tr><th>Пользователь</th><th>Событие</th><th>IP-адрес</th><th>Браузер / устройство</th><th>Дата</th></tr></thead><tbody>
+{% for event in events %}<tr><td><strong>{% if event.user_id %}<a href="{% url 'admin_console_user_detail' event.user_id %}">{{ event.username_snapshot }}</a>{% else %}{{ event.username_snapshot|default:"Удалённая учётная запись" }}{% endif %}</strong></td><td>{% if event.event_type == "login_succeeded" %}<span class="admin-tag tag-success">Успешный вход</span>{% elif event.event_type == "login_failed" %}<span class="admin-tag tag-danger">Ошибка входа</span>{% else %}<span class="admin-tag">Ограничение входа</span>{% endif %}</td><td><code>{{ event.ip_address|default:"—" }}</code></td><td class="security-user-agent">{{ event.user_agent|default:"—" }}</td><td>{{ event.created_at|date:"d.m.Y H:i:s" }}</td></tr>{% empty %}<tr><td colspan="5" class="admin-empty">Событий авторизации пока нет.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endblock %}

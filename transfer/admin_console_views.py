@@ -15,7 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob
+from .models import AdminAuditEvent, LibraryPlaylist, LibraryProfile, TransferJob, UserSecurityEvent
 
 
 def _staff(view):
@@ -105,8 +105,20 @@ def console_user_detail(request, user_id):
     )
     safe_groups = Group.objects.prefetch_related("permissions__content_type").order_by("name")
     safe_groups = [group for group in safe_groups if _is_safe_group(group)]
+    security_events = []
+    if request.user.is_superuser:
+        security_events = list(UserSecurityEvent.objects.filter(user=account)[:30])
+        AdminAuditEvent.objects.create(
+            actor=request.user,
+            action="security.user_events_viewed",
+            target_type=user_model._meta.label,
+            target_id=str(account.pk),
+            metadata={"event_count": len(security_events)},
+        )
     return render(request, "transfer/admin_console/user_detail.html", {
         "account": account,
+        "security_events": security_events,
+        "can_view_security": request.user.is_superuser,
         "groups": current_groups,
         "safe_groups": safe_groups,
         "has_unsafe_groups": has_unsafe_groups,
@@ -200,6 +212,22 @@ def console_audit(request):
     for event in page.object_list:
         event.action_label = action_labels.get(event.action, "Системное действие")
     return render(request, "transfer/admin_console/audit.html", {"page": page})
+
+
+
+@_staff
+@require_GET
+def console_security(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    events = list(UserSecurityEvent.objects.select_related("user")[:100])
+    AdminAuditEvent.objects.create(
+        actor=request.user,
+        action="security.events_viewed",
+        target_type="transfer.UserSecurityEvent",
+        metadata={"event_count": len(events)},
+    )
+    return render(request, "transfer/admin_console/security.html", {"events": events})
 
 
 def _safe_role_permissions():

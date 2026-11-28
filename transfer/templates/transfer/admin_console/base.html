@@ -19,6 +19,7 @@
         {% if perms.transfer.view_libraryprofile %}<a href="{% url 'admin_console_library' %}" class="{% if request.resolver_match.url_name == 'admin_console_library' %}active{% endif %}">▤ <span>Библиотеки</span></a>{% endif %}
         {% if perms.transfer.view_transferjob %}<a href="{% url 'admin_console_jobs' %}" class="{% if request.resolver_match.url_name == 'admin_console_jobs' %}active{% endif %}">⇄ <span>Очередь и переносы</span></a>{% endif %}
         {% if perms.transfer.view_adminevent %}<a href="{% url 'admin_console_audit' %}" class="{% if request.resolver_match.url_name == 'admin_console_audit' %}active{% endif %}">◷ <span>Журнал действий</span></a>{% endif %}
+        {% if request.user.is_superuser %}<a href="{% url 'admin_console_security' %}" class="{% if request.resolver_match.url_name == 'admin_console_security' %}active{% endif %}">⌕ <span>Безопасность</span></a>{% endif %}
       </nav>
       <div class="admin-sidebar-bottom"><a href="{% url 'home' %}">← Вернуться в приложение</a><span>Доступ только для сотрудников</span></div>
     </aside>
