@@ -7,7 +7,6 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.hashers import check_password
-from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
