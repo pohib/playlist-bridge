@@ -1,9 +1,9 @@
-from unittest.mock import Mock
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from transfer.services.common import TransferError
 from transfer.services.library_source_search_service import (
+    DEFAULT_FREE_PROVIDERS,
     LibrarySourceSearchError,
     parse_library_source_search_request,
     search_library_sources,
@@ -11,84 +11,46 @@ from transfer.services.library_source_search_service import (
 
 
 class LibrarySourceSearchRequestTests(SimpleTestCase):
-    def test_auto_selects_supported_search_providers(self):
+    def test_auto_selects_only_free_server_side_catalogs(self):
         self.assertEqual(
             parse_library_source_search_request({"title": "Track", "artist": "Artist"}),
-            ("Track", "Artist", ["spotify", "soundcloud", "youtube_music", "apple_music"]),
+            ("Track", "Artist", DEFAULT_FREE_PROVIDERS),
         )
+        self.assertEqual(DEFAULT_FREE_PROVIDERS, ["deezer", "itunes", "youtube_music"])
 
-    def test_explicit_providers_are_deduplicated(self):
+    def test_explicit_free_providers_are_deduplicated(self):
         self.assertEqual(
             parse_library_source_search_request({
-                "title": "Track",
-                "artist": "Artist",
-                "providers": ["spotify", "spotify", "vk"],
+                "title": "Track", "artist": "Artist",
+                "providers": ["deezer", "deezer", "itunes"],
             }),
-            ("Track", "Artist", ["spotify", "vk"]),
+            ("Track", "Artist", ["deezer", "itunes"]),
         )
 
-    def test_rejects_invalid_payloads_and_providers(self):
+    def test_paid_api_search_providers_are_not_accepted(self):
+        for provider in ("spotify", "soundcloud", "apple_music", "vk", "unknown"):
+            with self.subTest(provider=provider), self.assertRaises(LibrarySourceSearchError):
+                parse_library_source_search_request({
+                    "title": "Track", "artist": "Artist", "providers": [provider],
+                })
+
+    def test_rejects_invalid_payloads(self):
         for payload in (
-            [],
-            {"title": "", "artist": "Artist"},
+            [], {"title": "", "artist": "Artist"},
             {"title": "x" * 181, "artist": "Artist"},
             {"title": "Track", "artist": "Artist", "providers": []},
-            {"title": "Track", "artist": "Artist", "providers": ["unknown"]},
-            {"title": "Track", "artist": "Artist", "providers": ["spotify", 1]},
+            {"title": "Track", "artist": "Artist", "providers": ["deezer", 1]},
         ):
-            with (
-                self.subTest(payload=payload),
-                self.assertRaises(LibrarySourceSearchError),
-            ):
+            with self.subTest(payload=payload), self.assertRaises(LibrarySourceSearchError):
                 parse_library_source_search_request(payload)
 
-
-class LibrarySourceSearchOrchestrationTests(SimpleTestCase):
-    def test_queries_connected_providers_and_builds_external_search_links(self):
-        spotify = Mock()
-        spotify.search_tracks.return_value = [{
-            "id": "track-id",
-            "name": "Track",
-            "artists": [{"name": "Artist"}],
-            "external_urls": {"spotify": "https://open.spotify.com/track/abc"},
-        }]
-        soundcloud = Mock()
-        soundcloud.search_tracks.return_value = [{
-            "id": 123,
-            "title": "Track",
-            "permalink_url": "https://soundcloud.com/artist/track",
-            "user": {"username": "Artist"},
-        }]
-        result = search_library_sources(
-            "Track",
-            "Artist",
-            ["spotify", "soundcloud", "youtube_music"],
-            spotify_access=lambda: (spotify, "spotify-token"),
-            soundcloud_access=lambda: (soundcloud, "soundcloud-token"),
-        )
-
+    @patch("transfer.services.library_source_search_service.search_free_music_catalogs")
+    def test_search_does_not_request_paid_catalog_credentials(self, search):
+        search.return_value = ([{
+            "provider": "deezer", "title": "Track", "artist": "Artist",
+            "url": "https://www.deezer.com/track/1", "playable": False, "search_only": True,
+        }], {"deezer": "Найдено: 1"})
+        result = search_library_sources("Track", "Artist", ["deezer"])
         self.assertEqual(result["query"], "Artist Track")
-        self.assertEqual(
-            [item["provider"] for item in result["results"]],
-            ["spotify", "soundcloud", "youtube_music"],
-        )
-        self.assertEqual(result["statuses"]["spotify"], "ok")
-        self.assertEqual(result["statuses"]["soundcloud"], "ok")
-        spotify.search_tracks.assert_called_once_with("spotify-token", "Artist Track")
-        soundcloud.search_tracks.assert_called_once_with("soundcloud-token", "Artist Track")
-
-    def test_provider_errors_are_isolated_to_provider_status(self):
-        result = search_library_sources(
-            "Track",
-            "Artist",
-            ["spotify", "apple_music"],
-            spotify_access=lambda: (_ for _ in ()).throw(
-                TransferError("Spotify needs reconnect")
-            ),
-            soundcloud_access=lambda: (None, None),
-        )
-        self.assertEqual(result["results"][0]["provider"], "apple_music")
-        self.assertEqual(
-            result["statuses"]["spotify"],
-            "Spotify needs reconnect",
-        )
+        self.assertEqual(result["results"][0]["provider"], "deezer")
+        search.assert_called_once_with("Artist Track", ["deezer"])
