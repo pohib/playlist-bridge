@@ -3,6 +3,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
+
 TEST_STORAGE_SETTINGS = {
     "STORAGES": {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
