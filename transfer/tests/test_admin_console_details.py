@@ -93,6 +93,33 @@ class AdminConsoleDetailTests(TestCase):
         self.assertContains(response, "Без heartbeat 5+ мин")
         self.assertContains(response, "Ожидают отправки")
 
+
+    def test_job_error_redacts_credentials_in_list_and_detail(self):
+        self.job.status = TransferJob.Status.FAILED
+        self.job.error = (
+            "Spotify request failed: Authorization: Bearer very-secret-token "
+            "access_token=another-secret client_secret:third-secret "
+            "https://api.example.test/callback?refresh_token=query-secret"
+        )
+        self.job.save(update_fields=["status", "error"])
+        self.grant("view_transferjob", TransferJob)
+        self.client.force_login(self.staff)
+
+        list_response = self.client.get(reverse("admin_console_jobs"))
+        detail_response = self.client.get(
+            reverse("admin_console_job_detail", args=[self.job.pk])
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        for response in (list_response, detail_response):
+            self.assertContains(response, "Spotify request failed")
+            self.assertContains(response, "[скрыто]")
+            self.assertNotContains(response, "very-secret-token")
+            self.assertNotContains(response, "another-secret")
+            self.assertNotContains(response, "third-secret")
+            self.assertNotContains(response, "query-secret")
+
     def test_job_detail_requires_job_permission(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("admin_console_job_detail", args=[self.job.pk]))
