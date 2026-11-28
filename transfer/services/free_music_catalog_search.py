@@ -5,10 +5,9 @@ playlist-write access to Spotify, SoundCloud, Apple Music, or YouTube.
 """
 import re
 
-import requests
 from django.core.cache import cache
-
 from redis.exceptions import RedisError
+import requests
 
 SEARCH_CACHE_SECONDS = 10 * 60
 REQUEST_TIMEOUT = (3.05, 7)
