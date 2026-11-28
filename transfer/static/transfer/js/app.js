@@ -94,7 +94,47 @@
       const f=state.eqFrequencies[Number(output.dataset.eqFrequency)];
       output.textContent=f>=1000?(f/1000).toFixed(f%1000?1:0)+" kHz":Math.round(f)+" Hz";
     });
-    document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
+    document.querySelectorAll("[data-eq-frequency-knob]").forEach(knob=>{
+      const i=Number(knob.dataset.eqFrequencyKnob),f=state.eqFrequencies[i];
+      const angle=-135+Math.log2(f/eqMinHz)/Math.log2(eqMaxHz/eqMinHz)*270;
+      knob.style.setProperty("--eq-knob-angle",angle+"deg");
+      knob.setAttribute("aria-valuenow",String(Math.round(f)));
+      knob.setAttribute("aria-valuetext",f>=1000?(f/1000).toFixed(f%1000?1:0)+" килогерц":Math.round(f)+" герц");
+      knob.title="Частота "+Math.round(f)+" Гц · колесо или перетаскивание";
+    });
+    document.querySelectorAll("[data-eq-frequency-value]").forEach(output=>{
+      const f=state.eqFrequencies[Number(output.dataset.eqFrequencyValue)];
+      output.textContent=f>=1000?(f/1000).toFixed(f%1000?1:0)+" kHz":Math.round(f)+" Hz";
+    });
+    document.querySelectorAll("[data-eq-frequency-knob]").forEach(knob=>{
+    const index=Number(knob.dataset.eqFrequencyKnob);
+    knob.addEventListener("pointerdown",event=>{
+      if(!eqSupported())return;
+      event.preventDefault();
+      eqKnobDrag={index,startY:event.clientY,startFrequency:state.eqFrequencies[index],pointerId:event.pointerId,type:"frequency"};
+      knob.setPointerCapture(event.pointerId);eqSelectedIndex=index;drawEqCurve();
+    });
+    knob.addEventListener("pointermove",event=>{
+      if(!eqKnobDrag||eqKnobDrag.type!=="frequency"||eqKnobDrag.index!==index||eqKnobDrag.pointerId!==event.pointerId)return;
+      setEqFrequency(index,eqKnobDrag.startFrequency*Math.pow(2,(eqKnobDrag.startY-event.clientY)/60));
+    });
+    const finishFrequencyDrag=()=>{if(eqKnobDrag?.type==="frequency")eqKnobDrag=null;};
+    knob.addEventListener("pointerup",finishFrequencyDrag);
+    knob.addEventListener("pointercancel",finishFrequencyDrag);
+    knob.addEventListener("wheel",event=>{
+      if(!eqSupported())return;
+      event.preventDefault();setEqFrequency(index,state.eqFrequencies[index]*Math.pow(2,event.deltaY<0?1/12:-1/12));
+    },{passive:false});
+    knob.addEventListener("keydown",event=>{
+      if(!eqSupported())return;
+      if(["ArrowUp","ArrowRight","ArrowDown","ArrowLeft","Home","End"].includes(event.key))event.preventDefault();
+      if(event.key==="ArrowUp"||event.key==="ArrowRight")setEqFrequency(index,state.eqFrequencies[index]*Math.pow(2,1/12));
+      else if(event.key==="ArrowDown"||event.key==="ArrowLeft")setEqFrequency(index,state.eqFrequencies[index]/Math.pow(2,1/12));
+      else if(event.key==="Home")setEqFrequency(index,eqMinHz);
+      else if(event.key==="End")setEqFrequency(index,eqMaxHz);
+    });
+  });
+  document.querySelectorAll("[data-eq-q-knob]").forEach(knob=>{
       const i=Number(knob.dataset.eqQKnob),q=state.eqQs[i];
       knob.style.setProperty("--eq-knob-angle",(-135+(q-.3)/7.7*270)+"deg");
       knob.setAttribute("aria-valuenow",q.toFixed(1));
@@ -108,7 +148,7 @@
     if(ui.eqPreset)ui.eqPreset.value=state.eqSavedPresetId?"user:"+state.eqSavedPresetId:state.eqPreset;
     if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты, уровни и Q изменены вручную.";
   }
-  function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band], [data-eq-q-knob]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки: вверх/вниз — усиление, влево/вправо — частота; колесо над точкой или крутилка меняют Q.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
+  function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band], [data-eq-q-knob], [data-eq-frequency-knob]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки на графике или выбирай полосу и крути FREQ: вверх/вниз меняет частоту; Q регулирует ширину полосы.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
   function setEqOpen(open){if(!ui.eqPanel)return;ui.eqPanel.hidden=!open;ui.eqOpen?.setAttribute("aria-expanded",String(open));if(open){updateEqAvailability();drawEqCurve();}}
   function applyEqPreset(name){if(name==="flat")name="reference";const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqSavedPresetId=null;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();state.eqQs=[1,1,1,1,1];applyEqGains();drawEqCurve();persist();}
   ui.eqPreset?.addEventListener("change",()=>{const value=ui.eqPreset.value;if(value.startsWith("user:"))loadSavedEqPreset(value.slice(5));else applyEqPreset(value);});ui.eqOpen?.addEventListener("click",()=>setEqOpen(ui.eqPanel.hidden));ui.eqClose?.addEventListener("click",()=>setEqOpen(false));
@@ -178,6 +218,12 @@
       if(candidate<distance){distance=candidate;index=i;}
     });
     return {index,distance};
+  }
+  function setEqFrequency(index,value){
+    const next=Math.round(Math.max(eqMinHz,Math.min(eqMaxHz,value)));
+    if(next===state.eqFrequencies[index])return;
+    state.eqFrequencies[index]=next;eqSelectedIndex=index;state.eqPreset="custom";state.eqSavedPresetId=null;
+    applyEqGains();drawEqCurve();persist();
   }
   function setEqQ(index,value){
     const next=Math.round(Math.max(.3,Math.min(8,value))*10)/10;

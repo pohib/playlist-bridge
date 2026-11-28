@@ -24,6 +24,8 @@ class AdminConsolePlayerIntegrationTests(TestCase):
         self.assertIn('id="player-audio"', html)
         self.assertIn('id="player-queue-panel"', html)
         self.assertIn('id="player-eq-panel"', html)
+        self.assertEqual(html.count('data-eq-frequency-knob='), 5)
+        self.assertEqual(html.count('data-eq-q-knob='), 5)
         self.assertIn('id="player-queue-close"', html)
         self.assertIn("transfer/js/app.js", html)
         self.assertIn("transfer/styles/main.css", html)
