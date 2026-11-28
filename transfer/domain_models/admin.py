@@ -80,3 +80,19 @@ class UserEQPreset(models.Model):
 
     def __str__(self):
         return f"{self.user.get_username()} · {self.name}"
+
+
+class UserIPBan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ip_address = models.GenericIPAddressField(unique=True, db_index=True)
+    reason = models.CharField(max_length=240)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_ip_bans')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='revoked_ip_bans')
+
+    @property
+    def is_active(self):
+        from django.utils import timezone
+        return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())

@@ -4,7 +4,10 @@ from time import perf_counter
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from transfer.models import UserSecurityEvent
+from django.db.models import Q
+from django.utils import timezone
+
+from transfer.models import UserIPBan, UserSecurityEvent
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,10 @@ class SecurityActivityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        ip = (request.META.get('HTTP_X_REAL_IP') or request.META.get('REMOTE_ADDR') or '').strip()
+        if ip and UserIPBan.objects.filter(ip_address=ip, revoked_at__isnull=True).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())).exists():
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden('Доступ с этого IP-адреса ограничен администратором.')
         request.security_audit_started = perf_counter()
         request.security_audit_id = uuid4()
         response = self.get_response(request)
