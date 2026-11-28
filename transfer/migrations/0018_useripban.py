@@ -1,7 +1,9 @@
-import django.db.models.deletion
 import uuid
+
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+
 
 class Migration(migrations.Migration):
     dependencies = [('transfer', '0017_usersecurityevent_activity_context'), migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
