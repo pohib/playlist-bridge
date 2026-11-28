@@ -6,6 +6,7 @@ from transfer.models import ProviderIntegrationEvent, TransferJob
 from transfer.services.integration_event_recorder import (
     classify_integration_error,
     record_transfer_failure,
+    record_worker_failure,
     sanitize_integration_message,
 )
 
@@ -98,6 +99,17 @@ class AdminConsoleIntegrationEventTests(TestCase):
         self.assertIn("[скрыто]", event.message)
         self.assertIn("[параметры скрыты]", event.message)
 
+    def test_worker_failure_is_recorded_with_sanitized_message(self):
+        event = record_worker_failure(
+            job_id=self.job.pk,
+            error=RuntimeError("Redis connection failed with password=worker-secret"),
+            operation="dispatch_transfer_job",
+        )
+
+        self.assertEqual(event.category, ProviderIntegrationEvent.Category.WORKER)
+        self.assertEqual(event.provider, ProviderIntegrationEvent.Provider.TRANSFER)
+        self.assertEqual(event.transfer_job_id, self.job.pk)
+        self.assertNotIn("worker-secret", event.message)
     def test_network_errors_are_classified(self):
         error = TimeoutError("Spotify request timed out")
         self.assertEqual(
