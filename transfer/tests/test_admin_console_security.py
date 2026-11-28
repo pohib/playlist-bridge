@@ -51,6 +51,28 @@ class AdminConsoleSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(AdminAuditEvent.objects.filter(action="security.events_viewed").exists())
 
+    def test_security_filters_search_by_ip_and_event_type(self):
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_SUCCEEDED,
+            ip_address="203.0.113.8", user_agent="Desktop browser",
+        )
+        UserSecurityEvent.objects.create(
+            user=self.target, username_snapshot=self.target.get_username(),
+            event_type=UserSecurityEvent.EventType.LOGIN_FAILED,
+            ip_address="198.51.100.4", user_agent="Mobile browser",
+        )
+        self.client.force_login(self.superuser)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_security"), {
+                "q": "198.51.100.4", "event_type": "login_failed",
+            })
+        self.assertEqual(response.status_code, 200)
+        context = renderer.call_args.args[2]
+        self.assertEqual(context["page"].paginator.count, 1)
+        self.assertEqual(context["page"].object_list[0].ip_address, "198.51.100.4")
+        self.assertEqual(context["event_type"], "login_failed")
+
     def test_security_views_are_not_cacheable(self):
         self.client.force_login(self.superuser)
         with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")):

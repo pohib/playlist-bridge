@@ -58,6 +58,23 @@ class AdminConsoleAccessTests(TestCase):
         self.assertFalse(context["can_view_library"])
         self.assertFalse(context["can_view_audit"])
 
+    def test_user_list_filters_by_status_and_staff_access(self):
+        content_type = ContentType.objects.get_for_model(self.user_model)
+        self.staff_viewer.user_permissions.add(
+            Permission.objects.get(content_type=content_type, codename="view_user")
+        )
+        self.user_model.objects.create_user(username="inactive-member", is_active=False)
+        self.user_model.objects.create_user(username="active-member")
+        self.client.force_login(self.staff_viewer)
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")) as renderer:
+            response = self.client.get(reverse("admin_console_users"), {
+                "status": "active", "access": "users",
+            })
+        self.assertEqual(response.status_code, 200)
+        page = renderer.call_args.args[2]["page"]
+        self.assertEqual(page.paginator.count, 2)
+        self.assertTrue(all(item.is_active and not item.is_staff for item in page.object_list))
+
     def test_user_detail_requires_user_view_permission(self):
         self.client.force_login(self.staff_viewer)
         response = self.client.get(reverse("admin_console_user_detail", args=[self.regular_user.pk]))
