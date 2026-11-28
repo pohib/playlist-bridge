@@ -26,6 +26,7 @@
 | `.trivyignore` | Список явно подавленных Trivy findings с привязкой к правилам/обоснованиям. |
 | `Dockerfile` | Образ Django-приложения: Python runtime, зависимости, непривилегированный пользователь и Gunicorn. |
 | `README.md` | Основная документация: возможности, запуск разработки, production deployment, API и эксплуатация. |
+| `FILES.md` | Этот справочник: назначение всех отслеживаемых файлов проекта, включая сам документ. |
 | `TESTING.md` | Инструкции по тестам, фаззингу, покрытию, CI и тестовым границам. |
 | `compose.dev.yaml` | Development overlay: DEBUG, runserver, bind mounts и изолированный Compose project. |
 | `compose.yaml` | Основной production-like Docker Compose стек: Django, Nginx, Celery, PostgreSQL и Redis. |
@@ -67,6 +68,12 @@
 | `storage.py` | Настройки backend хранения статических файлов с manifest compression. |
 | `urls.py` | Корневые URL-маршруты Django и пользовательские обработчики ошибок. |
 | `wsgi.py` | WSGI entrypoint Django для Gunicorn. |
+
+### deploy
+
+| Файл | Назначение |
+|---|---|
+| `Caddyfile` | Пример конфигурации Caddy для постоянного домена и автоматического HTTPS без Cloudflare Tunnel. |
 
 ### nginx
 
