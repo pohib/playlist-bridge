@@ -1,21 +1,17 @@
 {% extends "transfer/admin_console/base.html" %}
-{% block title %}Пользователь · {{ account.get_username }}</td><td><code>{{ event.ip_address|default:"—" }}</code></td><td class="security-user-agent">{{ event.user_agent|default:"—" }}</td><td>{{ event.created_at|date:"d.m.Y H:i:s" }}</td></tr>{% empty %}<tr><td colspan="4" class="admin-empty">История входов пока пуста.</td></tr>{% endfor %}
-</tbody></table></div><p class="muted">IP-адрес определяется сервером или доверенным reverse proxy. User-Agent предоставляется клиентом и может быть подделан.</p>
-</section>
-{% endif %}
-{% endblock %}
-{% block page_heading %}Карточка пользователя{% if can_view_security %}
-<section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ТОЛЬКО SUPERUSER</span><h2>История входов и сетевые сведения</h2></div><span class="admin-tag tag-danger">Конфиденциально</span></div>
-<div class="admin-security-summary"><div><span>Последний вход</span><strong>{{ account.last_login|date:"d.m.Y H:i:s"|default:"—" }}</strong></div><div><span>Событий в истории</span><strong>{{ security_events|length }}</strong></div></div>
-<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Событие</th><th>IP-адрес</th><th>Браузер / устройство</th><th>Дата</th></tr></thead><tbody>
-{% for event in security_events %}<tr><td>{% if event.event_type == "login_succeeded" %}<span class="admin-tag tag-success">Успешный вход</span>{% elif event.event_type == "login_failed" %}<span class="admin-tag tag-danger">Ошибка входа</span>{% else %}<span class="admin-tag">Ограничение входа</span>{% endif %}
-{% endblock %}
+{% block title %}Пользователь · {{ account.get_username }}{% endblock %}
+{% block page_heading %}Карточка пользователя{% endblock %}
 {% block content %}
 <div class="admin-page-intro"><div><span class="admin-overline">УЧЁТНЫЕ ЗАПИСИ / ПРОФИЛЬ</span><h1>{{ account.get_username }}</h1><p>Сведения об учётной записи и действиях в панели управления. Секреты и данные авторизации внешних сервисов здесь не отображаются.</p></div><a class="admin-tag" href="{% url 'admin_console_users' %}">← К списку пользователей</a></div>
 <div class="admin-two-column">
 <section class="admin-panel"><div class="admin-panel-heading"><div><span class="admin-overline">ОСНОВНЫЕ СВЕДЕНИЯ</span><h2>Учётная запись</h2></div></div>
 <dl class="admin-detail-list">
-<div><dt>Имя пользователя</dt><dd>{{ account.get_username }}</dd></div><div><dt>Электронная почта</dt><dd>{{ account.email|default:"—" }}</dd></div><div><dt>Дата регистрации</dt><dd>{{ account.date_joined|date:"d.m.Y H:i" }}</dd></div><div><dt>Последний вход</dt><dd>{{ account.last_login|date:"d.m.Y H:i"|default:"—" }}</dd></div><div><dt>Статус</dt><dd><span class="admin-tag {% if account.is_active %}tag-success{% else %}tag-danger{% endif %}">{% if account.is_active %}Активен{% else %}Отключён{% endif %}</span></dd></div><div><dt>Права сотрудника</dt><dd>{% if account.is_superuser %}Суперпользователь{% elif account.is_staff %}Сотрудник{% else %}Обычный пользователь{% endif %}</dd></div>
+<div><dt>Имя пользователя</dt><dd>{{ account.get_username }}</dd></div>
+<div><dt>Электронная почта</dt><dd>{{ account.email|default:"—" }}</dd></div>
+<div><dt>Дата регистрации</dt><dd>{{ account.date_joined|date:"d.m.Y H:i" }}</dd></div>
+<div><dt>Последний вход</dt><dd>{{ account.last_login|date:"d.m.Y H:i"|default:"—" }}</dd></div>
+<div><dt>Статус</dt><dd><span class="admin-tag {% if account.is_active %}tag-success{% else %}tag-danger{% endif %}">{% if account.is_active %}Активен{% else %}Отключён{% endif %}</span></dd></div>
+<div><dt>Права сотрудника</dt><dd>{% if account.is_superuser %}Суперпользователь{% elif account.is_staff %}Сотрудник{% else %}Обычный пользователь{% endif %}</dd></div>
 </dl>
 {% if can_toggle_account %}<form method="post" action="{% url 'admin_console_toggle_user' account.pk %}" class="admin-detail-action">{% csrf_token %}<button class="table-action {% if account.is_active %}action-danger{% endif %}" type="submit">{% if account.is_active %}Отключить учётную запись{% else %}Активировать учётную запись{% endif %}</button></form>{% elif account.is_superuser or account.pk == request.user.pk %}<p class="muted">Эту учётную запись нельзя отключить из панели.</p>{% endif %}
 </section>
@@ -31,7 +27,16 @@
 {% elif account.pk == request.user.pk or account.is_superuser %}<p class="muted">Нельзя изменять собственные роли или роли суперпользователя.</p>{% endif %}
 <div class="admin-panel-heading admin-subheading"><div><span class="admin-overline">ИНДИВИДУАЛЬНЫЕ ПРАВА</span><h2>Назначенные разрешения</h2></div></div>
 {% for permission in permissions %}<div class="admin-list-row"><div class="admin-row-main"><strong>{{ permission.name }}</strong><small>{{ permission.content_type.app_label }}.{{ permission.codename }}</small></div></div>{% empty %}<p class="admin-empty">Индивидуальные разрешения не назначены.</p>{% endfor %}
-</section></div>
+</section>
+</div>
+{% if can_view_security %}
+<section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ТОЛЬКО SUPERUSER</span><h2>История входов и сетевые сведения</h2></div><span class="admin-tag tag-danger">Конфиденциально</span></div>
+<div class="admin-security-summary"><div><span>Последний вход</span><strong>{{ account.last_login|date:"d.m.Y H:i:s"|default:"—" }}</strong></div><div><span>Событий в истории</span><strong>{{ security_events|length }}</strong></div></div>
+<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Событие</th><th>IP-адрес</th><th>Браузер / устройство</th><th>Дата</th></tr></thead><tbody>
+{% for event in security_events %}<tr><td>{% if event.event_type == "login_succeeded" %}<span class="admin-tag tag-success">Успешный вход</span>{% elif event.event_type == "login_failed" %}<span class="admin-tag tag-danger">Ошибка входа</span>{% else %}<span class="admin-tag">Ограничение входа</span>{% endif %}</td><td><code>{{ event.ip_address|default:"—" }}</code></td><td class="security-user-agent">{{ event.user_agent|default:"—" }}</td><td>{{ event.created_at|date:"d.m.Y H:i:s" }}</td></tr>{% empty %}<tr><td colspan="4" class="admin-empty">История входов пока пуста.</td></tr>{% endfor %}
+</tbody></table></div><p class="muted">IP-адрес определяется сервером или доверенным reverse proxy. User-Agent предоставляется клиентом и может быть подделан.</p>
+</section>
+{% endif %}
 <section class="admin-panel admin-detail-audit"><div class="admin-panel-heading"><div><span class="admin-overline">ИСТОРИЯ ИЗМЕНЕНИЙ</span><h2>Действия в панели управления</h2></div></div>
 {% for event in audit_events %}<div class="admin-list-row"><span class="audit-mark">↳</span><div class="admin-row-main"><strong>{{ event.action_label }}</strong><small>{{ event.actor.get_username|default:"Система" }} · {{ event.created_at|date:"d.m.Y H:i" }}</small></div></div>{% empty %}<p class="admin-empty">Записей об административных действиях для этого пользователя пока нет.</p>{% endfor %}
 </section>
