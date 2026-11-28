@@ -1,10 +1,11 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from django.test import TestCase
 from django.urls import reverse
-from unittest.mock import patch
 
 from transfer.models import TransferJob
 
