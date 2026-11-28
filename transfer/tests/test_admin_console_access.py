@@ -97,10 +97,11 @@ class AdminConsoleAccessTests(TestCase):
             content_type=ContentType.objects.get_for_model(TransferJob),
             codename="view_transferjob",
         )
-        response = self.client.post(reverse("admin_console_create_group"), {
-            "name": "Операторы очереди",
-            "permissions": [str(safe_permission.pk)],
-        })
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")):
+            response = self.client.post(reverse("admin_console_create_group"), {
+                "name": "Операторы очереди",
+                "permissions": [str(safe_permission.pk)],
+            })
         self.assertRedirects(response, reverse("admin_console_groups"))
         group = Group.objects.get(name="Операторы очереди")
         self.assertEqual(list(group.permissions.values_list("pk", flat=True)), [safe_permission.pk])
@@ -116,10 +117,11 @@ class AdminConsoleAccessTests(TestCase):
             content_type=ContentType.objects.get_for_model(self.user_model),
             codename="change_user",
         )
-        response = self.client.post(reverse("admin_console_create_group"), {
-            "name": "Опасная роль",
-            "permissions": [str(dangerous.pk)],
-        })
+        with patch("transfer.admin_console_views.render", return_value=HttpResponse("ok")):
+            response = self.client.post(reverse("admin_console_create_group"), {
+                "name": "Опасная роль",
+                "permissions": [str(dangerous.pk)],
+            })
         self.assertRedirects(response, reverse("admin_console_groups"))
         self.assertFalse(Group.objects.filter(name="Опасная роль").exists())
 
