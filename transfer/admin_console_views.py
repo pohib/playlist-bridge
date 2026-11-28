@@ -1,6 +1,7 @@
 """Staff-only, permission-scoped Playlist Bridge control panel."""
 import ipaddress
 import logging
+import re
 from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlsplit
@@ -37,6 +38,26 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
+_SECRET_VALUE_PATTERN = re.compile(
+    r"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|passwd|authorization|proxy-authorization|cookie|set-cookie|api[_-]?key)\b(\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+_BEARER_PATTERN = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*")
+_SENSITIVE_QUERY_PATTERN = re.compile(
+    r"(?i)([?&](?:access_token|refresh_token|client_secret|api_key|key)=)[^&#\s]+"
+)
+
+
+def _safe_admin_error(error):
+    """Redact common credential formats before showing provider errors to staff."""
+    if not error:
+        return "—"
+    safe_error = str(error)
+    safe_error = _BEARER_PATTERN.sub(r"\1 [скрыто]", safe_error)
+    safe_error = _SECRET_VALUE_PATTERN.sub(r"\1\2[скрыто]", safe_error)
+    safe_error = _SENSITIVE_QUERY_PATTERN.sub(r"\1[скрыто]", safe_error)
+    return safe_error[:500]
 
 def _staff(view):
     @wraps(view)
@@ -715,6 +736,7 @@ def console_jobs(request):
     page = Paginator(jobs, 25).get_page(request.GET.get("page"))
     for job in page.object_list:
         job.source_host = urlsplit(job.source_url).hostname or "—"
+        job.admin_error = _safe_admin_error(job.error)
     return render(request, "transfer/admin_console/jobs.html", {
         "page": page, "status": status, "query": query,
         "statuses": TransferJob.Status.choices,
@@ -739,6 +761,7 @@ def console_job_detail(request, job_id):
     return render(request, "transfer/admin_console/job_detail.html", {
         "job": job, "profile": profile,
         "source_host": urlsplit(job.source_url).hostname or "—",
+        "display_error": _safe_admin_error(job.error),
         "stale": stale,
     })
 
