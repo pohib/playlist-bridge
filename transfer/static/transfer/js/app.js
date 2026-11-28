@@ -12,7 +12,7 @@
   if(librarySearch)librarySearch.addEventListener("input",()=>{const query=librarySearch.value.trim().toLocaleLowerCase();document.querySelectorAll(".library-card-shell").forEach(card=>{card.hidden=!card.textContent.toLocaleLowerCase().includes(query);});});
   const player=document.getElementById("global-player");if(!player)return;
   const key="playlist-bridge-player-v2",el=id=>document.getElementById(id),audio=el("player-audio"),popoutChannel="BroadcastChannel" in window?new BroadcastChannel("playlist-bridge-player"):null;let popoutWindow=null;
-  const ui={cover:el("player-cover"),placeholder:el("player-placeholder"),title:el("player-title"),artist:el("player-artist"),provider:el("player-provider"),embed:el("player-embed"),count:el("player-queue-count"),size:el("player-queue-size"),list:el("player-queue-list"),panel:el("player-queue-panel"),backdrop:el("player-queue-backdrop"),toggle:el("player-queue-toggle"),source:el("player-source-mode"),summary:el("player-queue-summary"),searchResults:el("player-search-results"),transport:el("player-transport"),trackTransport:el("player-track-transport"),play:el("player-play-pause"),repeat:el("player-repeat"),shuffle:el("player-shuffle"),progress:el("player-progress"),currentTime:el("player-current-time"),duration:el("player-duration"),status:el("player-status"),volume:el("player-volume"),mute:el("player-mute"),collapse:el("player-collapse"),expand:el("player-expand"),popout:el("player-popout"),eqOpen:el("player-eq-open"),eqPanel:el("player-eq-panel"),eqClose:el("player-eq-close"),eqEnabled:el("player-eq-enabled"),eqPreset:el("player-eq-preset"),eqPresetNote:el("player-eq-preset-note"),eqReset:el("player-eq-reset"),eqGraph:el("player-eq-graph"),eqCurve:el("player-eq-curve"),eqArea:el("player-eq-area"),eqPoints:el("player-eq-points"),eqNote:el("player-eq-note"),csrf:document.querySelector("#player-csrf-form input[name=csrfmiddlewaretoken]")};
+  const ui={cover:el("player-cover"),placeholder:el("player-placeholder"),title:el("player-title"),artist:el("player-artist"),provider:el("player-provider"),embed:el("player-embed"),count:el("player-queue-count"),size:el("player-queue-size"),list:el("player-queue-list"),panel:el("player-queue-panel"),backdrop:el("player-queue-backdrop"),toggle:el("player-queue-toggle"),source:el("player-source-mode"),summary:el("player-queue-summary"),searchResults:el("player-search-results"),transport:el("player-transport"),trackTransport:el("player-track-transport"),play:el("player-play-pause"),repeat:el("player-repeat"),shuffle:el("player-shuffle"),progress:el("player-progress"),currentTime:el("player-current-time"),duration:el("player-duration"),status:el("player-status"),volume:el("player-volume"),mute:el("player-mute"),collapse:el("player-collapse"),expand:el("player-expand"),popout:el("player-popout"),eqOpen:el("player-eq-open"),eqPanel:el("player-eq-panel"),eqClose:el("player-eq-close"),eqEnabled:el("player-eq-enabled"),eqPreset:el("player-eq-preset"),eqPresetNote:el("player-eq-preset-note"),eqPresetName:el("player-eq-preset-name"),eqPresetSave:el("player-eq-preset-save"),eqPresetDelete:el("player-eq-preset-delete"),eqReset:el("player-eq-reset"),eqGraph:el("player-eq-graph"),eqCurve:el("player-eq-curve"),eqArea:el("player-eq-area"),eqPoints:el("player-eq-points"),eqNote:el("player-eq-note"),csrf:document.querySelector("#player-csrf-form input[name=csrfmiddlewaretoken]")};
   audio.crossOrigin="anonymous";
   let state={queue:[],index:0,sourceProviders:["auto"],repeat:"off",shuffle:false,shuffleOrder:[],eqGains:[0,0,0,0,0],eqEnabled:false};
   try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved&&Array.isArray(saved.queue)){state={...state,...saved};}}catch(_){}
@@ -105,15 +105,70 @@
       output.textContent=state.eqQs[Number(output.dataset.eqQValue)].toFixed(1);
     });
     if(ui.eqEnabled)ui.eqEnabled.checked=state.eqEnabled;
-    if(ui.eqPreset)ui.eqPreset.value=state.eqPreset;
+    if(ui.eqPreset)ui.eqPreset.value=state.eqSavedPresetId?"user:"+state.eqSavedPresetId:state.eqPreset;
     if(ui.eqPresetNote)ui.eqPresetNote.textContent=eqPresets[state.eqPreset]?.description||"Своя настройка: частоты, уровни и Q изменены вручную.";
   }
   function updateEqAvailability(){const ok=eqSupported();document.querySelectorAll("[data-eq-band], [data-eq-q-knob]").forEach(input=>input.disabled=!ok);if(ui.eqEnabled)ui.eqEnabled.disabled=!ok;if(ui.eqPreset)ui.eqPreset.disabled=!ok;if(ui.eqNote)ui.eqNote.textContent=ok?"Перетаскивай точки: вверх/вниз — усиление, влево/вправо — частота; колесо над точкой или крутилка меняют Q.":"Эквалайзер работает с локальными треками и аудио VK; встроенные плееры Spotify и SoundCloud недоступны для обработки.";}
   function setEqOpen(open){if(!ui.eqPanel)return;ui.eqPanel.hidden=!open;ui.eqOpen?.setAttribute("aria-expanded",String(open));if(open){updateEqAvailability();drawEqCurve();}}
-  function applyEqPreset(name){const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();state.eqQs=[1,1,1,1,1];applyEqGains();drawEqCurve();persist();}
-  ui.eqPreset?.addEventListener("change",()=>applyEqPreset(ui.eqPreset.value));ui.eqOpen?.addEventListener("click",()=>setEqOpen(ui.eqPanel.hidden));ui.eqClose?.addEventListener("click",()=>setEqOpen(false));
+  function applyEqPreset(name){if(name==="flat")name="reference";const preset=eqPresets[name];if(!preset)return;state.eqPreset=name;state.eqSavedPresetId=null;state.eqGains=preset.gains.slice();state.eqFrequencies=defaultEqFrequencies.slice();state.eqQs=[1,1,1,1,1];applyEqGains();drawEqCurve();persist();}
+  ui.eqPreset?.addEventListener("change",()=>{const value=ui.eqPreset.value;if(value.startsWith("user:"))loadSavedEqPreset(value.slice(5));else applyEqPreset(value);});ui.eqOpen?.addEventListener("click",()=>setEqOpen(ui.eqPanel.hidden));ui.eqClose?.addEventListener("click",()=>setEqOpen(false));
   ui.eqEnabled?.addEventListener("change",async()=>{if(!eqSupported()){ui.eqEnabled.checked=false;return;}state.eqEnabled=ui.eqEnabled.checked;try{if(state.eqEnabled)await activateEq();else applyEqGains();persist();drawEqCurve();}catch(error){state.eqEnabled=false;ui.eqEnabled.checked=false;applyEqGains();if(ui.eqNote)ui.eqNote.textContent=error.message;}});
-  document.querySelectorAll("[data-eq-band]").forEach(input=>input.addEventListener("input",()=>{const i=Number(input.dataset.eqBand);state.eqGains[i]=Number(input.value);state.eqPreset="custom";drawEqCurve();applyEqGains();persist();}));ui.eqReset?.addEventListener("click",()=>applyEqPreset("flat"));
+  document.querySelectorAll("[data-eq-band]").forEach(input=>input.addEventListener("input",()=>{const i=Number(input.dataset.eqBand);state.eqGains[i]=Number(input.value);state.eqPreset="custom";state.eqSavedPresetId=null;drawEqCurve();applyEqGains();persist();}));ui.eqReset?.addEventListener("click",()=>applyEqPreset("flat"));
+
+  const eqPresetEndpoint="/api/v1/player/eq-presets/";
+  function eqCsrf(){return ui.csrf?.value||"";}
+  async function loadSavedEqPresets(){
+    if(!ui.eqPreset)return;
+    try{
+      const response=await fetch(eqPresetEndpoint,{credentials:"same-origin",headers:{"Accept":"application/json"}});
+      if(!response.ok)throw new Error("Не удалось загрузить сохранённые пресеты.");
+      const data=await response.json(),selected=ui.eqPreset.value;
+      ui.eqPreset.querySelectorAll("option[data-user-preset]").forEach(option=>option.remove());
+      (data.presets||[]).forEach(preset=>{
+        const option=document.createElement("option");option.value="user:"+preset.id;option.textContent="МОЙ / "+preset.name;option.dataset.userPreset="true";ui.eqPreset.append(option);
+      });
+      if(selected.startsWith("user:")&&Array.from(ui.eqPreset.options).some(option=>option.value===selected))ui.eqPreset.value=selected;
+    }catch(error){if(ui.eqPresetNote)ui.eqPresetNote.textContent=error.message;}
+  }
+  async function loadSavedEqPreset(id){
+    try{
+      const response=await fetch(eqPresetEndpoint,{credentials:"same-origin",headers:{"Accept":"application/json"}});
+      if(!response.ok)throw new Error("Не удалось получить сохранённый пресет.");
+      const data=await response.json(),preset=(data.presets||[]).find(item=>item.id===id);
+      if(!preset)throw new Error("Сохранённый пресет не найден.");
+      state.eqGains=preset.gains;state.eqFrequencies=preset.frequencies;state.eqQs=preset.qs;
+      state.eqPreset="custom";state.eqSavedPresetId=id;applyEqGains();drawEqCurve();persist();
+      if(ui.eqPresetNote)ui.eqPresetNote.textContent="Пользовательский пресет: "+preset.name;
+    }catch(error){if(ui.eqPresetNote)ui.eqPresetNote.textContent=error.message;ui.eqPreset.value=state.eqPreset;}
+  }
+  async function saveEqPreset(){
+    const name=(ui.eqPresetName?.value||"").trim();
+    if(!name){if(ui.eqPresetNote)ui.eqPresetNote.textContent="Укажи название пресета.";ui.eqPresetName?.focus();return;}
+    try{
+      const response=await fetch(eqPresetEndpoint+"create/",{method:"POST",credentials:"same-origin",headers:{"Accept":"application/json","Content-Type":"application/json","X-CSRFToken":eqCsrf()},body:JSON.stringify({name,gains:state.eqGains,frequencies:state.eqFrequencies,qs:state.eqQs})});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Не удалось сохранить пресет.");
+      state.eqSavedPresetId=data.preset.id;state.eqPreset="custom";persist();
+      await loadSavedEqPresets();ui.eqPreset.value="user:"+data.preset.id;
+      if(ui.eqPresetNote)ui.eqPresetNote.textContent="Сохранён пресет «"+data.preset.name+"». Он привязан к твоему аккаунту.";
+    }catch(error){if(ui.eqPresetNote)ui.eqPresetNote.textContent=error.message;}
+  }
+  async function deleteEqPreset(){
+    const value=ui.eqPreset?.value||"";
+    if(!value.startsWith("user:")){if(ui.eqPresetNote)ui.eqPresetNote.textContent="Выбери свой сохранённый пресет для удаления.";return;}
+    const id=value.slice(5);
+    try{
+      const response=await fetch(eqPresetEndpoint+encodeURIComponent(id)+"/",{method:"DELETE",credentials:"same-origin",headers:{"X-CSRFToken":eqCsrf(),"Accept":"application/json"}});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||"Не удалось удалить пресет.");
+      state.eqSavedPresetId=null;applyEqPreset("reference");await loadSavedEqPresets();
+      if(ui.eqPresetNote)ui.eqPresetNote.textContent="Сохранённый пресет удалён.";
+    }catch(error){if(ui.eqPresetNote)ui.eqPresetNote.textContent=error.message;}
+  }
+  ui.eqPresetSave?.addEventListener("click",saveEqPreset);
+  ui.eqPresetDelete?.addEventListener("click",deleteEqPreset);
+  ui.eqPresetName?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();saveEqPreset();}});
+  loadSavedEqPresets();
   function eqLocalPoint(event){const p=ui.eqGraph.createSVGPoint();p.x=event.clientX;p.y=event.clientY;return p.matrixTransform(ui.eqGraph.getScreenCTM().inverse());}
   function nearestEqPoint(p){
     let index=0,distance=Infinity;
@@ -127,10 +182,10 @@
   function setEqQ(index,value){
     const next=Math.round(Math.max(.3,Math.min(8,value))*10)/10;
     if(next===state.eqQs[index])return;
-    state.eqQs[index]=next;eqSelectedIndex=index;state.eqPreset="custom";
+    state.eqQs[index]=next;eqSelectedIndex=index;state.eqPreset="custom";state.eqSavedPresetId=null;
     applyEqGains();drawEqCurve();persist();
   }
-  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-12,Math.min(12,(eqCenter-p.y)/eqGainScale))*2)/2;eqSelectedIndex=eqDragIndex;state.eqPreset="custom";drawEqCurve();applyEqGains();persist();}
+  function updateEqFromGraph(p){if(eqDragIndex<0)return;state.eqFrequencies[eqDragIndex]=Math.round(eqXToFrequency(p.x));state.eqGains[eqDragIndex]=Math.round(Math.max(-12,Math.min(12,(eqCenter-p.y)/eqGainScale))*2)/2;eqSelectedIndex=eqDragIndex;state.eqPreset="custom";state.eqSavedPresetId=null;drawEqCurve();applyEqGains();persist();}
   ui.eqGraph?.addEventListener("pointerdown",event=>{
     if(!eqSupported())return;
     const p=eqLocalPoint(event),nearest=nearestEqPoint(p);

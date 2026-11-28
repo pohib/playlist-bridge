@@ -1800,3 +1800,11 @@ body:has(.global-player:not([hidden])){padding-bottom:150px}
 .player-eq-toolbar{flex-wrap:wrap}.player-eq-preset-label{display:flex;align-items:center;gap:7px;color:#91a5bf;font-size:10px;font-weight:700}.player-eq-preset-label select{max-width:132px;min-height:29px;padding:4px 24px 4px 9px;border:1px solid rgba(174,194,226,.16);border-radius:8px;background:rgba(255,255,255,.055);color:#e5effb;font:inherit;font-size:10px}.player-eq-preset-label select option{background:#142238;color:#e5effb}.player-eq-graph svg{cursor:crosshair}.player-eq-point{cursor:grab;pointer-events:all}.player-eq-point:active{cursor:grabbing}.player-eq-band>small{font-variant-numeric:tabular-nums}@media(max-width:420px){.player-eq-preset-label{flex:1 1 100%}.player-eq-preset-label select{flex:1;max-width:none}}
 
 .player-eq-preset-note{flex:1 1 100%;min-width:0;color:#8499b4;font-size:10px;line-height:1.45;letter-spacing:.01em}.player-eq-preset-label select{min-width:154px}@media(max-width:420px){.player-eq-preset-note{order:3}}
+
+.player-eq-saved-tools{display:flex;align-items:center;gap:7px;flex:1 1 100%;min-width:0;flex-wrap:wrap}
+.player-eq-saved-tools input{flex:1 1 150px;min-width:0;width:150px;padding:7px 9px;border:1px solid rgba(174,194,226,.16);border-radius:8px;background:rgba(4,11,21,.68);color:#eaf3ff;font:inherit;font-size:10px;outline:none}
+.player-eq-saved-tools input:focus{border-color:rgba(112,225,157,.6);box-shadow:0 0 0 3px rgba(84,230,145,.1)}
+.player-eq-saved-tools button{padding:7px 9px;border:1px solid rgba(112,225,157,.24);border-radius:8px;background:linear-gradient(110deg,rgba(52,190,126,.17),rgba(70,132,205,.14));color:#c8f7d8;font-size:10px;font-weight:750;cursor:pointer}
+.player-eq-saved-tools button:hover{border-color:rgba(112,225,157,.6);filter:brightness(1.13)}
+.player-eq-saved-tools #player-eq-reset{border-color:rgba(174,194,226,.16);background:rgba(255,255,255,.04);color:#aabbd0}
+@media(max-width:420px){.player-eq-saved-tools input{flex-basis:100%;width:100%}.player-eq-saved-tools button{flex:1}}

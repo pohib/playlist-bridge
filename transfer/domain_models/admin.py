@@ -54,3 +54,28 @@ class UserSecurityEvent(models.Model):
 
     def __str__(self):
         return f"{self.username_snapshot} · {self.get_event_type_display()} · {self.created_at:%Y-%m-%d %H:%M}"
+
+
+
+class UserEQPreset(models.Model):
+    """A user's private equalizer preset."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="eq_presets")
+    name = models.CharField(max_length=40)
+    gains = models.JSONField()
+    frequencies = models.JSONField()
+    qs = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name", "created_at")
+        constraints = [
+            models.UniqueConstraint(
+                models.functions.Lower("name"), "user",
+                name="unique_user_eq_preset_name_ci",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.get_username()} · {self.name}"

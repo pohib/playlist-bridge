@@ -69,10 +69,22 @@ def _system_check_database():
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
+            detail = "Подключение и простой запрос выполняются."
+            status = "ok"
+            if connection.vendor == "postgresql":
+                cursor.execute(
+                    "SELECT current_setting('max_connections')::int, "
+                    "(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database())"
+                )
+                max_connections, used_connections = cursor.fetchone()
+                detail = f"PostgreSQL: занято {used_connections} из {max_connections} подключений."
+                if max_connections and used_connections / max_connections >= 0.8:
+                    status = "warning"
+                    detail += " Лимит близок к исчерпанию."
         return {
-            "status": "ok",
+            "status": status,
             "label": "База данных",
-            "detail": "Подключение и простой запрос выполняются.",
+            "detail": detail,
         }
     except DatabaseError:
         logger.exception("Admin system health check: database probe failed")
