@@ -118,3 +118,58 @@ class UserAccountBan(models.Model):
     def is_active(self):
         from django.utils import timezone
         return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())
+
+
+class ProviderIntegrationEvent(models.Model):
+    """Sanitized operational event from a provider or background integration."""
+
+    class Provider(models.TextChoices):
+        TRANSFER = "transfer", "Перенос"
+        SPOTIFY = "spotify", "Spotify"
+        VK = "vk", "VK"
+        SOUNDCLOUD = "soundcloud", "SoundCloud"
+        SYSTEM = "system", "Система"
+
+    class Category(models.TextChoices):
+        AUTH = "auth", "Авторизация"
+        RATE_LIMIT = "rate_limit", "Ограничение запросов"
+        NETWORK = "network", "Сеть / тайм-аут"
+        PROVIDER = "provider", "Ошибка провайдера"
+        VALIDATION = "validation", "Валидация"
+        WORKER = "worker", "Фоновая задача"
+        UNKNOWN = "unknown", "Не классифицировано"
+
+    class Severity(models.TextChoices):
+        INFO = "info", "Информация"
+        WARNING = "warning", "Предупреждение"
+        ERROR = "error", "Ошибка"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    provider = models.CharField(max_length=16, choices=Provider.choices, db_index=True)
+    operation = models.CharField(max_length=80, blank=True)
+    category = models.CharField(max_length=20, choices=Category.choices, db_index=True)
+    severity = models.CharField(max_length=10, choices=Severity.choices, default=Severity.ERROR)
+    message = models.CharField(max_length=500)
+    status_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    duration_ms = models.PositiveIntegerField(null=True, blank=True)
+    transfer_job = models.ForeignKey(
+        "transfer.TransferJob", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="integration_events",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="playlist_bridge_integration_events",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=("provider", "created_at"), name="prov_event_provider_date"),
+            models.Index(fields=("category", "created_at"), name="prov_event_category_date"),
+        ]
+        verbose_name = "событие интеграции"
+        verbose_name_plural = "события интеграций"
+
+    def __str__(self):
+        return f"{self.get_provider_display()} · {self.get_category_display()} · {self.created_at:%Y-%m-%d %H:%M}"
